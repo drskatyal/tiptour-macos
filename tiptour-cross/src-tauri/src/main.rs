@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod audio;
+mod grounding;
 mod hotkey;
 mod keychain;
 mod tray;
@@ -27,6 +28,9 @@ fn main() {
             audio::start_mic_capture,
             audio::stop_mic_capture,
             audio::play_audio_chunk,
+            grounding::prefetch_target_app,
+            grounding::resolve_label,
+            grounding::get_shortcut_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");
