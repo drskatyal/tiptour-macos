@@ -1,0 +1,114 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.panel {
+  background: rgba(20, 20, 22, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #e6e6e8;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: 280px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b6b70;
+  transition: background 120ms ease;
+}
+.dot[data-status="listening"] {
+  background: #4ade80;
+}
+.dot[data-status="speaking"] {
+  background: #60a5fa;
+}
+.dot[data-status="error"] {
+  background: #f87171;
+}
+
+.api-key {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  align-items: center;
+}
+.api-key label {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a9aa0;
+}
+.api-key input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  outline: none;
+  font: inherit;
+}
+.api-key input:focus {
+  border-color: rgba(120, 160, 255, 0.6);
+}
+.api-key button {
+  background: #4f5ad9;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.api-key button:hover {
+  background: #5d68e6;
+}
+
+.hotkey-hint {
+  font-size: 12px;
+  color: #b3b3b8;
+}
+.hotkey-hint kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.transcript {
+  min-height: 40px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #c8c8cf;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+  white-space: pre-wrap;
+}

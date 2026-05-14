@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header class="panel-header">
+        <span class="dot" data-status="idle"></span>
+        <span class="status-label" id="status-label">Idle</span>
+      </header>
+
+      <section class="api-key">
+        <label for="api-key-input">Gemini API key</label>
+        <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" />
+        <button id="api-key-save">Save</button>
+      </section>
+
+      <section class="hotkey-hint">
+        Press <kbd id="hotkey-display">Ctrl + Option</kbd> anywhere to talk.
+      </section>
+
+      <section class="transcript" id="transcript"></section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

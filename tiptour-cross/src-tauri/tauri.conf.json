@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0",
+  "productName": "TipTour",
+  "version": "0.0.1",
+  "identifier": "com.tiptour.cross",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "panel",
+        "title": "TipTour",
+        "width": 320,
+        "height": 280,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/tray.png",
+      "iconAsTemplate": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Voice companion for your computer.",
+    "longDescription": "TipTour is a tray-resident voice agent that hears, sees, and helps."
+  },
+  "plugins": {}
+}
