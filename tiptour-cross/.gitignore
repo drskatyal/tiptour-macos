@@ -3,6 +3,9 @@ dist
 .DS_Store
 *.log
 
+# Stray emit if tsc ever runs without noEmit
+src/**/*.js
+
 src-tauri/target
 src-tauri/Cargo.lock
 src-tauri/gen

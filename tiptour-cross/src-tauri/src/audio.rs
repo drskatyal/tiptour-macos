@@ -17,15 +17,20 @@ use tauri::{AppHandle, Emitter};
 const UPLINK_SAMPLE_RATE_HZ: u32 = 16_000;
 const DOWNLINK_SAMPLE_RATE_HZ: u32 = 24_000;
 
+// cpal marks Stream as !Send/!Sync on every platform to discourage misuse,
+// but our access is strictly serialized through the surrounding Mutex and
+// streams are created/dropped from the same Tauri command thread. Wrap the
+// streams in a Send/Sync-asserting newtype so we can hold them in a static.
+struct SendableStream(cpal::Stream);
+unsafe impl Send for SendableStream {}
+unsafe impl Sync for SendableStream {}
+
 struct AudioState {
-    input_stream: Option<cpal::Stream>,
-    output_stream: Option<cpal::Stream>,
+    input_stream: Option<SendableStream>,
+    output_stream: Option<SendableStream>,
     playback_queue: Arc<Mutex<Vec<i16>>>,
 }
 
-// cpal::Stream isn't Send on every platform, so we keep the AudioState in a
-// thread-local-ish singleton accessed only from Tauri commands which run on
-// the main thread. parking_lot::Mutex is fine for the queue itself.
 static STATE: Lazy<Mutex<AudioState>> = Lazy::new(|| {
     Mutex::new(AudioState {
         input_stream: None,
@@ -83,7 +88,7 @@ pub fn start_mic_capture(app: AppHandle) -> Result<(), String> {
     };
 
     stream.play().map_err(|error| error.to_string())?;
-    STATE.lock().input_stream = Some(stream);
+    STATE.lock().input_stream = Some(SendableStream(stream));
 
     ensure_output_stream()?;
 
@@ -148,7 +153,7 @@ fn ensure_output_stream() -> Result<(), String> {
         .map_err(|error| error.to_string())?;
 
     stream.play().map_err(|error| error.to_string())?;
-    state.output_stream = Some(stream);
+    state.output_stream = Some(SendableStream(stream));
     Ok(())
 }
 
