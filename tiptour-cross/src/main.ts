@@ -10,7 +10,7 @@ const transcriptEl = document.getElementById("transcript")!;
 const hotkeyDisplay = document.getElementById("hotkey-display")!;
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
-hotkeyDisplay.textContent = isMac ? "Ctrl + Option" : "Ctrl + Alt";
+hotkeyDisplay.textContent = isMac ? "Option + B" : "Alt + B";
 
 let session: GeminiLiveSession | null = null;
 

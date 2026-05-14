@@ -1,19 +1,14 @@
 // Global push-to-talk hotkey.
 //
-// macOS: Ctrl+Option (modifier-only chord, matches TipTour's Swift app).
-// Windows: Ctrl+Alt (Option doesn't exist; Alt is the closest analog).
-//
-// Tauri's global-shortcut plugin only fires on full chord press, so we use
-// Ctrl+Alt+Space on both platforms as the registered shortcut to avoid the
-// modifier-only edge case during Phase 0. A platform-native CGEventTap /
-// low-level keyboard hook for true modifier-only triggers is a Phase 0.5
-// follow-up.
+// Alt+B on both macOS and Windows. Picked for one-hand thumb-plus-index
+// ergonomics: left thumb on Alt (immediately left of Space) and left index
+// on B (one row above Space). Not assigned by either OS as a system shortcut.
 
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
-    let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Space);
+    let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyB);
     let app_handle = app.clone();
 
     app.global_shortcut()
