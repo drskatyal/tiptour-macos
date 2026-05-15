@@ -26,10 +26,50 @@ interface ScreenFramePayload {
   height: number;
 }
 
+// Mirrors the `WorkflowProgress` enum on the Rust side. We keep the
+// surface intentionally narrow — the panel only needs a one-line summary
+// per transition, not the full structured payload.
+type WorkflowProgressEvent =
+  | { kind: "started"; workflowId: string; goal?: string | null; totalSteps: number }
+  | { kind: "stepStarted"; stepIndex: number; label?: string | null; stepType: string }
+  | { kind: "stepFinished"; stepIndex: number; result: unknown }
+  | { kind: "paused"; reason: string }
+  | { kind: "completed" }
+  | { kind: "failed"; message: string };
+
+function formatWorkflowProgressEvent(event: WorkflowProgressEvent): string | null {
+  switch (event.kind) {
+    case "started":
+      return `\n[plan] ${event.goal ?? "running"} (${event.totalSteps} steps)`;
+    case "stepFinished": {
+      const result = event.result as { kind?: string; reason?: string } | undefined;
+      if (result?.kind === "executed") {
+        return `\n[step ${event.stepIndex + 1}] done`;
+      }
+      if (result?.kind === "actionFailed") {
+        return `\n[step ${event.stepIndex + 1}] failed: ${result.reason ?? "unknown"}`;
+      }
+      if (result?.kind === "unresolved") {
+        return `\n[step ${event.stepIndex + 1}] unresolved: ${result.reason ?? "no match"}`;
+      }
+      return null;
+    }
+    case "paused":
+      return `\n[plan paused] ${event.reason}`;
+    case "completed":
+      return `\n[plan done]`;
+    case "failed":
+      return `\n[plan failed] ${event.message}`;
+    default:
+      return null;
+  }
+}
+
 export class GeminiLiveSession {
   private client: GeminiLiveClient | null = null;
   private micUnlisten: UnlistenFn | null = null;
   private screenFrameUnlisten: UnlistenFn | null = null;
+  private workflowProgressUnlisten: UnlistenFn | null = null;
   private readonly options: GeminiLiveSessionOptions;
 
   constructor(options: GeminiLiveSessionOptions) {
@@ -60,6 +100,19 @@ export class GeminiLiveSession {
       const pcm = Uint8Array.from(event.payload);
       this.client?.sendMicChunk(pcm);
     });
+
+    // Workflow progress stream: the Rust executor emits one event per
+    // step transition. We append a short summary to the model transcript
+    // so the user sees the plan unfolding alongside Gemini's voice reply.
+    this.workflowProgressUnlisten = await listen<WorkflowProgressEvent>(
+      "workflow_progress",
+      (event) => {
+        const summaryLine = formatWorkflowProgressEvent(event.payload);
+        if (summaryLine) {
+          this.options.onModelTranscript(summaryLine);
+        }
+      },
+    );
 
     try {
       await invoke("start_mic_capture");
@@ -108,6 +161,8 @@ export class GeminiLiveSession {
     this.micUnlisten = null;
     this.screenFrameUnlisten?.();
     this.screenFrameUnlisten = null;
+    this.workflowProgressUnlisten?.();
+    this.workflowProgressUnlisten = null;
     this.client?.close();
     this.client = null;
     this.options.onStatusChange("idle");
@@ -131,18 +186,48 @@ export class GeminiLiveSession {
         this.options.onStatusChange("listening");
         return;
       case "tool_call":
-        // Phase 0 stub: acknowledge but refuse. Phase 1 wires the real
-        // submit_workflow_plan handler through the same channel.
-        this.client?.sendToolResponse(message.toolCallId, {
-          status: "not_implemented",
-          message: "Tool calling is not enabled in Phase 0.",
-        });
+        void this.handleToolCall(message.name, message.args, message.toolCallId);
         return;
       case "error":
         console.error("Gemini Live error:", message.message);
         this.options.onError(message.message);
         this.options.onStatusChange("error");
         return;
+    }
+  }
+
+  /// Dispatch a Gemini tool call to the Rust executor. Today we only
+  /// recognize `submit_workflow_plan`; anything else is rejected as
+  /// unknown so the model gets a clear signal back instead of a silent
+  /// drop. The workflow id Rust returns flows back to Gemini so the
+  /// model can correlate progress events with its own tool call.
+  private async handleToolCall(
+    name: string,
+    args: unknown,
+    toolCallId: string,
+  ): Promise<void> {
+    if (name !== "submit_workflow_plan") {
+      this.client?.sendToolResponse(toolCallId, {
+        status: "unknown_tool",
+        message: `Tool '${name}' is not implemented.`,
+      });
+      return;
+    }
+    try {
+      const workflowId = await invoke<string>("execute_workflow_plan", {
+        planJson: args,
+      });
+      this.client?.sendToolResponse(toolCallId, {
+        status: "started",
+        workflowId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[session] execute_workflow_plan failed:", message);
+      this.client?.sendToolResponse(toolCallId, {
+        status: "error",
+        message,
+      });
     }
   }
 }

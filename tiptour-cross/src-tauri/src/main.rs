@@ -52,6 +52,7 @@ fn main() {
             recorder::mine_patterns,
             screen::start_screen_stream,
             screen::stop_screen_stream,
+            executor::execute_workflow_plan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");
