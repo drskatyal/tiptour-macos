@@ -7,6 +7,9 @@ mod executor;
 mod grounding;
 mod hotkey;
 mod keychain;
+#[cfg(target_os = "macos")]
+mod permissions_macos;
+mod permissions;
 mod recorder;
 mod screen;
 mod tray;
@@ -53,6 +56,10 @@ fn main() {
             screen::start_screen_stream,
             screen::stop_screen_stream,
             executor::execute_workflow_plan,
+            permissions::check_accessibility_permission,
+            permissions::request_accessibility_permission,
+            permissions::check_screen_recording_permission,
+            permissions::request_screen_recording_permission,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

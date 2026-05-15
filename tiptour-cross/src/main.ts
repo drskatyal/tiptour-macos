@@ -15,6 +15,43 @@ const errorBanner = document.getElementById("error-banner")!;
 const isMac = navigator.platform.toLowerCase().includes("mac");
 hotkeyDisplay.textContent = isMac ? "Option + X" : "Alt + X";
 
+const permissionsSection = document.getElementById("permissions-section")!;
+const axPermissionRow = document.getElementById("ax-permission-row")!;
+const screenPermissionRow = document.getElementById("screen-permission-row")!;
+const grantAccessibilityButton = document.getElementById("grant-accessibility")!;
+const grantScreenRecordingButton = document.getElementById("grant-screen-recording")!;
+
+async function refreshPermissions() {
+  if (!isMac) return;
+  try {
+    const [hasAccessibility, hasScreenRecording] = await Promise.all([
+      invoke<boolean>("check_accessibility_permission"),
+      invoke<boolean>("check_screen_recording_permission"),
+    ]);
+    axPermissionRow.hidden = hasAccessibility;
+    screenPermissionRow.hidden = hasScreenRecording;
+    permissionsSection.hidden = hasAccessibility && hasScreenRecording;
+  } catch (error) {
+    console.warn("[panel] permission check failed:", error);
+  }
+}
+
+grantAccessibilityButton.addEventListener("click", async () => {
+  try {
+    await invoke("request_accessibility_permission");
+  } finally {
+    setTimeout(() => void refreshPermissions(), 500);
+  }
+});
+
+grantScreenRecordingButton.addEventListener("click", async () => {
+  try {
+    await invoke("request_screen_recording_permission");
+  } finally {
+    setTimeout(() => void refreshPermissions(), 500);
+  }
+});
+
 let session: GeminiLiveSession | null = null;
 
 function setStatus(status: SessionStatus) {
@@ -124,5 +161,6 @@ await listen("push_to_talk_toggled", () => {
 });
 
 await loadStoredApiKey();
+await refreshPermissions();
 setStatus("idle");
 console.info("[panel] ready");

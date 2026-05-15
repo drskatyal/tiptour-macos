@@ -19,6 +19,18 @@
         <button id="api-key-save">Save</button>
       </section>
 
+      <section class="permissions" id="permissions-section" hidden>
+        <div class="permissions-label">macOS permissions needed</div>
+        <div class="permission-row" id="ax-permission-row" hidden>
+          <span>Accessibility (for clicks &amp; typing)</span>
+          <button id="grant-accessibility">Grant</button>
+        </div>
+        <div class="permission-row" id="screen-permission-row" hidden>
+          <span>Screen recording (so Gemini can see)</span>
+          <button id="grant-screen-recording">Grant</button>
+        </div>
+      </section>
+
       <section class="actions">
         <button id="start-listening" class="primary">Start listening</button>
         <button id="stop-listening" class="secondary" hidden>Stop</button>

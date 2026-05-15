@@ -90,6 +90,41 @@ body {
   background: #5d68e6;
 }
 
+.permissions {
+  background: rgba(250, 204, 21, 0.08);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.permissions-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fde68a;
+}
+.permission-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #d6d6dc;
+}
+.permission-row button {
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.permission-row button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .actions {
   display: flex;
   gap: 6px;
