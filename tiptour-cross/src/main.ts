@@ -212,6 +212,40 @@ const savedFlowsListElement = document.getElementById(
 
 let isRecordingFlowInProgress = false;
 
+// Recording opt-in toggle. The recorder backend refuses to start a
+// demonstration unless `set_recording_enabled(true)` was called and
+// persisted. Without this UI wire-up the checkbox added in index.html
+// would be cosmetic and "Record new flow" would always error out with
+// "recording is not enabled — user must opt in".
+const recordingOptInToggle = document.getElementById(
+  "recording-opt-in-toggle",
+) as HTMLInputElement | null;
+
+async function loadRecordingOptInInitialState() {
+  if (!recordingOptInToggle) return;
+  try {
+    const isEnabled = await invoke<boolean>("is_recording_enabled");
+    recordingOptInToggle.checked = isEnabled;
+  } catch (error) {
+    console.warn("[panel] is_recording_enabled failed:", error);
+  }
+}
+
+recordingOptInToggle?.addEventListener("change", async () => {
+  if (!recordingOptInToggle) return;
+  const userWantsRecordingEnabled = recordingOptInToggle.checked;
+  try {
+    await invoke("set_recording_enabled", { enabled: userWantsRecordingEnabled });
+  } catch (error) {
+    // Revert the visible state so the toggle reflects truth on failure.
+    recordingOptInToggle.checked = !userWantsRecordingEnabled;
+    showError(
+      "Set recording enabled failed: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+  }
+});
+
 function setRecordingButtonState(isRecording: boolean) {
   if (!recordFlowToggleButton) return;
   isRecordingFlowInProgress = isRecording;
@@ -500,6 +534,7 @@ await loadStoredApiKey();
 await loadOperatingMode();
 await refreshPermissions();
 await refreshSavedFlowsList();
+await loadRecordingOptInInitialState();
 await loadAlwaysOnListenerInitialState();
 setStatus("idle");
 console.info("[panel] ready");
