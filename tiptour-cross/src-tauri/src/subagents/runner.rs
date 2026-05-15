@@ -21,10 +21,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 
+use super::conversational_loop::{run_subagent_conversational_loop, SubagentOutcome};
 use super::pool::{
     subagent_traces_directory, HEARTBEAT_TIMEOUT_SECONDS, SUBAGENT_POOL,
 };
 use super::types::{Subagent, SubagentProgressEvent, SubagentStatus};
+
+const DEFAULT_SUBAGENT_SYSTEM_PROMPT: &str = "You are a sub-agent of TipTour, working in the background on a focused task. You can call tools to read/write memory, spawn child sub-agents, manage tasks, run saved flows, and submit CUA workflow plans. Work efficiently. When you finish the task, summarize the result in plain text and end your final message with a period. Do not request a tool call on your final turn.";
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -36,9 +39,12 @@ pub struct SubagentSpawnRequest {
     pub token_budget_usd: f32,
 }
 
-/// Emit a "please open a Gemini Live session for this sub-agent" event
-/// to the panel. The panel handler is responsible for actually opening
-/// the WebSocket. Returns the same id so the caller can correlate.
+/// Promote a pending sub-agent into a real running Gemini Live session
+/// inside the Tauri host process. We spawn the conversational loop on a
+/// Tokio task and let it drive its own websocket; the pool record is
+/// updated by `finalize_subagent` when the loop returns. Also emits a
+/// `subagent_spawn_request` event so any UI listener that wants to know
+/// when a sub-agent starts can react (the previous TS-driven contract).
 pub fn request_panel_run_subagent(app: &AppHandle, subagent: &Subagent) -> Result<(), String> {
     let request = SubagentSpawnRequest {
         subagent_id: subagent.id.clone(),
@@ -47,9 +53,113 @@ pub fn request_panel_run_subagent(app: &AppHandle, subagent: &Subagent) -> Resul
         system_prompt: subagent.system_prompt.clone(),
         token_budget_usd: subagent.token_budget_usd,
     };
-    app.emit("subagent_spawn_request", request)
-        .map_err(|e| format!("emit subagent_spawn_request: {e}"))?;
+    // Informational only — the actual conversation runs in-process.
+    let _ = app.emit("subagent_spawn_request", request);
+
+    // Pull the Gemini API key out of the OS keychain. Without one we
+    // can't connect, so the sub-agent flips to Failed immediately.
+    let api_key = match crate::keychain::get_api_key() {
+        Ok(Some(key)) if !key.is_empty() => key,
+        Ok(_) => {
+            finalize_subagent(
+                app,
+                &subagent.id,
+                SubagentOutcome::SessionError("no Gemini API key in keychain".to_string()),
+            );
+            return Ok(());
+        }
+        Err(keychain_error) => {
+            finalize_subagent(
+                app,
+                &subagent.id,
+                SubagentOutcome::SessionError(format!("keychain read: {keychain_error}")),
+            );
+            return Ok(());
+        }
+    };
+
+    let subagent_id = subagent.id.clone();
+    let task_description = subagent.task_description.clone();
+    let resolved_system_prompt = subagent
+        .system_prompt
+        .clone()
+        .unwrap_or_else(|| DEFAULT_SUBAGENT_SYSTEM_PROMPT.to_string());
+    let parent_depth = subagent.depth;
+    let token_budget_usd = subagent.token_budget_usd as f64;
+    let app_for_loop = app.clone();
+    let app_for_finalize = app.clone();
+    let subagent_id_for_finalize = subagent_id.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let outcome = run_subagent_conversational_loop(
+            subagent_id.clone(),
+            task_description,
+            resolved_system_prompt,
+            api_key,
+            parent_depth,
+            token_budget_usd,
+            app_for_loop,
+        )
+        .await;
+        finalize_subagent(&app_for_finalize, &subagent_id_for_finalize, outcome);
+    });
+
     Ok(())
+}
+
+/// Apply the loop's outcome to the pool record, stamp the end time, and
+/// emit a final `subagent_progress` event so the kanban UI can flip to
+/// Done / Failed.
+pub fn finalize_subagent(app: &AppHandle, subagent_id: &str, outcome: SubagentOutcome) {
+    let now = Utc::now().timestamp();
+    let (final_status, final_message) = match &outcome {
+        SubagentOutcome::CompletedSuccessfully => (SubagentStatus::Done, "completed".to_string()),
+        SubagentOutcome::Cancelled => (SubagentStatus::Failed, "cancelled".to_string()),
+        SubagentOutcome::BudgetExceeded => {
+            (SubagentStatus::Failed, "budget exceeded".to_string())
+        }
+        SubagentOutcome::SessionError(message) => {
+            (SubagentStatus::Failed, format!("session error: {message}"))
+        }
+    };
+    if let Ok(mut pool_guard) = SUBAGENT_POOL.lock() {
+        if let Some(subagent_mut) = pool_guard.find_by_id_mut(subagent_id) {
+            subagent_mut.status = final_status;
+            subagent_mut.ended_at_unix_seconds = Some(now);
+            subagent_mut.last_progress_message = Some(final_message.clone());
+            // If a task is linked to this sub-agent, flip the task's
+            // status to match so the kanban view updates in lockstep.
+            if let Some(linked_task_id) =
+                find_task_linked_to_subagent(subagent_id)
+            {
+                let next_task_status = match final_status {
+                    SubagentStatus::Done => crate::tasks::TaskStatus::Done,
+                    _ => crate::tasks::TaskStatus::Blocked,
+                };
+                let _ = crate::tasks::update_task_status(linked_task_id, next_task_status);
+            }
+        }
+    }
+    let event = SubagentProgressEvent {
+        subagent_id: subagent_id.to_string(),
+        status: final_status,
+        message: final_message,
+        unix_seconds: now,
+    };
+    let _ = app.emit("subagent_progress", event);
+    // Free a concurrency slot for any pending sub-agent.
+    let _ = super::promote_and_dispatch_pending_for_runner(app);
+}
+
+/// Look up whether any kanban task points at the given sub-agent id.
+/// Used by `finalize_subagent` to mirror Done/Failed onto the linked
+/// task without forcing every caller of the loop to know about tasks.
+fn find_task_linked_to_subagent(subagent_id: &str) -> Option<String> {
+    let all_tasks = crate::tasks::list_tasks(None, None).ok()?;
+    all_tasks
+        .into_iter()
+        .find(|t| t.assigned_subagent_id.as_deref() == Some(subagent_id))
+        .map(|t| t.id)
 }
 
 /// Append a JSONL line to the sub-agent's transcript file. Best-effort:

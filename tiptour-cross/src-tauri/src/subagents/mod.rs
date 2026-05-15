@@ -12,6 +12,7 @@
 // Gemini conversation runs through the same TS client that powers the
 // user-facing session.
 
+mod conversational_loop;
 mod pool;
 mod runner;
 mod types;
@@ -22,7 +23,8 @@ use uuid::Uuid;
 
 pub use types::{Subagent, SubagentProgressEvent, SubagentStatus};
 
-use pool::{DEFAULT_TOKEN_BUDGET_USD, MAX_SUBAGENT_DEPTH, SUBAGENT_POOL};
+use pool::{DEFAULT_TOKEN_BUDGET_USD, SUBAGENT_POOL};
+pub use pool::MAX_SUBAGENT_DEPTH;
 
 /// Internal helper used by both the Tauri command and the
 /// `tasks::dispatch_task_to_subagent` integration. Returns the new
@@ -85,6 +87,12 @@ pub fn spawn_subagent(
     // sub-agent immediately gets promoted, ask the panel to run it.
     promote_and_dispatch_pending(&app)?;
     Ok(new_id)
+}
+
+/// Visible to the runner so `finalize_subagent` can free a concurrency
+/// slot and promote the next pending sub-agent when one finishes.
+pub fn promote_and_dispatch_pending_for_runner(app: &AppHandle) -> Result<(), String> {
+    promote_and_dispatch_pending(app)
 }
 
 fn promote_and_dispatch_pending(app: &AppHandle) -> Result<(), String> {
@@ -169,7 +177,13 @@ pub fn cancel_subagent(app: AppHandle, id: String) -> Result<(), String> {
     };
     let _ = app.emit("subagent_progress", event);
     // Tell the TS side to actually close the socket for this id.
-    let _ = app.emit("subagent_cancel_request", id);
+    let _ = app.emit("subagent_cancel_request", id.clone());
+    // And flip the in-process cancel flag so the Rust-side
+    // conversational loop bails between turns.
+    let id_for_flag = id.clone();
+    tauri::async_runtime::spawn(async move {
+        conversational_loop::request_cancel(&id_for_flag).await;
+    });
     promote_and_dispatch_pending(&app)?;
     Ok(())
 }

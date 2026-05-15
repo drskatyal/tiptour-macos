@@ -9,6 +9,7 @@ mod audio;
 mod capabilities;
 mod custom_commands;
 mod executor;
+mod gemini_live_client;
 mod grounding;
 mod highlight;
 mod hotkey;
@@ -27,6 +28,7 @@ mod screen;
 mod settings_window;
 mod subagents;
 mod tasks;
+mod tool_dispatch;
 mod tray;
 mod vosk_listener;
 
@@ -178,6 +180,7 @@ fn main() {
             tasks::list_tasks,
             tasks::count_tasks_in_progress,
             tasks::dispatch_task_to_subagent,
+            tool_dispatch::dispatch_tool_call,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");
