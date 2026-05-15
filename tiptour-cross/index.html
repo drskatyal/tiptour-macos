@@ -50,6 +50,25 @@
 
       <section class="error-banner" id="error-banner" hidden></section>
 
+      <section class="saved-flows" id="saved-flows-section">
+        <div class="saved-flows-header">
+          <span class="saved-flows-title">Saved flows</span>
+          <button id="record-flow-toggle" class="saved-flows-record">Record new flow</button>
+        </div>
+        <div class="record-flow-naming" id="record-flow-naming" hidden>
+          <input
+            id="record-flow-name-input"
+            type="text"
+            placeholder="Flow name (e.g. morning routine)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="record-flow-confirm">Start</button>
+          <button id="record-flow-cancel" class="record-flow-cancel">Cancel</button>
+        </div>
+        <ul id="saved-flows-list" class="saved-flows-list"></ul>
+      </section>
+
       <section class="transcript" id="transcript"></section>
     </main>
     <script type="module" src="/src/main.ts"></script>

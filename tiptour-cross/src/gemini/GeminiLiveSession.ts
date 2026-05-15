@@ -76,11 +76,46 @@ function formatWorkflowProgressEvent(event: WorkflowProgressEvent): string | nul
   }
 }
 
+// Mirrors `ReplayProgress` on the Rust side. The kind is tagged so we
+// can branch on transition type when summarizing into the transcript.
+type MultiflowProgressEvent = {
+  flowId: string;
+  replayId: string;
+  stepIndex: number;
+  totalSteps: number;
+  kind:
+    | { kind: "started" }
+    | { kind: "inputReplayed" }
+    | { kind: "appLaunched" }
+    | { kind: "waited" }
+    | { kind: "paused"; reason: string }
+    | { kind: "completed" }
+    | { kind: "failed"; message: string };
+};
+
+function formatMultiflowProgressEvent(event: MultiflowProgressEvent): string | null {
+  switch (event.kind.kind) {
+    case "started":
+      return `\n[flow] replaying (${event.totalSteps} inputs)`;
+    case "appLaunched":
+      return `\n[flow] app switch detected, waiting for new app`;
+    case "paused":
+      return `\n[flow paused] ${event.kind.reason}`;
+    case "completed":
+      return `\n[flow done]`;
+    case "failed":
+      return `\n[flow failed] ${event.kind.message}`;
+    default:
+      return null;
+  }
+}
+
 export class GeminiLiveSession {
   private client: GeminiLiveClient | null = null;
   private micUnlisten: UnlistenFn | null = null;
   private screenFrameUnlisten: UnlistenFn | null = null;
   private workflowProgressUnlisten: UnlistenFn | null = null;
+  private multiflowProgressUnlisten: UnlistenFn | null = null;
   private readonly options: GeminiLiveSessionOptions;
 
   constructor(options: GeminiLiveSessionOptions) {
@@ -144,6 +179,19 @@ export class GeminiLiveSession {
       },
     );
 
+    // Multiflow replay progress: separate event stream from
+    // workflow_progress so the panel can render the two states
+    // differently if it wants to.
+    this.multiflowProgressUnlisten = await listen<MultiflowProgressEvent>(
+      "multiflow_progress",
+      (event) => {
+        const summaryLine = formatMultiflowProgressEvent(event.payload);
+        if (summaryLine) {
+          this.options.onModelTranscript(summaryLine);
+        }
+      },
+    );
+
     try {
       await invoke("start_mic_capture");
     } catch (error) {
@@ -193,6 +241,8 @@ export class GeminiLiveSession {
     this.screenFrameUnlisten = null;
     this.workflowProgressUnlisten?.();
     this.workflowProgressUnlisten = null;
+    this.multiflowProgressUnlisten?.();
+    this.multiflowProgressUnlisten = null;
     this.client?.close();
     this.client = null;
     void invoke("overlay_hide");
@@ -246,28 +296,50 @@ export class GeminiLiveSession {
     args: unknown,
     toolCallId: string,
   ): Promise<void> {
-    if (name !== "submit_workflow_plan") {
-      this.client?.sendToolResponse(toolCallId, {
-        status: "unknown_tool",
-        message: `Tool '${name}' is not implemented.`,
-      });
+    if (name === "submit_workflow_plan") {
+      try {
+        const workflowId = await invoke<string>("execute_workflow_plan", {
+          planJson: args,
+        });
+        this.client?.sendToolResponse(toolCallId, {
+          status: "started",
+          workflowId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[session] execute_workflow_plan failed:", message);
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message,
+        });
+      }
       return;
     }
-    try {
-      const workflowId = await invoke<string>("execute_workflow_plan", {
-        planJson: args,
-      });
-      this.client?.sendToolResponse(toolCallId, {
-        status: "started",
-        workflowId,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[session] execute_workflow_plan failed:", message);
-      this.client?.sendToolResponse(toolCallId, {
-        status: "error",
-        message,
-      });
+
+    if (name === "run_saved_flow") {
+      const spokenName = (args as { name?: string } | undefined)?.name ?? "";
+      try {
+        const replayId = await invoke<string>("run_flow_by_name", {
+          name: spokenName,
+        });
+        this.client?.sendToolResponse(toolCallId, {
+          status: "started",
+          replayId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[session] run_flow_by_name failed:", message);
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message,
+        });
+      }
+      return;
     }
+
+    this.client?.sendToolResponse(toolCallId, {
+      status: "unknown_tool",
+      message: `Tool '${name}' is not implemented.`,
+    });
   }
 }

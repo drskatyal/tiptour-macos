@@ -9,6 +9,7 @@ mod highlight;
 mod hotkey;
 mod keychain;
 mod mode;
+mod multiflow;
 mod overlay;
 #[cfg(target_os = "macos")]
 mod permissions_macos;
@@ -74,6 +75,13 @@ fn main() {
             overlay::overlay_set_speaking,
             mode::get_operating_mode,
             mode::set_operating_mode,
+            multiflow::start_recording_flow,
+            multiflow::stop_recording_flow,
+            multiflow::list_flows,
+            multiflow::delete_flow,
+            multiflow::run_flow_by_name,
+            multiflow::find_flow_by_voice_query,
+            multiflow::set_flow_trigger_aliases,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

@@ -174,6 +174,52 @@ export class GeminiLiveClient {
           triggerTokens: 104857,
           slidingWindow: { targetTokens: 52428 },
         },
+        // Tool surface Gemini can call into. Shape matches the JSON
+        // schema the Swift app's GeminiLiveClient.swift sends so the
+        // model behaves consistently across platforms.
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: "submit_workflow_plan",
+                description:
+                  "Submit a multi-step CUA plan to drive the user's computer. The Rust executor grounds each step and dispatches it.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    goal: { type: "string", description: "What the user asked for." },
+                    app: {
+                      type: "string",
+                      description: "Target app name or bundle id; optional.",
+                    },
+                    steps: {
+                      type: "array",
+                      description: "Ordered list of plan steps.",
+                      items: { type: "object" },
+                    },
+                  },
+                  required: ["steps"],
+                },
+              },
+              {
+                name: "run_saved_flow",
+                description:
+                  "Replay a previously-recorded multi-app flow by name. Use when the user says things like 'do my morning routine' or 'run the standup flow'. The name is fuzzy-matched against saved flows and their trigger aliases.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    name: {
+                      type: "string",
+                      description:
+                        "The flow name or alias phrase the user spoke. Pass the user's exact words; the matcher normalizes filler.",
+                    },
+                  },
+                  required: ["name"],
+                },
+              },
+            ],
+          },
+        ],
       },
     };
     this.socket!.send(JSON.stringify(setup));

@@ -179,8 +179,212 @@ modeSelect?.addEventListener("change", async () => {
   }
 });
 
+// ----------------------------------------------------------------------
+// Saved flows (multiflow) panel section
+// ----------------------------------------------------------------------
+
+interface FlowSummary {
+  flowId: string;
+  name: string;
+  createdAtUnixMs: number;
+  stepCount: number;
+  triggerAliases: string[];
+}
+
+const recordFlowToggleButton = document.getElementById(
+  "record-flow-toggle",
+) as HTMLButtonElement | null;
+const recordFlowNamingRow = document.getElementById(
+  "record-flow-naming",
+) as HTMLDivElement | null;
+const recordFlowNameInput = document.getElementById(
+  "record-flow-name-input",
+) as HTMLInputElement | null;
+const recordFlowConfirmButton = document.getElementById(
+  "record-flow-confirm",
+) as HTMLButtonElement | null;
+const recordFlowCancelButton = document.getElementById(
+  "record-flow-cancel",
+) as HTMLButtonElement | null;
+const savedFlowsListElement = document.getElementById(
+  "saved-flows-list",
+) as HTMLUListElement | null;
+
+let isRecordingFlowInProgress = false;
+
+function setRecordingButtonState(isRecording: boolean) {
+  if (!recordFlowToggleButton) return;
+  isRecordingFlowInProgress = isRecording;
+  recordFlowToggleButton.textContent = isRecording ? "Stop recording" : "Record new flow";
+  recordFlowToggleButton.dataset.recording = isRecording ? "true" : "false";
+}
+
+function showFlowNamingRow() {
+  if (!recordFlowNamingRow || !recordFlowNameInput) return;
+  recordFlowNamingRow.hidden = false;
+  recordFlowNameInput.value = "";
+  recordFlowNameInput.focus();
+}
+
+function hideFlowNamingRow() {
+  if (!recordFlowNamingRow) return;
+  recordFlowNamingRow.hidden = true;
+}
+
+async function refreshSavedFlowsList() {
+  if (!savedFlowsListElement) return;
+  let flows: FlowSummary[] = [];
+  try {
+    flows = await invoke<FlowSummary[]>("list_flows");
+  } catch (error) {
+    console.warn("[panel] list_flows failed:", error);
+  }
+
+  savedFlowsListElement.innerHTML = "";
+  if (flows.length === 0) {
+    const emptyLine = document.createElement("li");
+    emptyLine.className = "saved-flows-empty";
+    emptyLine.textContent = "No saved flows yet. Record one to recall by voice.";
+    savedFlowsListElement.appendChild(emptyLine);
+    return;
+  }
+
+  for (const flow of flows) {
+    const flowRowElement = document.createElement("li");
+    flowRowElement.className = "saved-flow-row";
+
+    const headerElement = document.createElement("div");
+    headerElement.className = "saved-flow-row-header";
+
+    const nameElement = document.createElement("span");
+    nameElement.className = "saved-flow-name";
+    nameElement.textContent = flow.name;
+    nameElement.title = flow.name;
+
+    const stepCountElement = document.createElement("span");
+    stepCountElement.className = "saved-flow-steps";
+    stepCountElement.textContent = `${flow.stepCount} steps`;
+
+    const buttonsElement = document.createElement("div");
+    buttonsElement.className = "saved-flow-buttons";
+
+    const runButton = document.createElement("button");
+    runButton.textContent = "Run";
+    runButton.className = "saved-flow-run";
+    runButton.addEventListener("click", async () => {
+      try {
+        await invoke<string>("run_flow_by_name", { name: flow.name });
+      } catch (error) {
+        showError("Run flow failed: " + (error instanceof Error ? error.message : String(error)));
+      }
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", async () => {
+      try {
+        await invoke("delete_flow", { name: flow.flowId });
+        await refreshSavedFlowsList();
+      } catch (error) {
+        showError(
+          "Delete flow failed: " + (error instanceof Error ? error.message : String(error)),
+        );
+      }
+    });
+
+    buttonsElement.appendChild(runButton);
+    buttonsElement.appendChild(deleteButton);
+    headerElement.appendChild(nameElement);
+    headerElement.appendChild(stepCountElement);
+    headerElement.appendChild(buttonsElement);
+    flowRowElement.appendChild(headerElement);
+
+    // Trigger aliases mini-input. User edits a comma-separated list and
+    // we persist on blur so the panel doesn't spam the backend per keystroke.
+    const aliasesWrapperElement = document.createElement("div");
+    aliasesWrapperElement.className = "saved-flow-aliases";
+    const aliasesLabel = document.createElement("label");
+    aliasesLabel.textContent = "Triggers (comma-separated)";
+    const aliasesInput = document.createElement("input");
+    aliasesInput.type = "text";
+    aliasesInput.value = flow.triggerAliases.join(", ");
+    aliasesInput.placeholder = "morning routine, start of day";
+    aliasesInput.addEventListener("blur", async () => {
+      const aliasesArray = aliasesInput.value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+      try {
+        await invoke("set_flow_trigger_aliases", {
+          flowId: flow.flowId,
+          triggerAliases: aliasesArray,
+        });
+      } catch (error) {
+        showError(
+          "Save aliases failed: " + (error instanceof Error ? error.message : String(error)),
+        );
+      }
+    });
+    aliasesWrapperElement.appendChild(aliasesLabel);
+    aliasesWrapperElement.appendChild(aliasesInput);
+    flowRowElement.appendChild(aliasesWrapperElement);
+
+    savedFlowsListElement.appendChild(flowRowElement);
+  }
+}
+
+async function startRecordingNewFlow(flowName: string) {
+  try {
+    await invoke<string>("start_recording_flow", { name: flowName });
+    setRecordingButtonState(true);
+    hideFlowNamingRow();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // The recorder requires opt-in via set_recording_enabled; surface that
+    // hint inline rather than just dropping the error blindly.
+    showError(
+      `Start recording failed: ${message}. ` +
+        `If recording is disabled, enable it via the recorder settings first.`,
+    );
+  }
+}
+
+async function stopRecordingFlow() {
+  try {
+    await invoke<FlowSummary>("stop_recording_flow");
+    setRecordingButtonState(false);
+    await refreshSavedFlowsList();
+  } catch (error) {
+    showError(
+      "Stop recording failed: " + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+}
+
+recordFlowToggleButton?.addEventListener("click", () => {
+  if (isRecordingFlowInProgress) {
+    void stopRecordingFlow();
+  } else {
+    showFlowNamingRow();
+  }
+});
+
+recordFlowConfirmButton?.addEventListener("click", () => {
+  const flowName = recordFlowNameInput?.value.trim() ?? "";
+  if (!flowName) {
+    showError("Give the flow a name first.");
+    return;
+  }
+  void startRecordingNewFlow(flowName);
+});
+
+recordFlowCancelButton?.addEventListener("click", () => {
+  hideFlowNamingRow();
+});
+
 await loadStoredApiKey();
 await loadOperatingMode();
 await refreshPermissions();
+await refreshSavedFlowsList();
 setStatus("idle");
 console.info("[panel] ready");
