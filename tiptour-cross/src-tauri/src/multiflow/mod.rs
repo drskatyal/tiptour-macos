@@ -147,3 +147,13 @@ pub fn set_flow_trigger_aliases(
 fn current_unix_ms() -> i64 {
     Utc::now().timestamp_millis()
 }
+
+/// Externally interrupt any currently-running flow replay by stamping a
+/// sentinel token onto the global slot. The replayer's per-step token
+/// check fails and the loop exits cleanly with a `Paused` progress
+/// event. The Gemini Live session, if any, is untouched.
+#[tauri::command]
+pub fn pause_active_replay() -> Result<(), String> {
+    replayer::set_active_replay_token("__paused_by_user__");
+    Ok(())
+}

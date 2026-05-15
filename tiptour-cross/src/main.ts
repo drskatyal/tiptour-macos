@@ -489,11 +489,11 @@ await listen("vosk_command_stop", () => {
 });
 
 await listen("vosk_command_pause", () => {
-  // Pause maps to the same teardown today — the multiflow replayer
-  // checks the cancellation flag the next time it polls. A future
-  // revision can introduce a true pause/resume distinction.
+  // Pause cancels any in-flight multiflow replay without closing the
+  // Gemini Live session, so the user can keep conversing while the
+  // automation halts. Stop, in contrast, tears down the whole session.
   console.info("[panel] vosk pause command");
-  void stopSession();
+  void invoke("pause_active_replay");
 });
 
 await loadStoredApiKey();

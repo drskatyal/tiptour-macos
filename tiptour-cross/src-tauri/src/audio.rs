@@ -189,7 +189,18 @@ pub fn play_audio_chunk(pcm: Vec<u8>) -> Result<(), String> {
         }
     }
 
-    queue.lock().extend(interleaved);
+    let mut queue_guard = queue.lock();
+    queue_guard.extend(interleaved);
+    // Bound the playback queue so a network stall or runaway Gemini turn
+    // can't grow it unboundedly. At the native rate × channels, 5 seconds
+    // of buffered audio is enough latency tolerance for any realistic
+    // socket hiccup; beyond that we drop the oldest samples so the user
+    // hears recent audio instead of waiting through stale buffer.
+    let max_buffered_samples = (native_rate as usize * channels as usize * 5).max(48_000);
+    if queue_guard.len() > max_buffered_samples {
+        let drop_count = queue_guard.len() - max_buffered_samples;
+        queue_guard.drain(..drop_count);
+    }
     Ok(())
 }
 

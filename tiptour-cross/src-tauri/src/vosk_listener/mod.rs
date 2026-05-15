@@ -308,21 +308,31 @@ mod feature_on {
             .ok_or_else(|| "no data dir for model path".to_string())?;
         fs::create_dir_all(&target_directory).map_err(|error| error.to_string())?;
 
-        // Stream the zip to a tmp file rather than buffering in memory
-        // (the small model is ~40MB; the standard large is much bigger
-        // and we want the same code path to extend cleanly later).
+        // Stream the zip to a tmp file rather than buffering it in
+        // memory. The small en-US model is ~40MB but larger Vosk models
+        // can be 1-2GB; we don't want to OOM the moment a user picks
+        // one of those. ZipArchive needs Read+Seek, which File gives
+        // us natively — no Cursor<Vec<u8>> in the hot path.
         let response = ureq::get(MODEL_DOWNLOAD_URL)
             .call()
             .map_err(|error| format!("download request failed: {error}"))?;
-        let mut zip_bytes: Vec<u8> = Vec::with_capacity(40 * 1024 * 1024);
-        response
-            .into_reader()
-            .read_to_end(&mut zip_bytes)
-            .map_err(|error| format!("read zip body: {error}"))?;
-        let bytes_total = zip_bytes.len() as u64;
+        let mut temporary_zip_path = target_directory.clone();
+        temporary_zip_path.push(".download.zip");
+        let mut temporary_zip_file =
+            fs::File::create(&temporary_zip_path).map_err(|error| {
+                format!("create temp zip {}: {error}", temporary_zip_path.display())
+            })?;
+        let bytes_total =
+            std::io::copy(&mut response.into_reader(), &mut temporary_zip_file)
+                .map_err(|error| format!("stream zip body to disk: {error}"))?;
+        temporary_zip_file
+            .sync_all()
+            .map_err(|error| format!("flush temp zip: {error}"))?;
+        drop(temporary_zip_file);
 
-        let zip_cursor = std::io::Cursor::new(zip_bytes);
-        let mut archive = zip::ZipArchive::new(zip_cursor)
+        let reopened_zip_file = fs::File::open(&temporary_zip_path)
+            .map_err(|error| format!("reopen temp zip: {error}"))?;
+        let mut archive = zip::ZipArchive::new(reopened_zip_file)
             .map_err(|error| format!("open zip: {error}"))?;
 
         // The upstream zip nests everything under a top-level
@@ -352,6 +362,10 @@ mod feature_on {
             std::io::copy(&mut entry, &mut output_file)
                 .map_err(|error| format!("extract: {error}"))?;
         }
+
+        // Best-effort cleanup of the staged zip; if it fails, the next
+        // download just overwrites it. Not worth aborting on.
+        let _ = fs::remove_file(&temporary_zip_path);
 
         Ok(VoskModelStatus::Downloaded { bytes_total })
     }

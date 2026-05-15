@@ -269,24 +269,41 @@ impl Recorder {
                     snapshot_after,
                 };
 
-                let mut active_recording_guard = recorder_for_thread.active_recording.lock();
-                let active = match active_recording_guard.as_mut() {
-                    Some(active) => active,
-                    None => break,
+                // Snapshot the lightweight fields we need under the lock,
+                // then release it before doing any disk I/O. The previous
+                // shape held `active_recording.lock()` across
+                // `fs::create_dir_all` and the trace append, which under
+                // heavy input briefly stalled every other recorder-state
+                // query. We push the trace entry back into the in-memory
+                // vec after releasing the lock; the order is preserved by
+                // the single-threaded consumer loop.
+                let (trace_file_path, recording_mode, screenshots_directory) = {
+                    let mut active_recording_guard =
+                        recorder_for_thread.active_recording.lock();
+                    let active = match active_recording_guard.as_mut() {
+                        Some(active) => active,
+                        None => break,
+                    };
+                    let trace_file_path = active.trace_file_path.clone();
+                    let recording_mode = active.mode;
+                    let screenshots_directory = active
+                        .demonstration_directory
+                        .as_ref()
+                        .map(|directory| directory.join("screenshots"));
+                    active.trace_entries_in_memory.push(trace_entry.clone());
+                    (trace_file_path, recording_mode, screenshots_directory)
                 };
-                let _ = append_trace_entry(&active.trace_file_path, &trace_entry);
+
+                let _ = append_trace_entry(&trace_file_path, &trace_entry);
 
                 // In demonstration mode, every input event is also a
                 // visual transition point — capture a screenshot so the
                 // saved demo can be replayed visually and so Gemini has
                 // pixels to disambiguate ambiguous UIA snapshots. Passive
                 // mode never persists screenshots (privacy gate).
-                if matches!(active.mode, RecordingMode::Demonstration)
+                if matches!(recording_mode, RecordingMode::Demonstration)
                     && input_event_is_visual_transition(&trace_entry.event)
                 {
-                    let screenshots_directory = active.demonstration_directory
-                        .as_ref()
-                        .map(|directory| directory.join("screenshots"));
                     let timestamp = trace_entry.timestamp_unix_ms;
                     if let Some(target_directory) = screenshots_directory {
                         let _ = std::fs::create_dir_all(&target_directory);
@@ -304,7 +321,6 @@ impl Recorder {
                         });
                     }
                 }
-                active.trace_entries_in_memory.push(trace_entry);
             }
         });
     }

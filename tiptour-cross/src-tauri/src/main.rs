@@ -85,6 +85,7 @@ fn main() {
             multiflow::list_flows,
             multiflow::delete_flow,
             multiflow::run_flow_by_name,
+            multiflow::pause_active_replay,
             multiflow::find_flow_by_voice_query,
             multiflow::set_flow_trigger_aliases,
             vosk_listener::is_listener_enabled,
