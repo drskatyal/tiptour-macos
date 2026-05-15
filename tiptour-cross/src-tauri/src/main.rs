@@ -7,6 +7,8 @@ mod executor;
 mod grounding;
 mod hotkey;
 mod keychain;
+mod mode;
+mod overlay;
 #[cfg(target_os = "macos")]
 mod permissions_macos;
 mod permissions;
@@ -22,6 +24,7 @@ fn main() {
         .setup(|app| {
             tray::install(app.handle())?;
             hotkey::install(app.handle())?;
+            overlay::ensure_installed(app.handle())?;
 
             // Panel starts hidden; tray click reveals it.
             if let Some(window) = app.get_webview_window("panel") {
@@ -60,6 +63,14 @@ fn main() {
             permissions::request_accessibility_permission,
             permissions::check_screen_recording_permission,
             permissions::request_screen_recording_permission,
+            overlay::overlay_show,
+            overlay::overlay_hide,
+            overlay::overlay_fly_cursor_to,
+            overlay::overlay_show_response,
+            overlay::overlay_hide_response,
+            overlay::overlay_set_speaking,
+            mode::get_operating_mode,
+            mode::set_operating_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

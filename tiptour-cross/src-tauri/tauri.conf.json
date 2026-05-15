@@ -17,7 +17,7 @@
         "label": "panel",
         "title": "TipTour",
         "width": 320,
-        "height": 280,
+        "height": 320,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -26,6 +26,25 @@
         "focus": false,
         "visible": false,
         "shadow": false
+      },
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "TipTour Overlay",
+        "fullscreen": false,
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
       }
     ],
     "security": {

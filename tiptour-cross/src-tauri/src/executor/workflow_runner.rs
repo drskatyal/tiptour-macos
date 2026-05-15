@@ -45,6 +45,15 @@ pub enum WorkflowProgress {
         label: Option<String>,
         step_type: String,
     },
+    StepResolved {
+        step_index: usize,
+        // Resolved click target in global screen coordinates. Emitted just
+        // before the synthetic click lands, so the overlay can fly its
+        // companion cursor in lockstep with the actual cursor movement.
+        target_x: f64,
+        target_y: f64,
+        label: Option<String>,
+    },
     StepFinished {
         step_index: usize,
         result: StepResult,
@@ -161,7 +170,7 @@ pub async fn run_workflow_plan(
             })
             .await;
 
-        let result = execute_step(step, step_type, grounding).await;
+        let result = execute_step(step, step_index, step_type, grounding, &progress).await;
 
         let is_executed = matches!(result, StepResult::Executed);
         let _ = progress
@@ -227,8 +236,10 @@ fn step_needs_post_action_settle(step_type: StepType) -> bool {
 
 async fn execute_step(
     step: &WorkflowStep,
+    step_index: usize,
     step_type: StepType,
     grounding: &mut dyn GroundingResolver,
+    progress: &Sender<WorkflowProgress>,
 ) -> StepResult {
     match step_type {
         StepType::Click | StepType::RightClick | StepType::DoubleClick => {
@@ -244,6 +255,24 @@ async fn execute_step(
                     };
                 }
             };
+            // Tell the overlay where the cursor is about to go, before the
+            // real cursor moves. The animation duration on the overlay
+            // matches the system click delay so the two cursors arrive at
+            // the same time.
+            let _ = progress
+                .send(WorkflowProgress::StepResolved {
+                    step_index,
+                    target_x: x,
+                    target_y: y,
+                    label: step.label.clone(),
+                })
+                .await;
+            // Teaching mode: the overlay still points, but TipTour does NOT
+            // perform the click — the user does. Return early with a result
+            // that surfaces as "user-driven" in the progress stream.
+            if matches!(crate::mode::current_operating_mode(), crate::mode::OperatingMode::Teaching) {
+                return StepResult::Executed;
+            }
             let action = match step_type {
                 StepType::DoubleClick => ExecutableAction::DoubleClick { x, y },
                 StepType::RightClick => ExecutableAction::RightClick { x, y },

@@ -32,6 +32,7 @@ interface ScreenFramePayload {
 type WorkflowProgressEvent =
   | { kind: "started"; workflowId: string; goal?: string | null; totalSteps: number }
   | { kind: "stepStarted"; stepIndex: number; label?: string | null; stepType: string }
+  | { kind: "stepResolved"; stepIndex: number; targetX: number; targetY: number; label?: string | null }
   | { kind: "stepFinished"; stepIndex: number; result: unknown }
   | { kind: "paused"; reason: string }
   | { kind: "completed" }
@@ -107,7 +108,21 @@ export class GeminiLiveSession {
     this.workflowProgressUnlisten = await listen<WorkflowProgressEvent>(
       "workflow_progress",
       (event) => {
-        const summaryLine = formatWorkflowProgressEvent(event.payload);
+        const payload = event.payload;
+        // Drive the overlay cursor in lockstep with the runner. The
+        // animation duration in CSS matches the click-settle delay so the
+        // companion cursor lands at the same moment the real cursor does.
+        if (payload.kind === "stepResolved") {
+          void invoke("overlay_fly_cursor_to", {
+            x: payload.targetX,
+            y: payload.targetY,
+            label: payload.label ?? null,
+          });
+        }
+        if (payload.kind === "completed" || payload.kind === "failed" || payload.kind === "paused") {
+          void invoke("overlay_hide_response");
+        }
+        const summaryLine = formatWorkflowProgressEvent(payload);
         if (summaryLine) {
           this.options.onModelTranscript(summaryLine);
         }
@@ -165,6 +180,8 @@ export class GeminiLiveSession {
     this.workflowProgressUnlisten = null;
     this.client?.close();
     this.client = null;
+    void invoke("overlay_hide");
+    void invoke("overlay_set_speaking", { speaking: false });
     this.options.onStatusChange("idle");
   }
 
@@ -174,6 +191,7 @@ export class GeminiLiveSession {
         return;
       case "audio_chunk":
         this.options.onStatusChange("speaking");
+        void invoke("overlay_set_speaking", { speaking: true });
         void invoke("play_audio_chunk", { pcm: Array.from(message.pcm24kHz) });
         return;
       case "input_transcript":
@@ -181,9 +199,16 @@ export class GeminiLiveSession {
         return;
       case "output_transcript":
         this.options.onModelTranscript(message.text);
+        // Stream model text into the overlay bubble so the user can read
+        // the reply right next to the companion cursor.
+        void invoke("overlay_show_response", {
+          text: message.text,
+          appendMode: true,
+        });
         return;
       case "turn_complete":
         this.options.onStatusChange("listening");
+        void invoke("overlay_set_speaking", { speaking: false });
         return;
       case "tool_call":
         void this.handleToolCall(message.name, message.args, message.toolCallId);

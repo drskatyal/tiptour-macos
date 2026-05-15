@@ -1,0 +1,100 @@
+html,
+body.overlay-body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  /* The webview itself is click-through via the OS window flags. The
+     element below must NOT block clicks either — pointer-events: none
+     belongs on every child by default. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: white;
+}
+
+.cursor-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Transform-driven motion is buttery on the compositor; CSS transitions
+     handle the bezier-like arc when we change the transform property. */
+  transform: translate(-100px, -100px);
+  transition: transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1);
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 4px 14px rgba(79, 90, 217, 0.6));
+}
+
+.cursor-svg.visible {
+  opacity: 1;
+}
+
+.response-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-100px, -100px);
+  transition: transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1), opacity 250ms ease;
+  background: rgba(20, 20, 22, 0.92);
+  color: #f0f0f4;
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-width: 340px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.response-bubble:not([hidden]) {
+  opacity: 1;
+}
+
+.response-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.waveform {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+  height: 14px;
+  align-items: center;
+}
+.waveform span {
+  display: block;
+  width: 3px;
+  background: linear-gradient(180deg, #7a8aff, #4f5ad9);
+  border-radius: 2px;
+  animation: wave 900ms ease-in-out infinite;
+}
+.waveform span:nth-child(2) {
+  animation-delay: 120ms;
+}
+.waveform span:nth-child(3) {
+  animation-delay: 240ms;
+}
+.waveform span:nth-child(4) {
+  animation-delay: 360ms;
+}
+.waveform span:nth-child(5) {
+  animation-delay: 480ms;
+}
+@keyframes wave {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}

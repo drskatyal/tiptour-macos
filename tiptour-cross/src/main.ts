@@ -160,7 +160,27 @@ await listen("push_to_talk_toggled", () => {
   void togglePushToTalk();
 });
 
+const modeSelect = document.getElementById("mode-select") as HTMLSelectElement | null;
+async function loadOperatingMode() {
+  if (!modeSelect) return;
+  try {
+    const current = await invoke<string>("get_operating_mode");
+    modeSelect.value = current;
+  } catch (error) {
+    console.warn("[panel] failed to load operating mode:", error);
+  }
+}
+modeSelect?.addEventListener("change", async () => {
+  if (!modeSelect) return;
+  try {
+    await invoke("set_operating_mode", { mode: modeSelect.value });
+  } catch (error) {
+    showError("Failed to set mode: " + (error instanceof Error ? error.message : String(error)));
+  }
+});
+
 await loadStoredApiKey();
+await loadOperatingMode();
 await refreshPermissions();
 setStatus("idle");
 console.info("[panel] ready");
