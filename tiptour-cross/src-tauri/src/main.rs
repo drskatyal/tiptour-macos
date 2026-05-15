@@ -26,7 +26,18 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             tray::install(app.handle())?;
-            hotkey::install(app.handle())?;
+            // Hotkey registration can fail if another running app holds
+            // Alt+X (Microsoft Word's "insert symbol" chord, for example).
+            // Treat that as a soft failure: log it and keep the app
+            // usable — the user can still open the panel from the tray
+            // and click Start. Without this softening the whole app
+            // crashes at setup via the `.expect()` in main(), which is
+            // a much worse first-run experience than a missing hotkey.
+            if let Err(hotkey_install_error) = hotkey::install(app.handle()) {
+                eprintln!(
+                    "[hotkey] global Alt+X registration failed (likely conflicting app): {hotkey_install_error}",
+                );
+            }
             overlay::ensure_installed(app.handle())?;
             highlight::start_listening(app.handle().clone());
             // Try to resume the always-on local listener if the user
