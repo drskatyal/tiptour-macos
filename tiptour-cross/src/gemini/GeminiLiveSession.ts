@@ -274,6 +274,12 @@ export class GeminiLiveSession {
       case "turn_complete":
         this.options.onStatusChange("listening");
         void invoke("overlay_set_speaking", { speaking: false });
+        // Hide the overlay reply bubble at end-of-turn so the next turn's
+        // streamed `output_transcript` doesn't accumulate on top of the
+        // previous reply. Without this, the bubble keeps growing across
+        // turns (overlay.ts uses appendMode: true and only resets on
+        // hideResponseBubble).
+        void invoke("overlay_hide_response");
         return;
       case "tool_call":
         void this.handleToolCall(message.name, message.args, message.toolCallId);
