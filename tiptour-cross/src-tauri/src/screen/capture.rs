@@ -133,55 +133,9 @@ pub async fn capture_primary_screen() -> Result<RawFrame, String> {
         settings::{ColorFormat, CursorCaptureSettings, DrawBorderSettings, Settings},
     };
 
-    struct OneShot {
-        sender: Mutex<Option<Sender<Result<RawFrame, String>>>>,
-    }
-
-    impl GraphicsCaptureApiHandler for OneShot {
-        type Flags = ();
-        type Error = Box<dyn std::error::Error + Send + Sync>;
-
-        fn new(ctx: Context<Self::Flags>) -> Result<Self, Self::Error> {
-            Ok(OneShot {
-                sender: Mutex::new(Some(ctx.flags_tx())),
-            })
-        }
-
-        fn on_frame_arrived(
-            &mut self,
-            frame: &mut Frame,
-            control: InternalCaptureControl,
-        ) -> Result<(), Self::Error> {
-            let width = frame.width();
-            let height = frame.height();
-            let result = (|| -> Result<RawFrame, String> {
-                let mut buffer = frame
-                    .buffer()
-                    .map_err(|error| format!("frame.buffer: {error:?}"))?;
-                let raw = buffer.as_raw_buffer();
-                Ok(RawFrame {
-                    bgra: raw.to_vec(),
-                    width,
-                    height,
-                })
-            })();
-            if let Some(sender) = self.sender.lock().ok().and_then(|mut g| g.take()) {
-                let _ = sender.send(result);
-            }
-            control.stop();
-            Ok(())
-        }
-
-        fn on_closed(&mut self) -> Result<(), Self::Error> {
-            Ok(())
-        }
-    }
-
-    // Workaround: the `Context::flags_tx` helper used above is a fiction
-    // for this codebase — keep the cross-thread channel here instead and
-    // pass it in through a static slot. The crate doesn't expose a clean
-    // way to share state with the handler constructor, so use a
-    // `Lazy<Mutex<Option<Sender<...>>>>` pattern below.
+    // The `windows-capture` crate doesn't give the handler constructor a
+    // clean way to receive a sender, so we stash the sender in a static
+    // slot and let the handler pick it up via `PENDING_SENDER`.
     static PENDING_SENDER: once_cell::sync::Lazy<
         Mutex<Option<Sender<Result<RawFrame, String>>>>,
     > = once_cell::sync::Lazy::new(|| Mutex::new(None));

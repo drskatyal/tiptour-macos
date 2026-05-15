@@ -8,10 +8,10 @@
 // answer, we fail open (return "no modal", "no app switch", flat sleep) so
 // the runner keeps making forward progress instead of stalling.
 
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 
 use crate::capabilities::fingerprint::fingerprint;
 use crate::executor::workflow_plan::StepType;
@@ -44,7 +44,7 @@ static MODAL_DIALOG_CACHE: Lazy<Mutex<Option<(Instant, bool)>>> =
 /// so back-to-back step transitions don't re-query AX/UIA.
 pub fn modal_dialog_blocking() -> bool {
     {
-        let cache = MODAL_DIALOG_CACHE.lock().unwrap();
+        let cache = MODAL_DIALOG_CACHE.lock();
         if let Some((cached_at, cached_value)) = *cache {
             if cached_at.elapsed() < MODAL_CACHE_DURATION {
                 return cached_value;
@@ -53,7 +53,7 @@ pub fn modal_dialog_blocking() -> bool {
     }
 
     let detected = detect_modal_dialog();
-    let mut cache = MODAL_DIALOG_CACHE.lock().unwrap();
+    let mut cache = MODAL_DIALOG_CACHE.lock();
     *cache = Some((Instant::now(), detected));
     detected
 }

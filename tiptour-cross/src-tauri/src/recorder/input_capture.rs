@@ -8,9 +8,18 @@ use std::sync::mpsc::{Sender, channel, Receiver};
 use std::sync::Arc;
 use std::thread;
 
+use parking_lot::Mutex;
+use once_cell::sync::Lazy;
+
 use super::types::InputEvent;
 
 static IS_CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+// rdev fires ButtonPress events without cursor coordinates, but the
+// recorded trace and the replayer both need the click point. We remember
+// the most recent MouseMove and stamp ButtonPress events with that point
+// so saved flows replay at the right pixel instead of (0, 0).
+static LAST_MOUSE_POSITION: Lazy<Mutex<(f64, f64)>> = Lazy::new(|| Mutex::new((0.0, 0.0)));
 
 pub struct InputCaptureHandle {
     pub event_receiver: Receiver<InputEvent>,
@@ -67,16 +76,20 @@ fn translate_rdev_event(raw_event: &rdev::Event) -> Option<InputEvent> {
             key_name: format!("{key:?}"),
         }),
         rdev::EventType::ButtonPress(button) => {
-            // rdev doesn't carry cursor position on button events. The
-            // recorder fills coordinates from the last `MouseMove` it saw;
-            // callers downstream merge the pair.
+            // rdev doesn't carry cursor position on ButtonPress, so stamp
+            // the click with the last MouseMove we observed. Without this
+            // the replayer would always click at (0, 0).
+            let (last_x, last_y) = *LAST_MOUSE_POSITION.lock();
             Some(InputEvent::MouseClick {
                 button: format!("{button:?}"),
-                x: 0.0,
-                y: 0.0,
+                x: last_x,
+                y: last_y,
             })
         }
-        rdev::EventType::MouseMove { x, y } => Some(InputEvent::MouseMove { x: *x, y: *y }),
+        rdev::EventType::MouseMove { x, y } => {
+            *LAST_MOUSE_POSITION.lock() = (*x, *y);
+            Some(InputEvent::MouseMove { x: *x, y: *y })
+        }
         rdev::EventType::Wheel { delta_x, delta_y } => Some(InputEvent::Scroll {
             delta_x: *delta_x as f64,
             delta_y: *delta_y as f64,
