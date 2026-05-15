@@ -5,6 +5,23 @@ description = "TipTour cross-platform voice agent"
 edition = "2021"
 rust-version = "1.77"
 
+# Test-support library target. Lives at `test_support_lib.rs`
+# (intentionally outside `src/` so the constraint "do not modify any
+# source under src-tauri/src/" stays honored). It re-exports a curated
+# subset of the production modules — the ones whose command surface
+# can be exercised end-to-end from `tests/*.rs` without a real Tauri
+# runtime, OS keychain, microphone, or accessibility-tree walk. The
+# shipped app keeps building from the binary target below; the lib
+# target is never linked into the bundle.
+[lib]
+name = "tiptour_test_support"
+path = "test_support_lib.rs"
+crate-type = ["lib"]
+
+[[bin]]
+name = "tiptour-cross"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
