@@ -1,8 +1,11 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_metadata;
+mod app_settings;
 mod audio;
 mod capabilities;
+mod custom_commands;
 mod executor;
 mod grounding;
 mod highlight;
@@ -16,6 +19,7 @@ mod permissions_macos;
 mod permissions;
 mod recorder;
 mod screen;
+mod settings_window;
 mod tray;
 mod vosk_listener;
 
@@ -66,6 +70,9 @@ fn main() {
             capabilities::list_capabilities,
             capabilities::retrieve_tools,
             capabilities::invoke_capability,
+            capabilities::list_capability_index_summaries,
+            capabilities::clear_capability_cache,
+            capabilities::get_destructive_keywords,
             recorder::is_recording_enabled,
             recorder::set_recording_enabled,
             recorder::start_passive_recording,
@@ -76,6 +83,8 @@ fn main() {
             recorder::list_demonstrations,
             recorder::load_demonstration,
             recorder::mine_patterns,
+            recorder::list_demonstration_screenshots,
+            recorder::delete_demonstration,
             screen::start_screen_stream,
             screen::stop_screen_stream,
             executor::execute_workflow_plan,
@@ -99,11 +108,27 @@ fn main() {
             multiflow::pause_active_replay,
             multiflow::find_flow_by_voice_query,
             multiflow::set_flow_trigger_aliases,
+            multiflow::adopt_demonstration_as_flow,
+            multiflow::rename_flow,
+            multiflow::export_flow,
+            multiflow::import_flow,
             vosk_listener::is_listener_enabled,
             vosk_listener::set_listener_enabled,
             vosk_listener::start_listener,
             vosk_listener::stop_listener,
             vosk_listener::download_vosk_model_if_needed,
+            app_settings::get_app_settings,
+            app_settings::set_app_settings,
+            app_settings::reset_all_settings,
+            app_metadata::get_app_metadata,
+            app_metadata::open_data_folder_in_os_file_browser,
+            app_metadata::quit_app_gracefully,
+            app_metadata::clear_api_key_from_keychain,
+            custom_commands::list_custom_voice_commands,
+            custom_commands::upsert_custom_voice_command,
+            custom_commands::delete_custom_voice_command,
+            settings_window::open_settings_window,
+            hotkey::reregister_push_to_talk_hotkey,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

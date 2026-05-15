@@ -14,6 +14,10 @@ export type SessionStatus = "idle" | "listening" | "speaking" | "error";
 
 export interface GeminiLiveSessionOptions {
   apiKey: string;
+  /// Optional voice name pulled from settings.json by the panel.
+  voiceName?: string;
+  /// Optional model short id pulled from settings.json by the panel.
+  modelShortId?: string;
   onStatusChange: (status: SessionStatus) => void;
   onUserTranscript: (text: string) => void;
   onModelTranscript: (text: string) => void;
@@ -125,6 +129,8 @@ export class GeminiLiveSession {
   async open(): Promise<void> {
     this.client = new GeminiLiveClient({
       apiKey: this.options.apiKey,
+      voiceName: this.options.voiceName,
+      modelShortId: this.options.modelShortId,
       onMessage: (m) => this.handleInbound(m),
       onClose: (reason) => {
         console.warn("[session] websocket closed:", reason);

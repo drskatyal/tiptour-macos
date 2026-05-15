@@ -157,3 +157,102 @@ pub fn pause_active_replay() -> Result<(), String> {
     replayer::set_active_replay_token("__paused_by_user__");
     Ok(())
 }
+
+/// Convert an existing on-disk demonstration into a multiflow entry
+/// without recording anything new. Used by the Recordings tab's
+/// "Convert to flow" button so the user doesn't have to re-record a
+/// flow they already captured.
+#[tauri::command]
+pub fn adopt_demonstration_as_flow(
+    demonstration_id: String,
+    name: String,
+) -> Result<FlowSummary, String> {
+    let demonstration =
+        crate::recorder::persistence::load_demonstration(&demonstration_id)?;
+    let trimmed_name = name.trim();
+    let final_name = if trimmed_name.is_empty() {
+        demonstration.title.clone()
+    } else {
+        trimmed_name.to_string()
+    };
+
+    let summary = FlowSummary {
+        flow_id: demonstration.id,
+        name: final_name,
+        created_at_unix_ms: demonstration.created_at_unix_ms,
+        step_count: demonstration.trace.len(),
+        trigger_aliases: Vec::new(),
+    };
+    upsert_flow(summary.clone())?;
+    Ok(summary)
+}
+
+/// Rename a saved flow without touching the underlying demonstration
+/// directory. Surfaces from the Saved Flows tab's Rename button.
+#[tauri::command]
+pub fn rename_flow(flow_id: String, new_name: String) -> Result<(), String> {
+    let trimmed_new_name = new_name.trim().to_string();
+    if trimmed_new_name.is_empty() {
+        return Err("new flow name cannot be empty".to_string());
+    }
+    let mut index = storage::load_index();
+    let entry = index
+        .entries
+        .iter_mut()
+        .find(|entry| entry.flow_id == flow_id)
+        .ok_or_else(|| format!("flow '{flow_id}' not found"))?;
+    entry.name = trimmed_new_name;
+    storage::save_index(&index)
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportedFlow {
+    pub format: String,
+    pub schema_version: u32,
+    pub summary: FlowSummary,
+    pub demonstration: crate::recorder::types::Demonstration,
+}
+
+const EXPORT_FORMAT_IDENTIFIER: &str = "tiptour-flow";
+const EXPORT_SCHEMA_VERSION: u32 = 1;
+
+/// Serialize a saved flow + its underlying demonstration into a
+/// self-contained JSON blob the user can save to disk and share.
+#[tauri::command]
+pub fn export_flow(flow_id: String) -> Result<String, String> {
+    let index = load_index();
+    let summary = index
+        .entries
+        .iter()
+        .find(|entry| entry.flow_id == flow_id)
+        .cloned()
+        .ok_or_else(|| format!("flow '{flow_id}' not found"))?;
+    let demonstration =
+        crate::recorder::persistence::load_demonstration(&summary.flow_id)?;
+    let exported = ExportedFlow {
+        format: EXPORT_FORMAT_IDENTIFIER.to_string(),
+        schema_version: EXPORT_SCHEMA_VERSION,
+        summary,
+        demonstration,
+    };
+    serde_json::to_string_pretty(&exported).map_err(|error| error.to_string())
+}
+
+/// Deserialize an exported-flow blob and write it into the local
+/// multiflow + demonstrations layout. Returns the resulting summary so
+/// the UI can update its list without reloading.
+#[tauri::command]
+pub fn import_flow(exported_blob: String) -> Result<FlowSummary, String> {
+    let exported: ExportedFlow =
+        serde_json::from_str(&exported_blob).map_err(|error| error.to_string())?;
+    if exported.format != EXPORT_FORMAT_IDENTIFIER {
+        return Err(format!(
+            "unrecognized export format '{}'",
+            exported.format
+        ));
+    }
+    crate::recorder::persistence::write_demonstration_from_export(&exported.demonstration)?;
+    upsert_flow(exported.summary.clone())?;
+    Ok(exported.summary)
+}

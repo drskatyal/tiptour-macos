@@ -45,6 +45,23 @@
         "visible": false,
         "shadow": false,
         "acceptFirstMouse": false
+      },
+      {
+        "label": "settings",
+        "url": "settings.html",
+        "title": "TipTour Settings",
+        "width": 720,
+        "height": 620,
+        "minWidth": 560,
+        "minHeight": 480,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "focus": true,
+        "visible": false,
+        "shadow": true
       }
     ],
     "security": {

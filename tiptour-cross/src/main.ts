@@ -121,6 +121,13 @@ apiKeySaveButton.addEventListener("click", async () => {
   }
 });
 
+interface PanelAppSettings {
+  schemaVersion: number;
+  geminiVoice: string;
+  geminiModel: string;
+  pushToTalkChord: string;
+}
+
 async function startSession() {
   const key = apiKeyInput.value.trim();
   if (!key) {
@@ -130,8 +137,21 @@ async function startSession() {
   clearError();
   console.info("[panel] starting session");
 
+  // Pull the user's selected voice/model from settings.json so the
+  // dashboard's General-tab pickers actually take effect. Failing to
+  // read settings shouldn't block a session — we just fall back to the
+  // client's compile-time defaults.
+  let panelAppSettings: PanelAppSettings | null = null;
+  try {
+    panelAppSettings = await invoke<PanelAppSettings>("get_app_settings");
+  } catch (settingsError) {
+    console.warn("[panel] get_app_settings failed:", settingsError);
+  }
+
   session = new GeminiLiveSession({
     apiKey: key,
+    voiceName: panelAppSettings?.geminiVoice,
+    modelShortId: panelAppSettings?.geminiModel,
     onStatusChange: setStatus,
     onUserTranscript: (text) => appendTranscript("user", text),
     onModelTranscript: (text) => appendTranscript("model", text),
@@ -176,6 +196,23 @@ async function togglePushToTalk() {
 
 startButton.addEventListener("click", () => void startSession());
 stopButton.addEventListener("click", () => void stopSession());
+
+// Gear icon in the panel header opens the deep-edit Settings window.
+const openSettingsButton = document.getElementById(
+  "open-settings-button",
+) as HTMLButtonElement | null;
+openSettingsButton?.addEventListener("click", async () => {
+  try {
+    await invoke("open_settings_window");
+  } catch (openSettingsError) {
+    showError(
+      "Could not open settings window: " +
+        (openSettingsError instanceof Error
+          ? openSettingsError.message
+          : String(openSettingsError)),
+    );
+  }
+});
 
 await listen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey fired");

@@ -188,6 +188,85 @@ pub fn load_all_capabilities_for_version(
     Ok(all)
 }
 
+/// Per-app capability index summary used by the Settings dashboard's
+/// Capabilities tab. Pairs each explored app with its capability count
+/// and last-modified timestamp so the UI can render a "Re-explore"
+/// button next to a freshness indicator.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityIndexSummary {
+    pub app_identifier: String,
+    pub app_version: Option<String>,
+    pub capability_count: usize,
+    pub last_explored_unix_ms: Option<i64>,
+}
+
+pub fn list_capability_index_summaries() -> Result<Vec<CapabilityIndexSummary>, String> {
+    let root = match capabilities_root() {
+        Ok(path) => path,
+        Err(_) => return Ok(Vec::new()),
+    };
+    if !root.exists() {
+        return Ok(Vec::new());
+    }
+    let mut summaries: Vec<CapabilityIndexSummary> = Vec::new();
+    let app_dirs = fs::read_dir(&root).map_err(|error| error.to_string())?;
+    for app_entry in app_dirs.flatten() {
+        let app_identifier_segment = app_entry
+            .file_name()
+            .to_string_lossy()
+            .to_string();
+        let version_dirs = match fs::read_dir(app_entry.path()) {
+            Ok(iter) => iter,
+            Err(_) => continue,
+        };
+        for version_entry in version_dirs.flatten() {
+            let version_segment = version_entry.file_name().to_string_lossy().to_string();
+            let tools_path = version_entry.path().join("tools.json");
+            if !tools_path.exists() {
+                continue;
+            }
+            let capability_count = fs::read_to_string(&tools_path)
+                .ok()
+                .and_then(|raw| serde_json::from_str::<Vec<Capability>>(&raw).ok())
+                .map(|caps| caps.len())
+                .unwrap_or(0);
+            let last_explored_unix_ms = fs::metadata(&tools_path)
+                .and_then(|metadata| metadata.modified())
+                .ok()
+                .and_then(|modified_time| {
+                    modified_time
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .ok()
+                        .map(|duration| duration.as_millis() as i64)
+                });
+            summaries.push(CapabilityIndexSummary {
+                app_identifier: app_identifier_segment.clone(),
+                app_version: if version_segment == DEFAULT_VERSION_FOLDER {
+                    None
+                } else {
+                    Some(version_segment)
+                },
+                capability_count,
+                last_explored_unix_ms,
+            });
+        }
+    }
+    Ok(summaries)
+}
+
+/// Wipe the on-disk capability index for an app — both the graph and
+/// the tools.json. Used by the Capabilities tab's "Clear cache" button
+/// so the user can force a re-exploration without leftover stale data.
+pub fn clear_capability_cache_for_app(app_identifier: &str) -> Result<(), String> {
+    let mut path = capabilities_root()?;
+    path.push(sanitize_path_segment(app_identifier));
+    if !path.exists() {
+        return Ok(());
+    }
+    fs::remove_dir_all(&path).map_err(|error| error.to_string())
+}
+
 fn sanitize_path_segment(segment: &str) -> String {
     segment
         .chars()

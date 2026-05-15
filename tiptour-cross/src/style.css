@@ -35,6 +35,20 @@ body {
   font-weight: 600;
 }
 
+.panel-settings-button {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e6e6e8;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.panel-settings-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .dot {
   width: 8px;
   height: 8px;

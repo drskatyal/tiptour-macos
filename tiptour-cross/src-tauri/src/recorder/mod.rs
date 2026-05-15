@@ -86,3 +86,15 @@ pub fn load_demonstration(demonstration_id: String) -> Result<Demonstration, Str
 pub fn mine_patterns(min_occurrences: usize) -> Result<Vec<WorkflowPattern>, String> {
     pattern_miner::mine_patterns_from_all_passive_traces(min_occurrences)
 }
+
+#[tauri::command]
+pub fn list_demonstration_screenshots(
+    demonstration_id: String,
+) -> Result<Vec<String>, String> {
+    persistence::list_screenshot_paths_for_demonstration(&demonstration_id)
+}
+
+#[tauri::command]
+pub fn delete_demonstration(demonstration_id: String) -> Result<(), String> {
+    persistence::delete_demonstration_on_disk(&demonstration_id)
+}

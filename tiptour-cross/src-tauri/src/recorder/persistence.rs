@@ -193,6 +193,76 @@ pub fn read_trace_jsonl(trace_file_path: &PathBuf) -> Result<Vec<TraceEntry>, St
     Ok(entries)
 }
 
+/// Materialize an imported demonstration onto disk in the same layout
+/// the recorder writes. Used by the multiflow import command so the
+/// loader can `load_demonstration(id)` afterwards as if it had been
+/// recorded locally.
+pub fn write_demonstration_from_export(
+    demonstration: &super::types::Demonstration,
+) -> Result<(), String> {
+    let target_directory = demonstration_directory_for_id(&demonstration.id)
+        .ok_or_else(|| "no data dir".to_string())?;
+    fs::create_dir_all(&target_directory).map_err(|error| error.to_string())?;
+
+    let summary = super::types::DemonstrationSummary {
+        id: demonstration.id.clone(),
+        title: demonstration.title.clone(),
+        created_at_unix_ms: demonstration.created_at_unix_ms,
+        trace_entry_count: demonstration.trace.len(),
+        has_narration_audio: demonstration.narration_audio_path.is_some(),
+    };
+    write_demonstration_meta(&demonstration.id, &summary)?;
+
+    let mut trace_path = target_directory.clone();
+    trace_path.push("trace.jsonl");
+    // Truncate before appending so re-importing the same flow id
+    // doesn't double the trace.
+    let _ = fs::remove_file(&trace_path);
+    for entry in &demonstration.trace {
+        append_trace_entry(&trace_path, entry)?;
+    }
+    Ok(())
+}
+
+/// List the JPEG screenshot file paths captured during a
+/// demonstration. Returns absolute paths so the webview can convert
+/// them with `convertFileSrc` and render them in an `<img>` grid.
+pub fn list_screenshot_paths_for_demonstration(
+    demonstration_id: &str,
+) -> Result<Vec<String>, String> {
+    let Some(mut directory) = demonstration_directory_for_id(demonstration_id) else {
+        return Ok(Vec::new());
+    };
+    directory.push("screenshots");
+    if !directory.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&directory).map_err(|error| error.to_string())?;
+    let mut paths: Vec<String> = Vec::new();
+    for entry_result in entries {
+        let entry = entry_result.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.extension().map(|ext| ext == "jpg" || ext == "jpeg").unwrap_or(false) {
+            paths.push(path.to_string_lossy().to_string());
+        }
+    }
+    paths.sort();
+    Ok(paths)
+}
+
+/// Recursively delete a demonstration's on-disk directory. Mirrors the
+/// `delete_flow` cleanup path but exposed as its own command so the
+/// Recordings tab can remove a recording that was never indexed as a
+/// flow.
+pub fn delete_demonstration_on_disk(demonstration_id: &str) -> Result<(), String> {
+    let directory = demonstration_directory_for_id(demonstration_id)
+        .ok_or_else(|| "no data dir".to_string())?;
+    if !directory.exists() {
+        return Ok(());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| error.to_string())
+}
+
 pub fn list_passive_trace_files() -> Result<Vec<PathBuf>, String> {
     let Some(directory) = passive_traces_directory() else {
         return Ok(Vec::new());

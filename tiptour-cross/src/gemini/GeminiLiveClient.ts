@@ -10,12 +10,16 @@ import { base64ToPcm16, pcm16ToBase64 } from "./audio";
 const GEMINI_LIVE_WS_URL =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
-// Matches the model used by the Swift TipTour app (May 2026). The old
+// Default model used by the Swift TipTour app (May 2026). The old
 // gemini-2.0-flash-exp endpoint is retired and silently rejects sessions.
-const MODEL = "models/gemini-3.1-flash-live-preview";
+// The Settings dashboard can override this at runtime via the model
+// dropdown — see `loadGeminiSessionConfigFromSettings`.
+const DEFAULT_MODEL_SHORT_ID = "gemini-3.1-flash-live-preview";
 
 // "Kore" is the voice 3.1 Flash Live accepts; older voices like "Aoede"
-// cause the server to close the socket before setupComplete.
+// cause the server to close the socket before setupComplete on older
+// models. We still let the user pick — the model decides whether to
+// honour the choice.
 const DEFAULT_VOICE = "Kore";
 
 const SETUP_COMPLETE_TIMEOUT_MS = 10_000;
@@ -31,6 +35,12 @@ export type GeminiInboundMessage =
 
 export interface GeminiLiveClientOptions {
   apiKey: string;
+  /// Optional voice name from app settings; falls back to "Kore" when
+  /// not supplied so callers that don't read settings keep working.
+  voiceName?: string;
+  /// Optional model short id (e.g. "gemini-3.1-flash-live-preview").
+  /// Falls back to the default.
+  modelShortId?: string;
   onMessage: (message: GeminiInboundMessage) => void;
   onClose: (reason: string) => void;
 }
@@ -148,14 +158,16 @@ export class GeminiLiveClient {
   }
 
   private sendSetup(): void {
+    const resolvedModelShortId = this.options.modelShortId ?? DEFAULT_MODEL_SHORT_ID;
+    const resolvedVoiceName = this.options.voiceName ?? DEFAULT_VOICE;
     const setup = {
       setup: {
-        model: MODEL,
+        model: `models/${resolvedModelShortId}`,
         generationConfig: {
           responseModalities: ["AUDIO"],
           mediaResolution: "MEDIA_RESOLUTION_MEDIUM",
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: DEFAULT_VOICE } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: resolvedVoiceName } },
           },
         },
         systemInstruction: {

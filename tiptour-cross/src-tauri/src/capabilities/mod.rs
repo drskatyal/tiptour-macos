@@ -61,6 +61,30 @@ pub async fn explore_app(app_identifier: String) -> Result<ExploreSummary, Strin
 }
 
 #[tauri::command]
+pub async fn list_capability_index_summaries() -> Result<Vec<persistence::CapabilityIndexSummary>, String> {
+    tauri::async_runtime::spawn_blocking(|| persistence::list_capability_index_summaries())
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_capability_cache(app_identifier: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        persistence::clear_capability_cache_for_app(&app_identifier)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub fn get_destructive_keywords() -> Vec<String> {
+    safety::DESTRUCTIVE_KEYWORDS
+        .iter()
+        .map(|keyword| (*keyword).to_string())
+        .collect()
+}
+
+#[tauri::command]
 pub async fn list_capabilities(app_identifier: String) -> Result<Vec<Capability>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         persistence::load_capabilities(&app_identifier, None)
