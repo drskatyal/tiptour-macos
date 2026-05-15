@@ -1,7 +1,8 @@
 // Tool registry. Loads persisted capabilities, exposes a retrieval API
-// keyed on a free-form voice query (bag-of-words for now — TODO: swap to
-// an embedding-based ranker), and resolves a chosen tool into a concrete
-// ResolvedPlan of executable actions with parameter values bound.
+// keyed on a free-form voice query (bag-of-words ranker — deliberately
+// kept over embeddings until retrieval quality is the bottleneck), and
+// resolves a chosen tool into a concrete ResolvedPlan of executable
+// actions with parameter values bound.
 
 use std::collections::HashMap;
 

@@ -527,15 +527,19 @@ fn deliver(action: ExecutableAction) -> StepResult {
             }
         }
         ExecutableAction::SetSelectedText { text } => {
-            // Replace the highlighted run. On macOS we first restore the
-            // armed AXSelectedTextRange captured at paint-end so the paste
-            // lands inside the originally-highlighted span even if the
-            // user has since clicked elsewhere; only then do we paste. On
-            // Windows we don't have the armed-range capture yet, so the
-            // plain paste path is used.
+            // Replace the highlighted run. On macOS we restore the armed
+            // AXSelectedTextRange captured at paint-end so the paste lands
+            // inside the originally-highlighted span even if the user has
+            // since clicked elsewhere. On Windows the armed range isn't
+            // representable as an integer offset, so we instead use the
+            // captured text content to find-and-select before pasting.
             #[cfg(target_os = "macos")]
             {
                 restore_armed_selection_range_on_macos();
+            }
+            #[cfg(target_os = "windows")]
+            {
+                restore_armed_selection_by_text_on_windows();
             }
             clipboard_paste::paste_text(&text)
         }
@@ -1000,4 +1004,62 @@ fn windows_current_selection_center() -> Option<(f64, f64)> {
     let right = bounding_rect.get_right() as f64;
     let bottom = bounding_rect.get_bottom() as f64;
     Some(((left + right) / 2.0, (top + bottom) / 2.0))
+}
+
+/// Windows equivalent of the macOS armed-range restore. UIA text ranges
+/// aren't integer-addressable, so we use the captured text content from
+/// the highlight to find-and-select the original span before the paste
+/// fires. If the focused element doesn't speak TextPattern or the captured
+/// text can no longer be found, the caller's plain paste runs against
+/// whatever selection (or caret) is currently active.
+#[cfg(target_os = "windows")]
+fn restore_armed_selection_by_text_on_windows() {
+    use uiautomation::patterns::UITextPattern;
+    use uiautomation::UIAutomation;
+
+    let highlight_context = match crate::highlight::current_highlight_context() {
+        Some(highlight_context) => highlight_context,
+        None => return,
+    };
+    let armed_text = match highlight_context.armed_text_content {
+        Some(armed_text) if !armed_text.is_empty() => armed_text,
+        _ => return,
+    };
+
+    let automation = match UIAutomation::new() {
+        Ok(automation) => automation,
+        Err(_) => return,
+    };
+    let focused_element = match automation.get_focused_element() {
+        Ok(focused_element) => focused_element,
+        Err(_) => return,
+    };
+    let text_pattern: UITextPattern = match focused_element.get_pattern::<UITextPattern>() {
+        Ok(pattern) => pattern,
+        Err(_) => return,
+    };
+
+    let document_range = match text_pattern.get_document_range() {
+        Ok(document_range) => document_range,
+        Err(_) => return,
+    };
+
+    // `find_text` walks the document looking for the captured text; the
+    // boolean args are backward + ignore_case. We search forward and case-
+    // sensitively first because the user probably highlighted the exact
+    // run they want replaced; if that misses, retry case-insensitively
+    // so a stray title-case edit doesn't lose the selection.
+    let located_range = document_range
+        .find_text(&armed_text, false, false)
+        .or_else(|_| document_range.find_text(&armed_text, false, true));
+    let located_range = match located_range {
+        Ok(range) => range,
+        Err(_) => return,
+    };
+
+    if let Err(error) = located_range.select() {
+        eprintln!(
+            "workflow_runner: UIA TextRange.select() failed during armed-text restore: {error}; falling back to plain paste"
+        );
+    }
 }

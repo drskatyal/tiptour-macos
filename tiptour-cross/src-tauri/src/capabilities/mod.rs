@@ -104,12 +104,9 @@ pub async fn invoke_capability(
     .map_err(|error| error.to_string())?
 }
 
-// Cross-cutting TODOs:
-// - Embedding-backed retrieval to replace the bag-of-words ranker.
-// - Lazy submenu expansion via UIA ExpandCollapsePattern so the explorer
-//   can reach nested menu items without manual hovering.
-// - Cache invalidation when the target app's version changes (the version
-//   is encoded in the persistence path but not yet checked at load time).
-// - Per-app state preconditions ("annotation tools require an open
-//   document") so the registry can hide unreachable capabilities until the
-//   user satisfies their precondition.
+// Deliberate non-goal: embedding-backed retrieval to replace the bag-of-words
+// ranker. Switching would require shipping an ONNX runtime + model (~100MB)
+// or a network round-trip per query, both of which are a net loss for the
+// instant-feel grounding goal. The bag-of-words ranker is good enough until
+// the user shows the tool registry doesn't surface the right capability for
+// real voice queries.

@@ -74,7 +74,9 @@ pub struct Capability {
     // recipe survives graph compaction.
     pub replay_actions: Vec<Action>,
     // Bag-of-words searchable tags lifted from element names, menu paths
-    // and the canonical name. TODO: replace with embeddings.
+    // and the canonical name. Embeddings would shift the ranker from
+    // O(name-length) to O(model-inference); not justified until retrieval
+    // quality becomes the bottleneck.
     pub keywords: Vec<String>,
     // Per-app state preconditions. Each entry is an opaque token (often a
     // `state_<hash>` reachability tag, but also app-specific predicates

@@ -33,12 +33,23 @@ pub struct HighlightContext {
     // Optional AX text range captured under the highlight centroid at
     // paint-end. The workflow runner restores this range on the focused
     // element before pasting so "rewrite this" lands inside the
-    // originally-highlighted run even if the user has moved focus.
-    // None on Windows today (UIA range capture is still TODO) and on
-    // non-text highlights where AXRangeForPosition returns nothing.
+    // originally-highlighted run even if the user has moved focus away.
+    //
+    // None on non-text highlights where the platform's range query
+    // returns nothing. None on Windows by design: UIA text ranges are
+    // opaque cookies without integer offsets, so we instead capture the
+    // text *content* under the highlight (see `armed_text_content`) and
+    // restore by find-and-select rather than range-replay.
     pub armed_element_role: Option<String>,
     pub armed_text_range_location: Option<i64>,
     pub armed_text_range_length: Option<i64>,
+    // Plain-text snapshot of the word/range under the highlight centroid.
+    // macOS leaves this as None (the integer range above is the canonical
+    // path there). Windows fills it via UIA TextPattern.range_from_point
+    // → expand_to_enclosing_unit(Word) → get_text, and the runner uses it
+    // to find-and-select before pasting on the Windows SetSelectedText
+    // path.
+    pub armed_text_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -228,8 +239,12 @@ fn build_context_from_points(points: &[(f64, f64)]) -> Option<HighlightContext> 
     centroid_x /= points.len() as f64;
     centroid_y /= points.len() as f64;
 
-    let (armed_element_role, armed_text_range_location, armed_text_range_length) =
-        capture_armed_text_range_at_point(centroid_x, centroid_y);
+    let ArmedTextCapture {
+        element_role,
+        range_location,
+        range_length,
+        text_content,
+    } = capture_armed_text_at_point(centroid_x, centroid_y);
 
     Some(HighlightContext {
         bounding_rect: HighlightRect {
@@ -240,14 +255,117 @@ fn build_context_from_points(points: &[(f64, f64)]) -> Option<HighlightContext> 
         },
         points: points.to_vec(),
         anchor_point,
-        armed_element_role,
-        armed_text_range_location,
-        armed_text_range_length,
+        armed_element_role: element_role,
+        armed_text_range_location: range_location,
+        armed_text_range_length: range_length,
+        armed_text_content: text_content,
     })
 }
 
+/// Result of querying the focused element for the armed text under the
+/// painted highlight centroid. macOS fills the integer range fields and
+/// leaves `text_content` None. Windows fills `text_content` and leaves the
+/// range fields None — UIA text ranges are opaque cookies, not addressable
+/// offsets, so the runner restores via find-and-select on Windows.
+pub struct ArmedTextCapture {
+    pub element_role: Option<String>,
+    pub range_location: Option<i64>,
+    pub range_length: Option<i64>,
+    pub text_content: Option<String>,
+}
+
 #[cfg(target_os = "macos")]
-fn capture_armed_text_range_at_point(
+fn capture_armed_text_at_point(sample_x: f64, sample_y: f64) -> ArmedTextCapture {
+    let (element_role, range_location, range_length) =
+        capture_armed_text_range_at_point_macos(sample_x, sample_y);
+    ArmedTextCapture {
+        element_role,
+        range_location,
+        range_length,
+        text_content: None,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn capture_armed_text_at_point(sample_x: f64, sample_y: f64) -> ArmedTextCapture {
+    use uiautomation::patterns::UITextPattern;
+    use uiautomation::types::{Point as UiaPoint, TextUnit};
+    use uiautomation::UIAutomation;
+
+    let automation = match UIAutomation::new() {
+        Ok(automation) => automation,
+        Err(_) => return ArmedTextCapture::empty(),
+    };
+    let focused_element = match automation.get_focused_element() {
+        Ok(element) => element,
+        Err(_) => return ArmedTextCapture::empty(),
+    };
+    let element_role = focused_element
+        .get_localized_control_type()
+        .ok()
+        .filter(|role| !role.is_empty());
+
+    let text_pattern: UITextPattern = match focused_element.get_pattern::<UITextPattern>() {
+        Ok(pattern) => pattern,
+        Err(_) => {
+            return ArmedTextCapture {
+                element_role,
+                range_location: None,
+                range_length: None,
+                text_content: None,
+            };
+        }
+    };
+
+    let sample_point = UiaPoint::new(sample_x as i32, sample_y as i32);
+    let range = match text_pattern.range_from_point(sample_point) {
+        Ok(range) => range,
+        Err(_) => {
+            return ArmedTextCapture {
+                element_role,
+                range_location: None,
+                range_length: None,
+                text_content: None,
+            };
+        }
+    };
+
+    // Expand to the enclosing word so a single-click position becomes a
+    // meaningful, find-and-selectable run of text instead of a zero-length
+    // caret. Truncating with -1 returns the entire word.
+    let _ = range.expand_to_enclosing_unit(TextUnit::Word);
+    let text_content = range
+        .get_text(-1)
+        .ok()
+        .map(|raw| raw.trim().to_string())
+        .filter(|trimmed| !trimmed.is_empty());
+
+    ArmedTextCapture {
+        element_role,
+        range_location: None,
+        range_length: None,
+        text_content,
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn capture_armed_text_at_point(_sample_x: f64, _sample_y: f64) -> ArmedTextCapture {
+    ArmedTextCapture::empty()
+}
+
+impl ArmedTextCapture {
+    fn empty() -> Self {
+        Self {
+            element_role: None,
+            range_location: None,
+            range_length: None,
+            text_content: None,
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn capture_armed_text_range_at_point_macos(
     sample_x: f64,
     sample_y: f64,
 ) -> (Option<String>, Option<i64>, Option<i64>) {
@@ -355,16 +473,6 @@ fn capture_armed_text_range_at_point(
             Some(cf_range.length as i64),
         )
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn capture_armed_text_range_at_point(
-    _sample_x: f64,
-    _sample_y: f64,
-) -> (Option<String>, Option<i64>, Option<i64>) {
-    // Windows/UIA range capture is a follow-up. Returning None keeps the
-    // SetSelectedText path on the plain-paste fallback.
-    (None, None, None)
 }
 
 // ---------------- macOS implementation ----------------

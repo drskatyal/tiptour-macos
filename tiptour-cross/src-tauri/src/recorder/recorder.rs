@@ -2,9 +2,11 @@
 // and privacy gate together. Two modes:
 //   - Passive       : UIA-only trace, no audio, no screenshots; recorded
 //                     into a per-session JSONL under passive_traces/.
-//   - Demonstration : UIA + audio narration (and screenshots at transitions —
-//                     screenshot wiring is a TODO marker for Phase 4); each
-//                     run lives under demonstrations/{id}/.
+//   - Demonstration : UIA + audio narration + JPEG screenshots at each
+//                     visual transition (clicks and key presses, not mouse
+//                     moves). Each run lives under demonstrations/{id}/,
+//                     with screenshots/{timestamp_unix_ms}.jpg alongside
+//                     trace.jsonl and narration.wav.
 //
 // The recorder thread polls the input event receiver and consults the
 // privacy gate on every event. If the gate says "pause", the event is
@@ -36,6 +38,10 @@ pub struct ActiveRecording {
     pub demonstration_id: Option<String>,
     pub demonstration_title: Option<String>,
     pub trace_file_path: PathBuf,
+    // In demonstration mode, screenshots at every transition point land
+    // under {demonstration_directory}/screenshots/{timestamp}.jpg. None in
+    // passive mode — passive recordings never write pixels.
+    pub demonstration_directory: Option<PathBuf>,
     pub audio_recorder: Option<Arc<AudioRecorder>>,
     pub trace_entries_in_memory: Vec<TraceEntry>,
     pub session_started_unix_ms: i64,
@@ -90,6 +96,7 @@ impl Recorder {
             demonstration_id: None,
             demonstration_title: None,
             trace_file_path: trace_file_path.clone(),
+            demonstration_directory: None,
             audio_recorder: None,
             trace_entries_in_memory: Vec::new(),
             session_started_unix_ms,
@@ -152,6 +159,7 @@ impl Recorder {
             demonstration_id: Some(demonstration_id.clone()),
             demonstration_title: Some(title),
             trace_file_path: trace_file_path.clone(),
+            demonstration_directory: Some(demonstration_directory.clone()),
             audio_recorder: Some(audio_recorder),
             trace_entries_in_memory: Vec::new(),
             session_started_unix_ms,
@@ -267,6 +275,35 @@ impl Recorder {
                     None => break,
                 };
                 let _ = append_trace_entry(&active.trace_file_path, &trace_entry);
+
+                // In demonstration mode, every input event is also a
+                // visual transition point — capture a screenshot so the
+                // saved demo can be replayed visually and so Gemini has
+                // pixels to disambiguate ambiguous UIA snapshots. Passive
+                // mode never persists screenshots (privacy gate).
+                if matches!(active.mode, RecordingMode::Demonstration)
+                    && input_event_is_visual_transition(&trace_entry.event)
+                {
+                    let screenshots_directory = active.demonstration_directory
+                        .as_ref()
+                        .map(|directory| directory.join("screenshots"));
+                    let timestamp = trace_entry.timestamp_unix_ms;
+                    if let Some(target_directory) = screenshots_directory {
+                        let _ = std::fs::create_dir_all(&target_directory);
+                        // Fire-and-forget the actual capture so the input
+                        // hook keeps draining its event channel — a slow
+                        // screenshot must not back up the trace.
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(error) =
+                                write_demonstration_screenshot(target_directory, timestamp).await
+                            {
+                                eprintln!(
+                                    "recorder: screenshot capture failed at {timestamp}: {error}"
+                                );
+                            }
+                        });
+                    }
+                }
                 active.trace_entries_in_memory.push(trace_entry);
             }
         });
@@ -285,3 +322,31 @@ pub fn list_passive_trace_files_for_test() -> Result<Vec<PathBuf>, String> {
 // Suppress unused warnings for fields read indirectly.
 #[allow(dead_code)]
 fn _touch_state_snapshot(_snapshot: &StateSnapshot) {}
+
+/// Visual transition points worth capturing a screenshot for in
+/// demonstration mode. Mouse moves and scrolls fire continuously and
+/// would generate hundreds of frames per minute — we don't capture
+/// those. Clicks, key presses, and key releases are sparse and
+/// meaningful, which makes them the right inflection points to remember.
+fn input_event_is_visual_transition(event: &super::types::InputEvent) -> bool {
+    use super::types::InputEvent;
+    matches!(
+        event,
+        InputEvent::KeyDown { .. } | InputEvent::KeyUp { .. } | InputEvent::MouseClick { .. }
+    )
+}
+
+/// Capture one JPEG screenshot of the primary display and write it under
+/// the demonstration directory keyed on `timestamp_unix_ms`. Errors are
+/// swallowed at the call site — a missed frame can't be allowed to back
+/// up the trace pipeline.
+async fn write_demonstration_screenshot(
+    screenshots_directory: PathBuf,
+    timestamp_unix_ms: i64,
+) -> Result<(), String> {
+    let raw_frame = crate::screen::capture::capture_primary_screen().await?;
+    let jpeg_bytes = crate::screen::jpeg::encode_frame_to_jpeg(&raw_frame)?;
+    let mut output_path = screenshots_directory;
+    output_path.push(format!("{timestamp_unix_ms}.jpg"));
+    std::fs::write(&output_path, &jpeg_bytes).map_err(|error| error.to_string())
+}
