@@ -29,6 +29,9 @@ tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "macros", 
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
 strsim = "0.11"
+vosk = { version = "0.3", optional = true }
+ureq = { version = "2", optional = true }
+zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 uiautomation = "0.16"
@@ -48,3 +51,4 @@ screencapturekit = "0.3"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+vosk = ["dep:vosk", "dep:ureq", "dep:zip"]

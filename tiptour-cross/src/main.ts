@@ -382,9 +382,124 @@ recordFlowCancelButton?.addEventListener("click", () => {
   hideFlowNamingRow();
 });
 
+// ----------------------------------------------------------------------
+// Always-on Vosk listener panel section
+// ----------------------------------------------------------------------
+
+type VoskListenerUiState = "disabled" | "downloading" | "ready" | "listening" | "error";
+
+const alwaysOnListeningToggle = document.getElementById(
+  "always-on-listening-toggle",
+) as HTMLInputElement | null;
+const alwaysOnListeningStatusElement = document.getElementById(
+  "always-on-listening-status",
+) as HTMLElement | null;
+const alwaysOnListeningHeardElement = document.getElementById(
+  "always-on-listening-heard",
+) as HTMLElement | null;
+
+function setAlwaysOnListeningUiState(uiState: VoskListenerUiState, statusLabelOverride?: string) {
+  if (!alwaysOnListeningStatusElement) return;
+  alwaysOnListeningStatusElement.dataset.state = uiState;
+  alwaysOnListeningStatusElement.textContent =
+    statusLabelOverride ??
+    (uiState === "disabled"
+      ? "Disabled"
+      : uiState === "downloading"
+        ? "Downloading model"
+        : uiState === "ready"
+          ? "Ready"
+          : uiState === "listening"
+            ? "Listening"
+            : "Error");
+}
+
+async function loadAlwaysOnListenerInitialState() {
+  if (!alwaysOnListeningToggle) return;
+  try {
+    const persistedEnabled = await invoke<boolean>("is_listener_enabled");
+    alwaysOnListeningToggle.checked = persistedEnabled;
+    setAlwaysOnListeningUiState(persistedEnabled ? "listening" : "disabled");
+  } catch (error) {
+    console.warn("[panel] is_listener_enabled failed:", error);
+    setAlwaysOnListeningUiState("disabled");
+  }
+}
+
+alwaysOnListeningToggle?.addEventListener("change", async () => {
+  if (!alwaysOnListeningToggle) return;
+  const userWantsEnabled = alwaysOnListeningToggle.checked;
+  if (!userWantsEnabled) {
+    try {
+      await invoke("set_listener_enabled", { enabled: false });
+      setAlwaysOnListeningUiState("disabled");
+    } catch (error) {
+      showError(
+        "Disable listener failed: " + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+    return;
+  }
+
+  // Enabling for the first time: pull the model first, then flip
+  // the persisted enabled flag (set_listener_enabled also boots the
+  // background mic stream when given true).
+  setAlwaysOnListeningUiState("downloading");
+  try {
+    await invoke("download_vosk_model_if_needed");
+  } catch (error) {
+    setAlwaysOnListeningUiState("error", "Model download failed");
+    alwaysOnListeningToggle.checked = false;
+    showError(
+      "Vosk model download failed: " + (error instanceof Error ? error.message : String(error)),
+    );
+    return;
+  }
+
+  try {
+    await invoke("set_listener_enabled", { enabled: true });
+    setAlwaysOnListeningUiState("listening");
+  } catch (error) {
+    setAlwaysOnListeningUiState("error", "Start failed");
+    alwaysOnListeningToggle.checked = false;
+    showError(
+      "Start listener failed: " + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+});
+
+await listen<string>("vosk_partial_transcript", (event) => {
+  if (!alwaysOnListeningHeardElement) return;
+  const heardText = event.payload?.trim();
+  if (!heardText) {
+    alwaysOnListeningHeardElement.hidden = true;
+    return;
+  }
+  alwaysOnListeningHeardElement.hidden = false;
+  alwaysOnListeningHeardElement.textContent = `heard: "${heardText}"`;
+});
+
+await listen("vosk_wake_detected", () => {
+  console.info("[panel] vosk wake word detected");
+});
+
+await listen("vosk_command_stop", () => {
+  console.info("[panel] vosk stop command");
+  void stopSession();
+});
+
+await listen("vosk_command_pause", () => {
+  // Pause maps to the same teardown today — the multiflow replayer
+  // checks the cancellation flag the next time it polls. A future
+  // revision can introduce a true pause/resume distinction.
+  console.info("[panel] vosk pause command");
+  void stopSession();
+});
+
 await loadStoredApiKey();
 await loadOperatingMode();
 await refreshPermissions();
 await refreshSavedFlowsList();
+await loadAlwaysOnListenerInitialState();
 setStatus("idle");
 console.info("[panel] ready");

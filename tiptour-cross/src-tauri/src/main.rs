@@ -17,6 +17,7 @@ mod permissions;
 mod recorder;
 mod screen;
 mod tray;
+mod vosk_listener;
 
 use tauri::Manager;
 
@@ -28,6 +29,10 @@ fn main() {
             hotkey::install(app.handle())?;
             overlay::ensure_installed(app.handle())?;
             highlight::start_listening(app.handle().clone());
+            // Try to resume the always-on local listener if the user
+            // opted in on a previous launch. No-op when the feature
+            // flag is off or the model isn't on disk.
+            vosk_listener::auto_start_if_user_opted_in(app.handle());
 
             // Panel starts hidden; tray click reveals it.
             if let Some(window) = app.get_webview_window("panel") {
@@ -82,6 +87,11 @@ fn main() {
             multiflow::run_flow_by_name,
             multiflow::find_flow_by_voice_query,
             multiflow::set_flow_trigger_aliases,
+            vosk_listener::is_listener_enabled,
+            vosk_listener::set_listener_enabled,
+            vosk_listener::start_listener,
+            vosk_listener::stop_listener,
+            vosk_listener::download_vosk_model_if_needed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

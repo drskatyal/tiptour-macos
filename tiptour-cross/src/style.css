@@ -356,6 +356,56 @@ body {
   font-style: italic;
 }
 
+.always-on-listening {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #c8c8cf;
+}
+.always-on-listening-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.always-on-listening-title {
+  font-weight: 600;
+}
+.always-on-listening-status {
+  font-size: 11px;
+  color: #8a8a92;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.always-on-listening-status[data-state="ready"],
+.always-on-listening-status[data-state="listening"] {
+  color: #7fd17f;
+}
+.always-on-listening-status[data-state="downloading"] {
+  color: #d6c071;
+}
+.always-on-listening-status[data-state="error"] {
+  color: #d97a7a;
+}
+.always-on-listening-toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+.always-on-listening-privacy-note {
+  font-size: 10px;
+  color: #6e6e74;
+  font-style: italic;
+}
+.always-on-listening-heard {
+  font-size: 11px;
+  color: #8e8e95;
+  font-style: italic;
+}
+
 .transcript {
   min-height: 40px;
   max-height: 140px;
