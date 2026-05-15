@@ -44,7 +44,7 @@ export async function renderRecordingsTab(paneElement: HTMLElement): Promise<voi
     if (demonstrations.length === 0) {
       const emptyRow = document.createElement("li");
       emptyRow.className = "list-row disabled empty-state";
-      emptyRow.textContent = "No demonstrations recorded yet. Record a flow from the panel to save it here.";
+      emptyRow.textContent = "No recordings yet. Record a flow from the panel to see it here.";
       recordingsListElement.appendChild(emptyRow);
       return;
     }

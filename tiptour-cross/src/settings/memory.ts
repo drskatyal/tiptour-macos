@@ -76,7 +76,8 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
     if (records.length === 0) {
       tableWrapElement.innerHTML = `
         <div class="empty-state" style="padding:24px;text-align:center;opacity:0.7">
-          No memories yet. The agent will fill this in as you talk, or you can add one manually.
+          No memories yet. The agent will store useful facts here as you use it.
+          Try asking it to remember something specific.
         </div>
       `;
       return;

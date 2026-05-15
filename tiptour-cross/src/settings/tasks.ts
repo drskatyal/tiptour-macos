@@ -124,6 +124,20 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
       return true;
     });
 
+    // Whole-board empty state — surface the nudge above the empty
+    // kanban so a brand-new user knows the agent can create tasks for
+    // them. Filter-driven empties keep the columns visible (the user
+    // is searching, not bare).
+    if (cachedTasks.length === 0) {
+      kanbanGridElement.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1;padding:32px;text-align:center;opacity:0.7;font-size:12px">
+          No tasks yet. Create one from the panel or ask the agent:
+          "remind me to ship the demo this week".
+        </div>
+      `;
+      return;
+    }
+
     kanbanGridElement.innerHTML = COLUMN_DEFINITIONS.map(
       (column) => `
         <div class="kanban-column" data-status="${column.status}"

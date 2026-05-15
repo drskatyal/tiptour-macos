@@ -1,0 +1,195 @@
+/*
+ * First-run onboarding wizard. A vertical card-shaped overlay rendered
+ * on top of the panel content while `data-onboarding-active="true"` is
+ * set on <body>. Hidden by default; main.ts toggles it when
+ * `is_first_run` returns true (or when "Show onboarding again" fires).
+ */
+
+.onboarding-wizard {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-glass-strong);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-5) var(--space-5) var(--space-5);
+  z-index: 50;
+  overflow-y: auto;
+}
+
+body[data-onboarding-active="true"] > .panel {
+  /* Hide normal panel chrome behind the wizard so a slow render of the
+     wizard card can't leak the unfinished panel through. */
+  visibility: hidden;
+}
+body[data-onboarding-active="true"] > .onboarding-wizard {
+  visibility: visible;
+}
+
+.onboarding-step-counter {
+  font-size: var(--type-11-size);
+  letter-spacing: var(--type-11-track);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.onboarding-step-title {
+  font-size: var(--type-22-size);
+  line-height: var(--type-22-line);
+  letter-spacing: var(--type-22-track);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+  font-weight: 600;
+}
+
+.onboarding-step-subtitle {
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.onboarding-feature-list {
+  list-style: none;
+  margin: 0 0 var(--space-5) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.onboarding-feature-list li {
+  position: relative;
+  padding-left: var(--space-4);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+}
+
+.onboarding-feature-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-500);
+}
+
+.onboarding-key-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.onboarding-key-field input {
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.onboarding-key-field input:focus {
+  outline: none;
+  background: var(--surface-input-focus);
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.onboarding-link {
+  font-size: var(--type-12-size);
+  color: var(--accent-400);
+  text-decoration: none;
+}
+
+.onboarding-link:hover {
+  text-decoration: underline;
+}
+
+.onboarding-permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  margin-bottom: var(--space-2);
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+}
+
+.onboarding-permission-row[data-granted="true"] {
+  opacity: 0.55;
+}
+
+.onboarding-permission-row .granted-check {
+  color: var(--warm-500);
+  font-weight: 600;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-4);
+  gap: var(--space-2);
+}
+
+.onboarding-actions button.primary {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  border: none;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-easing);
+}
+
+.onboarding-actions button.primary:hover {
+  background: var(--accent-400);
+}
+
+.onboarding-actions button.primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.onboarding-actions button.secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+.onboarding-actions button.secondary:hover {
+  color: var(--text-primary);
+}
+
+.onboarding-all-set {
+  font-size: var(--type-13-size);
+  color: var(--warm-500);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-3) 0;
+}
+
+.onboarding-restart-banner {
+  background: rgba(245, 196, 81, 0.12);
+  border: 1px solid rgba(245, 196, 81, 0.3);
+  color: var(--warning-500);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-11-size);
+  margin-bottom: var(--space-3);
+}

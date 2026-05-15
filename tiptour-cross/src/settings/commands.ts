@@ -195,7 +195,7 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
     if (commandList.length === 0) {
       const emptyHint = document.createElement("p");
       emptyHint.className = "lede";
-      emptyHint.textContent = "No custom commands yet. Add one to bind a phrase to a shortcut.";
+      emptyHint.textContent = "No custom commands yet. Add one to bind a phrase to a keyboard shortcut or system command.";
       customEditorsContainer.appendChild(emptyHint);
       return;
     }
