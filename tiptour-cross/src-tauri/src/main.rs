@@ -19,6 +19,7 @@ mod indicators_window;
 mod keychain;
 mod mode;
 mod multiflow;
+mod onboarding;
 mod overlay;
 #[cfg(target_os = "macos")]
 mod permissions_macos;
@@ -181,6 +182,9 @@ fn main() {
             tasks::count_tasks_in_progress,
             tasks::dispatch_task_to_subagent,
             tool_dispatch::dispatch_tool_call,
+            onboarding::is_first_run,
+            onboarding::mark_first_run_complete,
+            onboarding::reset_first_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

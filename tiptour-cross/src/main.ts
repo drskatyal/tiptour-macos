@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { GeminiLiveSession, SessionStatus } from "./gemini/GeminiLiveSession";
+import { showOnboardingIfNeeded } from "./onboarding";
 
 const statusDot = document.querySelector<HTMLElement>(".dot")!;
 const statusLabel = document.getElementById("status-label")!;
@@ -156,6 +157,17 @@ function setStatus(status: SessionStatus) {
   const isActive = status === "listening" || status === "speaking";
   startButton.hidden = isActive;
   stopButton.hidden = !isActive;
+
+  // Mirror the panel status into the indicator/tray channel so the
+  // Rust side can swap the menu bar icon to its "active" variant
+  // whenever a Gemini session is live. We send the canonical lowercase
+  // status string and let the Rust handler decide whether to swap.
+  void invoke("emit_indicator_from_frontend", {
+    kind: "sessionStatus",
+    title: status,
+    subtitle: "",
+    sourceId: null,
+  }).catch(() => undefined);
 }
 
 function showError(message: string) {
@@ -185,6 +197,15 @@ function appendTranscript(role: "user" | "model", text: string) {
   transcriptEl.scrollTop = transcriptEl.scrollHeight;
 }
 
+// "Need a key?" inline help row — visible while the field is empty and
+// the user hasn't saved a key yet, hidden once the keychain has one.
+const apiKeyHelpRow = document.getElementById("api-key-help-row") as HTMLDivElement | null;
+function refreshApiKeyHelpRowVisibility(): void {
+  if (!apiKeyHelpRow) return;
+  apiKeyHelpRow.hidden = apiKeyInput.value.trim().length > 0;
+}
+apiKeyInput.addEventListener("input", refreshApiKeyHelpRowVisibility);
+
 async function loadStoredApiKey() {
   try {
     const key = await invoke<string | null>("get_api_key");
@@ -192,6 +213,7 @@ async function loadStoredApiKey() {
   } catch (error) {
     console.warn("[panel] no stored key:", error);
   }
+  refreshApiKeyHelpRowVisibility();
 }
 
 apiKeySaveButton.addEventListener("click", async () => {
@@ -205,10 +227,35 @@ apiKeySaveButton.addEventListener("click", async () => {
     clearError();
     apiKeySaveButton.textContent = "Saved";
     setTimeout(() => (apiKeySaveButton.textContent = "Save"), 1200);
+    refreshApiKeyHelpRowVisibility();
+    showSavedToast("Key saved");
   } catch (error) {
     showError("Failed to save key: " + (error instanceof Error ? error.message : String(error)));
   }
 });
+
+// Lightweight "Saved" toast. Auto-dismisses after 1.5s. Lives in a
+// fixed overlay so it doesn't reflow the panel layout. We dedupe rapid
+// successive calls by reusing the same toast element rather than
+// stacking — a user mashing save shouldn't get a vertical pile.
+let savedToastElement: HTMLDivElement | null = null;
+let savedToastDismissTimer: number | null = null;
+function showSavedToast(message: string): void {
+  if (!savedToastElement) {
+    savedToastElement = document.createElement("div");
+    savedToastElement.className = "saved-toast";
+    document.body.appendChild(savedToastElement);
+  }
+  savedToastElement.textContent = message;
+  savedToastElement.dataset.visible = "true";
+  if (savedToastDismissTimer !== null) {
+    window.clearTimeout(savedToastDismissTimer);
+  }
+  savedToastDismissTimer = window.setTimeout(() => {
+    if (savedToastElement) savedToastElement.dataset.visible = "false";
+    savedToastDismissTimer = null;
+  }, 1500);
+}
 
 interface PanelAppSettings {
   schemaVersion: number;
@@ -801,13 +848,29 @@ await listen<string>("subagent_cancel_request", (event) => {
   // No active socket to close in the stub runner.
 });
 
-await loadStoredApiKey();
-await loadOperatingMode();
-await refreshPermissions();
-await refreshSavedFlowsList();
-await loadRecordingOptInInitialState();
-await loadAlwaysOnListenerInitialState();
-await refreshTasksInProgressLine();
-setInterval(() => void refreshTasksInProgressLine(), 8000);
-setStatus("idle");
-console.info("[panel] ready");
+async function bootNormalPanelState(): Promise<void> {
+  await loadStoredApiKey();
+  await loadOperatingMode();
+  await refreshPermissions();
+  await refreshSavedFlowsList();
+  await loadRecordingOptInInitialState();
+  await loadAlwaysOnListenerInitialState();
+  await refreshTasksInProgressLine();
+  setInterval(() => void refreshTasksInProgressLine(), 8000);
+  setStatus("idle");
+  console.info("[panel] ready");
+}
+
+// Run the first-launch wizard in front of the normal panel when the
+// user has no key + no completion flag. The wizard owns the panel
+// surface until the user clicks Done; on completion we boot the normal
+// panel state so the freshly-saved key + permissions show up live.
+const wizardTookOver = await showOnboardingIfNeeded({
+  onComplete: async () => {
+    await bootNormalPanelState();
+  },
+});
+if (!wizardTookOver) {
+  await bootNormalPanelState();
+}
+

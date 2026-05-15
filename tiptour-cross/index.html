@@ -6,8 +6,14 @@
     <title>TipTour</title>
     <link rel="stylesheet" href="/src/tokens.css" />
     <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/onboarding.css" />
   </head>
   <body>
+    <!-- First-run onboarding wizard. Empty by default; populated by
+         src/onboarding.ts when no Gemini key + no completion flag are
+         present. main.ts blocks normal panel boot while this is
+         active. -->
+    <div id="onboarding-wizard" class="onboarding-wizard" hidden></div>
     <main class="panel">
       <header class="panel-header">
         <span class="dot" data-status="idle"></span>
@@ -24,6 +30,18 @@
         <label for="api-key-input">Gemini API key</label>
         <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" />
         <button id="api-key-save">Save</button>
+        <!-- Inline help row: visible while the field is empty AND the
+             user hasn't saved a key yet. Hidden once a key is loaded
+             from the keychain (so returning users don't see it). -->
+        <div id="api-key-help-row" class="api-key-help-row" hidden>
+          Need a Gemini key?
+          <a
+            class="api-key-help-link"
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noreferrer noopener"
+          >Get one free →</a>
+        </div>
       </section>
 
       <section class="permissions" id="permissions-section" hidden>

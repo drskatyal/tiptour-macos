@@ -691,3 +691,44 @@ body {
 .panel ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
 }
+
+/* ----- Inline API-key help row ----- */
+.api-key-help-row {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+.api-key-help-link {
+  color: var(--accent-400);
+  text-decoration: none;
+  margin-left: var(--space-1);
+}
+.api-key-help-link:hover {
+  text-decoration: underline;
+}
+
+/* ----- "Saved" toast for settings persistence feedback ----- */
+.saved-toast {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(74, 222, 128, 0.16);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: var(--warm-500);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-11-size);
+  letter-spacing: var(--type-11-track);
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+  z-index: 100;
+}
+.saved-toast[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

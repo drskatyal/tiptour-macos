@@ -31,6 +31,7 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
     <h3>Actions</h3>
     <div class="button-stack">
       <button id="about-open-data-folder">Open data folder</button>
+      <button id="about-show-onboarding-again">Show onboarding again</button>
       <button id="about-reset-settings" class="danger">Reset all settings</button>
       <button id="about-quit" class="danger">Quit TipTour</button>
     </div>
@@ -42,6 +43,9 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
   )!;
   const resetSettingsButton = paneElement.querySelector<HTMLButtonElement>(
     "#about-reset-settings",
+  )!;
+  const showOnboardingAgainButton = paneElement.querySelector<HTMLButtonElement>(
+    "#about-show-onboarding-again",
   )!;
   const quitButton = paneElement.querySelector<HTMLButtonElement>("#about-quit")!;
   const statusBannerElement = paneElement.querySelector<HTMLDivElement>(
@@ -77,6 +81,20 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
       flashBanner("Settings reset. Restart TipTour for a fully clean state.");
     } catch (resetError) {
       flashBanner(`Reset failed: ${errorMessageOf(resetError)}`);
+    }
+  });
+
+  showOnboardingAgainButton.addEventListener("click", async () => {
+    // Reset the persisted completion flag and tell the user to open
+    // the panel — the next time the panel webview boots it will see
+    // the unset flag and rerun the wizard. We can't reload the panel
+    // webview from inside the settings webview, so we surface a
+    // banner instead and let the user trigger the panel manually.
+    try {
+      await invoke("reset_first_run");
+      flashBanner("Onboarding will reappear the next time you open the panel.");
+    } catch (resetError) {
+      flashBanner(`Could not reset onboarding: ${errorMessageOf(resetError)}`);
     }
   });
 
