@@ -201,13 +201,20 @@ fn window_under_mouse_target_app() -> Option<TargetApp> {
             CFArray::wrap_under_create_rule(window_info_array_ref as *const _);
 
         for window_dictionary in window_info_array.iter() {
-            // Skip TipTour's own windows so we never target ourselves.
+            // The CGWindowList dictionaries are typed as `CFDictionary<*const c_void, *const c_void>`
+            // because they're untyped at the CG level. core-foundation 0.10's `.find()` wants
+            // the key to impl `ToVoid<K>` where K = `*const c_void`. `&CFString` doesn't impl
+            // that combination directly (and tao/cocoa pull in core-foundation 0.9 transitively,
+            // multiplying the trait-version confusion). We sidestep both problems by calling
+            // the raw CFDictionaryGetValue with a cast `CFStringRef` — same wire-level call,
+            // no trait gymnastics, identical lifetime semantics.
             let owner_pid_key = CFString::new("kCGWindowOwnerPID");
             let bounds_key = CFString::new("kCGWindowBounds");
             let layer_key = CFString::new("kCGWindowLayer");
 
-            let owner_pid_value: CFNumber = match window_dictionary.find(&owner_pid_key) {
-                Some(value_ref) => CFNumber::wrap_under_get_rule(*value_ref as _),
+            let owner_pid_raw = cf_dict_get_value_raw(&window_dictionary, &owner_pid_key);
+            let owner_pid_value: CFNumber = match owner_pid_raw {
+                Some(value_ref) => CFNumber::wrap_under_get_rule(value_ref as _),
                 None => continue,
             };
             let process_id: i32 = match owner_pid_value.to_i32() {
@@ -221,16 +228,16 @@ fn window_under_mouse_target_app() -> Option<TargetApp> {
             // Only consider normal-layer (layer == 0) windows; menu bars,
             // docks and overlays sit at non-zero layers and would otherwise
             // swallow the hit-test result.
-            if let Some(layer_value_ref) = window_dictionary.find(&layer_key) {
+            if let Some(layer_value_ref) = cf_dict_get_value_raw(&window_dictionary, &layer_key) {
                 let layer_value: CFNumber =
-                    CFNumber::wrap_under_get_rule(*layer_value_ref as _);
+                    CFNumber::wrap_under_get_rule(layer_value_ref as _);
                 if layer_value.to_i32().unwrap_or(1) != 0 {
                     continue;
                 }
             }
 
-            let bounds_dictionary_ref = match window_dictionary.find(&bounds_key) {
-                Some(value_ref) => *value_ref,
+            let bounds_dictionary_ref = match cf_dict_get_value_raw(&window_dictionary, &bounds_key) {
+                Some(value_ref) => value_ref,
                 None => continue,
             };
             let bounds_dictionary: CFDictionary =
@@ -258,6 +265,27 @@ fn window_under_mouse_target_app() -> Option<TargetApp> {
 }
 
 #[cfg(target_os = "macos")]
+fn cf_dict_get_value_raw(
+    dictionary: &core_foundation::dictionary::CFDictionary,
+    key: &core_foundation::string::CFString,
+) -> Option<core_foundation::base::CFTypeRef> {
+    use core_foundation::base::TCFType;
+    use core_foundation_sys::dictionary::CFDictionaryGetValue;
+
+    unsafe {
+        let value = CFDictionaryGetValue(
+            dictionary.as_concrete_TypeRef(),
+            key.as_concrete_TypeRef() as *const std::ffi::c_void,
+        );
+        if value.is_null() {
+            None
+        } else {
+            Some(value as core_foundation::base::CFTypeRef)
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn number_from_dictionary(
     dictionary: &core_foundation::dictionary::CFDictionary,
     key_name: &str,
@@ -267,9 +295,9 @@ fn number_from_dictionary(
     use core_foundation::string::CFString;
 
     let key = CFString::new(key_name);
-    let value_ref = dictionary.find(&key)?;
+    let value_ref = cf_dict_get_value_raw(dictionary, &key)?;
     unsafe {
-        let number: CFNumber = CFNumber::wrap_under_get_rule(*value_ref as _);
+        let number: CFNumber = CFNumber::wrap_under_get_rule(value_ref as _);
         number.to_f64().or_else(|| number.to_i64().map(|integer| integer as f64))
     }
 }

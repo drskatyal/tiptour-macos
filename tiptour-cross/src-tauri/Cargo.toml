@@ -62,11 +62,14 @@ objc2-foundation = "0.2"
 objc2-app-kit = "0.2"
 core-foundation = "0.10"
 core-foundation-sys = "0.8"
-# 0.25 specifically because 0.24 transitively pulls in core-foundation 0.9,
-# which clashes with our direct 0.10 dep. `&CFString` from 0.10 then can't
-# be passed to a `CFDictionary` from 0.9 (different `ToVoid` trait). 0.25
-# uses core-foundation 0.10 and the version conflict disappears.
-core-graphics = "0.25"
+# core-graphics 0.24 is the last release before CGEventTap/mach_port were
+# made private + CGEventTap's callback return type was changed and the
+# kCGWindowList constants were re-namespaced. 0.25 fixes none of our
+# transitive core-foundation 0.9-vs-0.10 conflict (tao/cocoa still pull
+# 0.9 regardless). We handle that conflict directly in target_app.rs via
+# raw CFDictionaryGetValue calls instead, and keep 0.24 here for its
+# stable public surface.
+core-graphics = "0.24"
 # screencapturekit was used for macOS screen capture; we now use the
 # simpler CGDisplay::image() path in src/screen/capture.rs which avoids
 # the fragile SCK Rust binding API churn. Re-introduce SCK when the
