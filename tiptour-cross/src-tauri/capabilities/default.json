@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capabilities granted to the panel window.",
-  "windows": ["panel"],
+  "windows": ["panel", "overlay"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
