@@ -76,7 +76,37 @@ body.overlay-body {
 .response-text {
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  /* Re-enable pointer events so the user can scroll long replies; the
+     bubble itself stays click-through everywhere outside the scroller. */
+  pointer-events: auto;
 }
+
+.response-text p { margin: 0 0 6px 0; }
+.response-text p:last-child { margin-bottom: 0; }
+.response-text ul, .response-text ol { margin: 4px 0 6px 0; padding-left: 20px; }
+.response-text li { margin: 2px 0; }
+.response-text strong { font-weight: 600; }
+.response-text em { font-style: italic; }
+.response-text code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.response-text pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 4px 0;
+}
+.response-text pre code { background: transparent; padding: 0; }
+.response-text a { color: var(--accent-400); }
 
 .waveform {
   display: flex;

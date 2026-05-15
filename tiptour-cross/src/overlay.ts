@@ -8,6 +8,13 @@
 // spanning the full virtual desktop.
 
 import { listen } from "@tauri-apps/api/event";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+// Streaming markdown render: parse the accumulated transcript on every
+// chunk and run the result through DOMPurify before assigning to
+// innerHTML so model output can't sneak in script tags.
+marked.setOptions({ gfm: true, breaks: true });
 
 const cursor = document.getElementById("cursor-svg") as SVGElement | null;
 const responseBubble = document.getElementById("response-bubble") as HTMLElement | null;
@@ -88,7 +95,11 @@ await listen<ResponseBubbleEvent>("overlay/response_show", (event) => {
   } else {
     accumulatedText = event.payload.text;
   }
-  responseText.textContent = accumulatedText;
+  // Render streaming markdown live. `marked.parse` is synchronous in
+  // its default config; we cast away the union return type. DOMPurify
+  // strips any script/iframe/event-handler vector before innerHTML.
+  const renderedHtml = marked.parse(accumulatedText) as string;
+  responseText.innerHTML = DOMPurify.sanitize(renderedHtml);
   if (event.payload.anchorX !== undefined && event.payload.anchorY !== undefined) {
     lastCursorX = event.payload.anchorX;
     lastCursorY = event.payload.anchorY;
