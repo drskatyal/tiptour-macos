@@ -90,4 +90,8 @@ pub struct WorkflowPattern {
     pub suggested_name: String,
     pub representative_event_kinds: Vec<String>,
     pub k_gram_length: usize,
+    // 1.0 = exact-match k-gram (legacy `mine_patterns_exact`). Lower
+    // values reflect the fuzzy miner's centroid similarity across the
+    // group, computed as `1.0 - mean_normalized_levenshtein_distance`.
+    pub similarity_score: f32,
 }

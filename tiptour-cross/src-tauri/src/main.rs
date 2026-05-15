@@ -5,6 +5,7 @@ mod audio;
 mod capabilities;
 mod executor;
 mod grounding;
+mod highlight;
 mod hotkey;
 mod keychain;
 mod mode;
@@ -25,6 +26,7 @@ fn main() {
             tray::install(app.handle())?;
             hotkey::install(app.handle())?;
             overlay::ensure_installed(app.handle())?;
+            highlight::start_listening(app.handle().clone());
 
             // Panel starts hidden; tray click reveals it.
             if let Some(window) = app.get_webview_window("panel") {
@@ -42,6 +44,7 @@ fn main() {
             grounding::resolve_label,
             grounding::resolve_label_with_hint,
             grounding::get_shortcut_index,
+            highlight::get_current_highlight_context,
             capabilities::explore_app,
             capabilities::list_capabilities,
             capabilities::retrieve_tools,

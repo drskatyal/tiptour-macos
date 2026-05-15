@@ -98,3 +98,30 @@ body.overlay-body {
     height: 14px;
   }
 }
+
+/* Freeform highlight stroke painted while the user holds Ctrl+Shift.
+   Soft yellow rounded line mirroring the Swift overlay's brush. The SVG
+   spans the full virtual desktop so we can paint at raw global pixel
+   coordinates without translating per-monitor. */
+.highlight-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 350ms ease;
+}
+
+.highlight-svg.fading-out {
+  opacity: 0;
+}
+
+.highlight-svg path {
+  fill: none;
+  stroke: rgba(255, 220, 90, 0.4);
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

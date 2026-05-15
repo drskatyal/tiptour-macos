@@ -104,4 +104,59 @@ await listen<{ speaking: boolean }>("overlay/waveform", (event) => {
   setWaveformVisible(event.payload.speaking);
 });
 
+// ---------------- Focus highlight brush rendering ----------------
+
+const highlightSvg = document.getElementById("highlight-svg") as SVGElement | null;
+const highlightPath = document.getElementById("highlight-path") as SVGPathElement | null;
+
+interface HighlightPointEvent {
+  x: number;
+  y: number;
+  isFirstPoint: boolean;
+}
+
+// SVG path "d" attribute is built incrementally as points stream in so we
+// don't re-serialize a growing array on every move event.
+let highlightPathSegments = "";
+let highlightFadeOutTimeoutId: number | null = null;
+
+function appendHighlightPoint(payload: HighlightPointEvent) {
+  if (!highlightPath || !highlightSvg) return;
+  if (highlightFadeOutTimeoutId !== null) {
+    window.clearTimeout(highlightFadeOutTimeoutId);
+    highlightFadeOutTimeoutId = null;
+  }
+  highlightSvg.classList.remove("fading-out");
+  if (payload.isFirstPoint) {
+    highlightPathSegments = `M ${payload.x} ${payload.y}`;
+  } else {
+    highlightPathSegments += ` L ${payload.x} ${payload.y}`;
+  }
+  highlightPath.setAttribute("d", highlightPathSegments);
+}
+
+function scheduleHighlightFadeOut() {
+  if (!highlightSvg || !highlightPath) return;
+  // Brief hold after the user releases Ctrl+Shift so they get a beat to
+  // see what they painted before it disappears (matches the Swift app).
+  const FADE_OUT_HOLD_MS = 300;
+  highlightFadeOutTimeoutId = window.setTimeout(() => {
+    highlightSvg.classList.add("fading-out");
+    // After the CSS transition completes, wipe the path so the next paint
+    // starts from a blank canvas.
+    window.setTimeout(() => {
+      highlightPathSegments = "";
+      if (highlightPath) highlightPath.setAttribute("d", "");
+    }, 400);
+  }, FADE_OUT_HOLD_MS);
+}
+
+await listen<HighlightPointEvent>("highlight_point", (event) => {
+  appendHighlightPoint(event.payload);
+});
+
+await listen("highlight_painted", () => {
+  scheduleHighlightFadeOut();
+});
+
 console.info("[overlay] ready");
