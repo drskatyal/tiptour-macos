@@ -23,6 +23,9 @@ pub mod app_settings;
 #[path = "src/personas/mod.rs"]
 pub mod personas;
 
+#[path = "src/cost_meter.rs"]
+pub mod cost_meter;
+
 #[path = "src/mode.rs"]
 pub mod mode;
 

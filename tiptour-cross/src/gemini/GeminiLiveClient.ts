@@ -444,6 +444,28 @@ export class GeminiLiveClient {
       return;
     }
 
+    // Gemini Live emits a `usageMetadata` block whenever the server
+    // tallies token consumption for a turn. Forward to the Rust cost
+    // meter so the panel footer + history file stay in sync without
+    // routing through the model's tool surface.
+    if (parsed.usageMetadata) {
+      const usage = parsed.usageMetadata;
+      const inputTokens = Number(
+        usage.promptTokenCount ?? usage.inputTokenCount ?? 0,
+      );
+      const outputTokens = Number(
+        usage.responseTokenCount ?? usage.outputTokenCount ?? usage.candidatesTokenCount ?? 0,
+      );
+      if (inputTokens > 0 || outputTokens > 0) {
+        void invoke("record_usage", {
+          inputTokens,
+          outputTokens,
+        }).catch((recordError) =>
+          console.warn("[gemini] record_usage failed:", recordError),
+        );
+      }
+    }
+
     if (parsed.toolCall?.functionCalls) {
       for (const fc of parsed.toolCall.functionCalls) {
         this.options.onMessage({

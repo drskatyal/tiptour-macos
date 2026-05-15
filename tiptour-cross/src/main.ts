@@ -793,6 +793,51 @@ async function refreshTasksInProgressLine(): Promise<void> {
   }
 }
 
+// Cost meter footer — polls every 6s while a session is open and once
+// on boot. Cheap (two in-memory + one file read on the Rust side).
+const costMeterLineElement = document.getElementById(
+  "cost-meter-line",
+) as HTMLDivElement | null;
+const costMeterTextElement = document.getElementById(
+  "cost-meter-text",
+) as HTMLSpanElement | null;
+
+interface CostSnapshot {
+  inputTokens: number;
+  outputTokens: number;
+  usdCost: number;
+}
+
+function formatUsd(usd: number): string {
+  // Three decimals when under a penny so a single tool call doesn't
+  // render as "$0.00" and feel broken.
+  if (usd < 0.01) return `$${usd.toFixed(3)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
+async function refreshCostMeterLine(): Promise<void> {
+  if (!costMeterLineElement || !costMeterTextElement) return;
+  try {
+    const [sessionCost, todayCost] = await Promise.all([
+      invoke<CostSnapshot>("get_session_cost"),
+      invoke<CostSnapshot>("get_today_cost"),
+    ]);
+    if (sessionCost.usdCost <= 0 && todayCost.usdCost <= 0) {
+      costMeterLineElement.hidden = true;
+      return;
+    }
+    costMeterLineElement.hidden = false;
+    costMeterTextElement.textContent = `${formatUsd(
+      sessionCost.usdCost,
+    )} this session · ${formatUsd(todayCost.usdCost)} today`;
+  } catch (costError) {
+    console.warn("[panel] cost meter refresh failed:", costError);
+  }
+}
+
+void refreshCostMeterLine();
+setInterval(() => void refreshCostMeterLine(), 6000);
+
 tasksInProgressLineElement?.addEventListener("click", async () => {
   try {
     await invoke("open_settings_window");

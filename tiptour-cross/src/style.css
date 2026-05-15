@@ -732,3 +732,13 @@ body {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+.cost-meter-line {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--surface-divider);
+  display: flex;
+  justify-content: flex-end;
+}

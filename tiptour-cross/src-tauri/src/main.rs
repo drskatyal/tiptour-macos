@@ -7,6 +7,7 @@ mod app_metadata;
 mod app_settings;
 mod audio;
 mod capabilities;
+mod cost_meter;
 mod custom_commands;
 mod executor;
 mod gemini_live_client;
@@ -192,6 +193,10 @@ fn main() {
             personas::upsert_custom_persona,
             personas::delete_persona,
             personas::match_persona_by_voice,
+            cost_meter::record_usage,
+            cost_meter::get_session_cost,
+            cost_meter::get_today_cost,
+            cost_meter::get_cost_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");
