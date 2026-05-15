@@ -1,27 +1,26 @@
-:root {
-  color-scheme: dark;
-  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-  font-size: 13px;
-  --bg-base: #161618;
-  --bg-elevated: rgba(255, 255, 255, 0.04);
-  --bg-input: rgba(255, 255, 255, 0.06);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(120, 160, 255, 0.6);
-  --text-primary: #e6e6e8;
-  --text-muted: #9a9aa0;
-  --text-faint: #6b6b70;
-  --accent: #60a5fa;
-  --accent-warm: #4ade80;
-  --danger: #f87171;
-}
+/*
+ * Settings dashboard — 720x620 decorated window. On macOS the title
+ * bar is overlay-style (traffic lights float over the content), so
+ * the left rail and pane both reserve top padding equal to the
+ * traffic-light strip height to keep content from sliding under them.
+ */
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg-base);
+  background:
+    radial-gradient(
+      120% 100% at 50% -10%,
+      rgba(85, 96, 226, 0.10),
+      rgba(0, 0, 0, 0) 60%
+    ),
+    #161618;
   color: var(--text-primary);
   height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
 }
 
 .settings-body {
@@ -30,28 +29,37 @@ body {
 
 .settings-shell {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 196px 1fr;
   width: 100%;
   height: 100vh;
 }
 
+/*
+ * Left rail. On macOS the rail's top padding reserves 36px for the
+ * traffic-light strip; the WebKit -webkit-app-region: drag on the
+ * top area makes the OS treat that zone as a real titlebar drag
+ * region so the window remains movable. (Buttons re-enable nodrag.)
+ */
 .settings-nav {
-  background: rgba(0, 0, 0, 0.25);
-  border-right: 1px solid var(--border-subtle);
-  padding: 18px 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border-right: 1px solid var(--surface-divider);
+  padding: 44px var(--space-3) var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
+  -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .settings-app-title {
-  font-size: 14px;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
   margin: 0;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-  color: var(--text-muted);
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  padding-left: 8px;
+  padding-left: var(--space-2);
 }
 
 .settings-tabs {
@@ -61,135 +69,238 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .settings-tab {
   width: 100%;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-primary);
   text-align: left;
-  padding: 7px 10px;
-  border-radius: 6px;
+  padding: 7px var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing);
 }
 .settings-tab:hover {
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
+}
+.settings-tab:active {
+  background: var(--surface-raised-hover);
+}
+.settings-tab:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
 }
 .settings-tab[data-active="true"] {
-  background: rgba(96, 165, 250, 0.16);
-  color: #d6e6ff;
+  background: rgba(85, 96, 226, 0.20);
+  color: #e0e7ff;
+  font-weight: 500;
 }
 
+/*
+ * Pane. Padding-top includes the 28px traffic-light strip plus a real
+ * 24px gutter so the first heading sits visually centered against the
+ * macOS window control row. The pane fades on tab switch but its
+ * `min-height` matches the available viewport so the container can't
+ * collapse to zero between renders.
+ */
 .settings-pane {
-  padding: 24px 28px;
+  padding: 52px var(--space-7) var(--space-6) var(--space-7);
   overflow-y: auto;
   height: 100vh;
   box-sizing: border-box;
+  min-height: 100vh;
+  animation: settings-pane-fade-in var(--motion-medium) var(--motion-easing);
+}
+
+@keyframes settings-pane-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .settings-pane h2 {
-  margin: 0 0 4px 0;
-  font-size: 18px;
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--type-22-size);
+  line-height: var(--type-22-line);
+  letter-spacing: var(--type-22-track);
   font-weight: 600;
+  color: var(--text-primary);
 }
 .settings-pane h3 {
-  margin: 20px 0 8px 0;
-  font-size: 13px;
+  margin: var(--space-5) 0 var(--space-2) 0;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 .settings-pane p.lede {
-  margin: 0 0 18px 0;
-  color: var(--text-muted);
+  margin: 0 0 var(--space-5) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
 }
 
+/*
+ * Two-column rows. The label column has tabular numerals for any
+ * inline numbers in row text; the control column auto-aligns.
+ */
 .settings-row {
   display: grid;
   grid-template-columns: 220px 1fr;
   align-items: center;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--surface-divider);
 }
 .settings-row > label {
   color: var(--text-primary);
   font-weight: 500;
+  font-size: var(--type-13-size);
 }
 .settings-row .row-hint {
   display: block;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-weight: 400;
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  margin-top: var(--space-1);
 }
 
 .settings-pane input[type="text"],
 .settings-pane input[type="password"],
 .settings-pane select,
 .settings-pane textarea {
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
   color: var(--text-primary);
-  padding: 7px 10px;
-  border-radius: 6px;
+  padding: 7px var(--space-3);
+  border-radius: var(--radius-sm);
   outline: none;
   font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  font-variant-numeric: tabular-nums;
   min-width: 240px;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
 }
-.settings-pane input:focus,
-.settings-pane select:focus,
-.settings-pane textarea:focus {
-  border-color: var(--border-focus);
+.settings-pane input:hover:not(:disabled),
+.settings-pane select:hover:not(:disabled),
+.settings-pane textarea:hover:not(:disabled) {
+  background: var(--surface-input-focus);
+}
+.settings-pane input:focus-visible,
+.settings-pane select:focus-visible,
+.settings-pane textarea:focus-visible {
+  border-color: var(--accent-400);
+  background: var(--surface-input-focus);
+  box-shadow: 0 0 0 3px var(--accent-300);
 }
 
 .settings-pane button {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-raised-hover);
   color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  padding: 6px 12px;
-  border-radius: 6px;
+  border: 1px solid var(--surface-glass-border);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  /* Save -> Saved swaps need a min-width to avoid jitter. */
+  min-width: 72px;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
 }
-.settings-pane button:hover {
-  background: rgba(255, 255, 255, 0.15);
+.settings-pane button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+}
+.settings-pane button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.settings-pane button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+.settings-pane button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .settings-pane button.primary {
-  background: rgba(96, 165, 250, 0.25);
-  border-color: rgba(96, 165, 250, 0.5);
+  background: var(--accent-500);
+  border-color: transparent;
+  color: var(--text-on-accent);
+}
+.settings-pane button.primary:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.settings-pane button.primary:active:not(:disabled) {
+  background: var(--accent-600);
 }
 .settings-pane button.danger {
   background: rgba(248, 113, 113, 0.15);
   border-color: rgba(248, 113, 113, 0.4);
   color: #ffd0d0;
 }
+.settings-pane button.danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.22);
+}
 
 .hotkey-chip {
   display: inline-flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  justify-content: center;
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
   cursor: pointer;
-  min-width: 120px;
+  min-width: 140px;
   text-align: center;
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    background var(--motion-fast) var(--motion-easing);
+}
+.hotkey-chip:hover {
+  background: var(--surface-input-focus);
 }
 .hotkey-chip[data-capturing="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-400);
+  color: var(--accent-400);
+  background: var(--accent-300);
 }
 
 .list-rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -198,13 +309,17 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-md);
+  transition: background var(--motion-fast) var(--motion-easing);
+}
+.list-row:hover:not(.disabled) {
+  background: var(--surface-raised-hover);
 }
 .list-row.disabled {
-  opacity: 0.55;
+  opacity: 0.6;
 }
 .list-row .row-main {
   display: flex;
@@ -213,24 +328,27 @@ body {
 }
 .list-row .row-title {
   font-weight: 500;
+  color: var(--text-primary);
 }
 .list-row .row-sub {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  font-variant-numeric: tabular-nums;
 }
 .list-row .row-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .flag-banner {
   background: rgba(248, 113, 113, 0.12);
   border: 1px solid rgba(248, 113, 113, 0.4);
   color: #ffd0d0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  font-size: 12px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
 }
 .flag-banner.success {
   background: rgba(74, 222, 128, 0.12);
@@ -242,40 +360,43 @@ body {
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--text-faint);
-  margin-right: 6px;
+  margin-right: var(--space-2);
+  vertical-align: middle;
 }
 .permission-indicator[data-granted="true"] {
-  background: var(--accent-warm);
+  background: var(--warm-500);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
 }
 .permission-indicator[data-granted="false"] {
-  background: var(--danger);
+  background: var(--danger-500);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
 }
 
 .screenshots-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 .screenshots-grid img {
   width: 100%;
   height: auto;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-glass-border);
 }
 
 .command-editor-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 160px 1fr auto;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
-  padding: 10px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  margin-bottom: 8px;
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
 }
 .command-editor-grid input,
 .command-editor-grid select {
@@ -287,19 +408,119 @@ body {
 .about-meta dl {
   display: grid;
   grid-template-columns: 140px 1fr;
-  gap: 8px 16px;
+  gap: var(--space-2) var(--space-4);
   margin: 0;
 }
 .about-meta dt {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 .about-meta dd {
   margin: 0;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .button-stack {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* ----- Loading skeletons + empty states ----- */
+
+/*
+ * Replaces the bare "Loading…" text in main.ts while a tab's async
+ * `invoke` calls complete. Three skeleton rows hint at content shape
+ * so the user sees structure instead of a single line of gray text.
+ */
+.settings-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.settings-loading::before {
+  content: "";
+  display: block;
+  height: var(--type-22-size);
+  width: 40%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  position: relative;
+  overflow: hidden;
+}
+.settings-loading::after {
+  content: "";
+  display: block;
+  height: var(--type-13-size);
+  width: 70%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+.settings-loading-row {
+  height: 42px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--surface-raised) 0%,
+    var(--surface-raised-hover) 50%,
+    var(--surface-raised) 100%
+  );
+  background-size: 200% 100%;
+  animation: settings-skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes settings-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/*
+ * Empty state for any list-rows section that renders zero rows.
+ * Apply to a single <li class="list-row disabled"> by also adding
+ * the .empty-state class via the rendering modules.
+ */
+.list-row.empty-state {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border-style: dashed;
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  text-align: center;
+}
+.list-row.empty-state::before {
+  content: "\2728";
+  font-size: var(--type-22-size);
+  line-height: 1;
+  opacity: 0.6;
+  margin-bottom: var(--space-1);
+}
+
+/* ----- Native-style overlay scrollbar ----- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--motion-medium) var(--motion-easing);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  background-clip: padding-box;
 }

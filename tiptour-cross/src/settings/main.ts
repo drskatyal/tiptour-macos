@@ -49,7 +49,17 @@ async function switchToTab(targetTabName: TabName) {
     const buttonTabName = tabButtonElement.dataset.tab as TabName | undefined;
     tabButtonElement.dataset.active = buttonTabName === targetTabName ? "true" : "false";
   }
-  settingsPaneElement.innerHTML = "<div class='settings-loading'>Loading…</div>";
+  // Skeleton placeholder: a header-shaped block + a lede line + three
+  // row-shaped shimmers. The structure matches the most common tab
+  // layout (h2 + lede + list/rows) so the visual identity of the pane
+  // doesn't change when content arrives.
+  settingsPaneElement.innerHTML = `
+    <div class="settings-loading" aria-hidden="true">
+      <div class="settings-loading-row"></div>
+      <div class="settings-loading-row"></div>
+      <div class="settings-loading-row"></div>
+    </div>
+  `;
   try {
     await tabRenderers[targetTabName](settingsPaneElement);
   } catch (renderError) {

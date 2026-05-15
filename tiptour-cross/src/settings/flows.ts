@@ -46,8 +46,8 @@ export async function renderFlowsTab(paneElement: HTMLElement): Promise<void> {
     flowsListElement.innerHTML = "";
     if (flows.length === 0) {
       const emptyRow = document.createElement("li");
-      emptyRow.className = "list-row disabled";
-      emptyRow.textContent = "No saved flows yet. Record one from the panel.";
+      emptyRow.className = "list-row disabled empty-state";
+      emptyRow.textContent = "No saved flows yet. Record one from the panel to recall it by voice.";
       flowsListElement.appendChild(emptyRow);
       return;
     }

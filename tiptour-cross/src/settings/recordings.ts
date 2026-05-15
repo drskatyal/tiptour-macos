@@ -43,8 +43,8 @@ export async function renderRecordingsTab(paneElement: HTMLElement): Promise<voi
     recordingsListElement.innerHTML = "";
     if (demonstrations.length === 0) {
       const emptyRow = document.createElement("li");
-      emptyRow.className = "list-row disabled";
-      emptyRow.textContent = "No demonstrations recorded yet.";
+      emptyRow.className = "list-row disabled empty-state";
+      emptyRow.textContent = "No demonstrations recorded yet. Record a flow from the panel to save it here.";
       recordingsListElement.appendChild(emptyRow);
       return;
     }

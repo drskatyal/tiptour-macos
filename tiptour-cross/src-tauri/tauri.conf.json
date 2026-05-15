@@ -61,7 +61,8 @@
         "skipTaskbar": false,
         "focus": true,
         "visible": false,
-        "shadow": true
+        "shadow": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {

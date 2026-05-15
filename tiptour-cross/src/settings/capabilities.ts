@@ -63,8 +63,8 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
     capabilitiesListElement.innerHTML = "";
     if (indexSummaries.length === 0) {
       const emptyRow = document.createElement("li");
-      emptyRow.className = "list-row disabled";
-      emptyRow.textContent = "No apps explored yet.";
+      emptyRow.className = "list-row disabled empty-state";
+      emptyRow.textContent = "No apps explored yet. Open an app and ask TipTour what's possible.";
       capabilitiesListElement.appendChild(emptyRow);
       return;
     }

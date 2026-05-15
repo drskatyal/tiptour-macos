@@ -1,8 +1,8 @@
-:root {
-  color-scheme: dark;
-  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-  font-size: 13px;
-}
+/*
+ * Floating panel — 320x320 transparent webview. Everything visible
+ * lives inside .panel, which is the actual glass card. Tokens come
+ * from tokens.css; this file only composes them.
+ */
 
 html,
 body {
@@ -11,281 +11,436 @@ body {
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
+  color: var(--text-primary);
 }
 
+/*
+ * Glass card. We layer two translucent fills + an inset hairline
+ * border + a Sonoma-style shadow stack so the result reads as real
+ * vibrancy on macOS and as a refined dark card on Windows. The
+ * `backdrop-filter` includes saturate(180%) so the desktop hue
+ * actually bleeds through instead of giving a flat gray blur.
+ */
 .panel {
-  background: rgba(20, 20, 22, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: #e6e6e8;
-  border-radius: 14px;
-  padding: 14px 16px;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)) ,
+    var(--surface-glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: var(--space-3);
+  box-shadow: var(--shadow-elevated), var(--surface-glass-inner);
+  border: 1px solid var(--surface-glass-border);
   min-width: 280px;
+
+  /* Each section mutates independently (permissions collapse, error
+     banner appears, saved-flows list grows). `contain: layout style`
+     keeps a parent reflow inside the changed region instead of
+     repainting the whole panel chrome. */
+  contain: layout style;
 }
+
+/* ----- Header ----- */
 
 .panel-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
   font-weight: 600;
+
+  /* Status pill needs a fixed min-width so the dot doesn't jump as
+     the label transitions Idle -> Listening -> Speaking -> Error. */
+  min-height: 22px;
+}
+
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 70px;
+  font-variant-numeric: tabular-nums;
 }
 
 .panel-settings-button {
   margin-left: auto;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e6e6e8;
-  border-radius: 6px;
-  padding: 2px 8px;
+  border: 1px solid var(--surface-glass-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
   cursor: pointer;
-  font-size: 14px;
+  font: inherit;
+  font-size: var(--type-15-size);
+  line-height: 1;
+  width: 26px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing);
 }
 .panel-settings-button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-raised-hover);
+}
+.panel-settings-button:active {
+  transform: scale(0.985);
+  background: rgba(255, 255, 255, 0.04);
+}
+.panel-settings-button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
 }
 
 .dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: #6b6b70;
-  transition: background 120ms ease;
+  border-radius: var(--radius-pill);
+  background: var(--text-faint);
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  transition:
+    background var(--motion-medium) var(--motion-easing),
+    box-shadow var(--motion-medium) var(--motion-easing);
 }
 .dot[data-status="listening"] {
-  background: #4ade80;
+  background: var(--warm-500);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
 }
 .dot[data-status="speaking"] {
-  background: #60a5fa;
+  background: var(--accent-400);
+  box-shadow: 0 0 0 3px var(--accent-300);
 }
 .dot[data-status="error"] {
-  background: #f87171;
+  background: var(--danger-500);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
 }
+
+/* ----- Shared form element baseline ----- */
+
+.panel input[type="text"],
+.panel input[type="password"],
+.panel select {
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  color: inherit;
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.panel input:hover:not(:disabled),
+.panel select:hover:not(:disabled) {
+  background: var(--surface-input-focus);
+}
+.panel input:focus-visible,
+.panel select:focus-visible {
+  border-color: var(--accent-400);
+  background: var(--surface-input-focus);
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+
+/* Shared button reset for in-panel buttons. Each section still tunes
+   its own padding/color but inherits the hover/active/focus polish. */
+.panel button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.panel button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.panel button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+.panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ----- API key row ----- */
 
 .api-key {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 6px 8px;
+  gap: var(--space-1) var(--space-2);
   align-items: center;
 }
 .api-key label {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9a9aa0;
-}
-.api-key input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: inherit;
-  padding: 6px 8px;
-  border-radius: 6px;
-  outline: none;
-  font: inherit;
-}
-.api-key input:focus {
-  border-color: rgba(120, 160, 255, 0.6);
+  color: var(--text-tertiary);
+  font-weight: 600;
 }
 .api-key button {
-  background: #4f5ad9;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  padding: 6px var(--space-3);
+  font-weight: 500;
+  /* Min-width so "Save" -> "Saved" toggle doesn't shrink the input. */
+  min-width: 64px;
 }
-.api-key button:hover {
-  background: #5d68e6;
+.api-key button:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.api-key button:active:not(:disabled) {
+  background: var(--accent-600);
 }
 
+/* ----- Permissions ----- */
+
+/* Each permission row keeps its full slot reserved even after the
+   permission is granted-and-hidden, by using visibility: hidden +
+   height collapse only on the *section* level. Inside the section,
+   already-granted rows are simply not rendered (DOM-hidden), but the
+   section itself uses fixed inner padding so the first appearance
+   doesn't snap-resize the panel. */
 .permissions {
-  background: rgba(250, 204, 21, 0.08);
-  border: 1px solid rgba(250, 204, 21, 0.3);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background: rgba(245, 196, 81, 0.08);
+  border: 1px solid rgba(245, 196, 81, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
+  contain: layout style;
 }
 .permissions-label {
-  font-size: 11px;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: #fde68a;
+  font-weight: 600;
 }
 .permission-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: #d6d6dc;
+  gap: var(--space-2);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  min-height: 22px;
 }
 .permission-row button {
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  border: none;
-  padding: 3px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font: inherit;
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  padding: 3px var(--space-2);
+  font-size: var(--type-11-size);
+  min-width: 56px;
 }
 .permission-row button:hover {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* ----- Mode + actions ----- */
+
 .mode-toggle {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .mode-toggle label {
-  font-size: 11px;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9a9aa0;
+  color: var(--text-tertiary);
+  font-weight: 600;
 }
 .mode-toggle select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: inherit;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font: inherit;
   appearance: none;
   cursor: pointer;
+  padding-right: var(--space-5);
+  /* Down-chevron rendered via a CSS background so we don't need an
+     <svg> element inside the markup. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-tertiary) 50%),
+    linear-gradient(135deg, var(--text-tertiary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
 
 .actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .actions button {
   flex: 1;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: none;
-  font: inherit;
-  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  font-weight: 500;
+  /* Both buttons share the same min-height so the Start/Stop swap
+     doesn't shift the section below by one pixel. */
+  min-height: 32px;
 }
 .actions button.primary {
-  background: #4f5ad9;
-  color: white;
+  background: var(--accent-500);
+  color: var(--text-on-accent);
 }
-.actions button.primary:hover {
-  background: #5d68e6;
+.actions button.primary:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.actions button.primary:active:not(:disabled) {
+  background: var(--accent-600);
 }
 .actions button.secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
 }
-.actions button.secondary:hover {
+.actions button.secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
 }
 
+/* ----- Hotkey hint ----- */
+
 .hotkey-hint {
-  font-size: 12px;
-  color: #b3b3b8;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
 }
 .hotkey-hint kbd {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-family: inherit;
-  font-size: 11px;
+  background: var(--surface-raised-hover);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--type-11-size);
+  color: var(--text-primary);
 }
 
+/* ----- Error banner ----- */
+
 .error-banner {
-  background: rgba(248, 113, 113, 0.15);
-  border: 1px solid rgba(248, 113, 113, 0.4);
-  color: #fca5a5;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  color: #fda5a5;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* ----- Saved flows ----- */
+
 .saved-flows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 10px;
+  gap: var(--space-2);
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-3);
+  contain: layout style;
 }
 .saved-flows-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 22px;
 }
 .saved-flows-title {
-  font-size: 11px;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9a9aa0;
+  color: var(--text-tertiary);
+  font-weight: 600;
 }
 .saved-flows-record {
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-11-size);
+  /* Min-width prevents Record-new-flow <-> Stop-recording label swap
+     from shifting the title column horizontally. */
+  min-width: 110px;
+  text-align: center;
 }
-.saved-flows-record:hover {
+.saved-flows-record:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
 }
 .saved-flows-record[data-recording="true"] {
   background: rgba(248, 113, 113, 0.25);
   color: #fca5a5;
 }
+
+.recording-opt-in {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
 .record-flow-naming {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   align-items: center;
 }
 .record-flow-naming input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: inherit;
+  font-size: var(--type-12-size);
   padding: 5px 7px;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 12px;
-  outline: none;
-}
-.record-flow-naming input:focus {
-  border-color: rgba(120, 160, 255, 0.6);
 }
 .record-flow-naming button {
-  background: #4f5ad9;
-  color: white;
-  border: none;
-  padding: 5px 8px;
-  border-radius: 5px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  padding: 5px var(--space-2);
+  font-size: var(--type-11-size);
+  min-width: 52px;
+}
+.record-flow-naming button:hover:not(:disabled) {
+  background: var(--accent-400);
 }
 .record-flow-naming button.record-flow-cancel {
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
 }
+.record-flow-naming button.record-flow-cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .saved-flows-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   max-height: 140px;
   overflow-y: auto;
 }
@@ -293,56 +448,59 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-glass-border);
+  transition: background var(--motion-fast) var(--motion-easing);
+}
+.saved-flow-row:hover {
+  background: var(--surface-raised-hover);
 }
 .saved-flow-row-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .saved-flow-name {
-  font-size: 12px;
+  font-size: var(--type-12-size);
   font-weight: 600;
-  color: #e6e6e8;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .saved-flow-steps {
-  font-size: 11px;
-  color: #9a9aa0;
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 .saved-flow-buttons {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .saved-flow-buttons button {
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
-  border: none;
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
   padding: 2px 7px;
-  border-radius: 4px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
+  font-size: var(--type-11-size);
+  /* Min-width so Run -> Running… doesn't reflow the row. */
+  min-width: 64px;
 }
 .saved-flow-buttons button.saved-flow-run {
-  background: #4f5ad9;
-  color: white;
+  background: var(--accent-500);
+  color: var(--text-on-accent);
 }
-.saved-flow-buttons button.saved-flow-run:hover {
-  background: #5d68e6;
+.saved-flow-buttons button.saved-flow-run:hover:not(:disabled) {
+  background: var(--accent-400);
 }
 .saved-flow-buttons button:disabled {
-  background: rgba(255, 255, 255, 0.06);
-  color: #6e6e74;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
   cursor: not-allowed;
 }
-.saved-flow-buttons button:hover {
+.saved-flow-buttons button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
 }
 .saved-flow-aliases {
@@ -351,87 +509,134 @@ body {
   gap: 2px;
 }
 .saved-flow-aliases label {
-  font-size: 10px;
+  font-size: var(--type-11-size);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6e6e74;
+  color: var(--text-faint);
+  font-weight: 600;
 }
 .saved-flow-aliases input {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: inherit;
-  padding: 3px 6px;
-  border-radius: 4px;
-  font: inherit;
-  font-size: 11px;
-  outline: none;
-}
-.saved-flow-aliases input:focus {
-  border-color: rgba(120, 160, 255, 0.6);
-}
-.saved-flows-empty {
-  font-size: 11px;
-  color: #6e6e74;
-  font-style: italic;
+  font-size: var(--type-11-size);
+  padding: 3px var(--space-2);
 }
 
-.always-on-listening {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 8px;
+/*
+ * Empty state for the saved-flows list. A subtle inset card with a
+ * unicode glyph + a one-line tip beats a single italic gray line.
+ */
+.saved-flows-empty {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
-  font-size: 12px;
-  color: #c8c8cf;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-raised);
+  border: 1px dashed var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  text-align: center;
+}
+.saved-flows-empty::before {
+  content: "\2728"; /* sparkles */
+  font-size: var(--type-17-size);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* ----- Always-on listening ----- */
+
+.always-on-listening {
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  contain: layout style;
 }
 .always-on-listening-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 18px;
 }
 .always-on-listening-title {
   font-weight: 600;
+  color: var(--text-primary);
 }
 .always-on-listening-status {
-  font-size: 11px;
-  color: #8a8a92;
+  /* Fixed min-width on the status pill prevents the title from
+     drifting as state cycles Disabled -> Downloading -> Listening. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 110px;
+  font-size: var(--type-11-size);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 .always-on-listening-status[data-state="ready"],
 .always-on-listening-status[data-state="listening"] {
-  color: #7fd17f;
+  color: var(--warm-500);
 }
 .always-on-listening-status[data-state="downloading"] {
-  color: #d6c071;
+  color: var(--warning-500);
 }
 .always-on-listening-status[data-state="error"] {
-  color: #d97a7a;
+  color: var(--danger-500);
 }
 .always-on-listening-toggle {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
   cursor: pointer;
 }
 .always-on-listening-privacy-note {
-  font-size: 10px;
-  color: #6e6e74;
-  font-style: italic;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  color: var(--text-faint);
 }
 .always-on-listening-heard {
-  font-size: 11px;
-  color: #8e8e95;
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
   font-style: italic;
 }
+
+/* ----- Transcript ----- */
 
 .transcript {
   min-height: 40px;
   max-height: 140px;
   overflow-y: auto;
-  font-size: 12px;
-  color: #c8c8cf;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 8px;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-2);
   white-space: pre-wrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----- Overlay-style scrollbar for any scrolling region in the panel ----- */
+
+.panel ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.panel ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  transition: background var(--motion-medium) var(--motion-easing);
+}
+.panel ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }

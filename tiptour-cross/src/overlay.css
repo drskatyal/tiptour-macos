@@ -1,3 +1,8 @@
+/*
+ * Full-virtual-desktop transparent overlay. Owns the blue cursor, the
+ * freeform highlight stroke, and the response bubble (glass).
+ */
+
 html,
 body.overlay-body {
   margin: 0;
@@ -12,8 +17,8 @@ body.overlay-body {
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
-  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-  color: white;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
 }
 
 .cursor-svg {
@@ -26,30 +31,40 @@ body.overlay-body {
   transition: transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1);
   pointer-events: none;
   opacity: 0;
-  filter: drop-shadow(0 4px 14px rgba(79, 90, 217, 0.6));
+  filter: drop-shadow(0 4px 14px rgba(85, 96, 226, 0.6));
 }
 
 .cursor-svg.visible {
   opacity: 1;
 }
 
+/*
+ * Response bubble. Same layered-glass treatment as the floating panel
+ * so the two pieces of chrome read as belonging to one app.
+ */
 .response-bubble {
   position: absolute;
   left: 0;
   top: 0;
   transform: translate(-100px, -100px);
-  transition: transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1), opacity 250ms ease;
-  background: rgba(20, 20, 22, 0.92);
-  color: #f0f0f4;
-  border-radius: 12px;
-  padding: 10px 14px;
+  transition:
+    transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1),
+    opacity var(--motion-slow) var(--motion-easing);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--surface-glass-strong);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
   max-width: 340px;
-  font-size: 13px;
-  line-height: 1.4;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-elevated), var(--surface-glass-inner);
+  border: 1px solid var(--surface-glass-border);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
   pointer-events: none;
   opacity: 0;
 }
@@ -73,7 +88,7 @@ body.overlay-body {
 .waveform span {
   display: block;
   width: 3px;
-  background: linear-gradient(180deg, #7a8aff, #4f5ad9);
+  background: linear-gradient(180deg, #7a8aff, var(--accent-500));
   border-radius: 2px;
   animation: wave 900ms ease-in-out infinite;
 }
@@ -111,7 +126,7 @@ body.overlay-body {
   height: 100%;
   pointer-events: none;
   opacity: 1;
-  transition: opacity 350ms ease;
+  transition: opacity 350ms var(--motion-easing);
 }
 
 .highlight-svg.fading-out {
