@@ -16,6 +16,8 @@ pub mod types;
 use fingerprint::TreeSnapshot;
 use types::{Action, Capability, ExploreSummary, ResolvedPlan, ToolSchema};
 
+use crate::grounding;
+
 // The trait the explorer uses to drive the target app. Phase 1's grounding
 // layer will provide a concrete impl. Returning `None` from
 // execute_action means "the action ran but produced no visible state
@@ -31,40 +33,27 @@ pub trait GroundingProvider: Send {
     fn return_to_state(&mut self, state_id: &str) -> Result<bool, String>;
 }
 
-// TODO: replace the placeholder provider with a real Phase 1-backed impl
-// once grounding lands. The placeholder lets the explorer compile and
-// lets us unit-test the BFS without a live AX backend.
-struct PlaceholderGroundingProvider;
-
-impl GroundingProvider for PlaceholderGroundingProvider {
-    fn snapshot_foreground_app(&mut self) -> Result<TreeSnapshot, String> {
-        Err("grounding provider not wired yet".into())
-    }
-    fn enumerate_candidate_actions(&mut self) -> Result<Vec<Action>, String> {
-        Ok(Vec::new())
-    }
-    fn execute_action(&mut self, _action: &Action) -> Result<Option<TreeSnapshot>, String> {
-        Ok(None)
-    }
-    fn undo_last_action(&mut self) -> Result<bool, String> {
-        Ok(false)
-    }
-    fn return_to_state(&mut self, _state_id: &str) -> Result<bool, String> {
-        Ok(false)
-    }
-}
-
 #[tauri::command]
 pub async fn explore_app(app_identifier: String) -> Result<ExploreSummary, String> {
     // Exploration is CPU-and-IO heavy and can run for minutes — push it to
     // a blocking task so the Tauri runtime stays responsive for the panel.
     let identifier = app_identifier.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let mut provider = PlaceholderGroundingProvider;
+        let mut provider = grounding::make_grounding_provider();
         let config = explorer::ExploreConfig::default();
-        let outcome = explorer::explore(&identifier, None, &mut provider, &config)?;
+        // Stamp the persisted graph + tools with the current executable
+        // version so cache loaders can pick the right vintage on next launch
+        // (see registry::ToolRegistry::load_all).
+        let app_version = grounding::target_app::current_target_app()
+            .and_then(|target_app| target_app.file_version);
+        let outcome = explorer::explore(
+            &identifier,
+            app_version.clone(),
+            provider.as_mut(),
+            &config,
+        )?;
         persistence::save_graph(&outcome.graph)?;
-        persistence::save_capabilities(&identifier, None, &outcome.capabilities)?;
+        persistence::save_capabilities(&identifier, app_version.as_deref(), &outcome.capabilities)?;
         Ok::<_, String>(outcome.summary)
     })
     .await
@@ -84,7 +73,19 @@ pub async fn list_capabilities(app_identifier: String) -> Result<Vec<Capability>
 pub async fn retrieve_tools(query: String, top_k: usize) -> Result<Vec<ToolSchema>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let registry = registry::ToolRegistry::load_all()?;
-        Ok::<_, String>(registry.retrieve(&query, top_k))
+        // Best-effort current foreground fingerprint; if grounding can't
+        // reach the AX/UIA tree (Linux dev host, denied permissions), we
+        // pass None — capabilities with no preconditions stay visible.
+        let mut provider = grounding::make_grounding_provider();
+        let current_state_hash = provider
+            .snapshot_foreground_app()
+            .ok()
+            .map(|snapshot| fingerprint::fingerprint(&snapshot));
+        Ok::<_, String>(registry.retrieve_with_state(
+            &query,
+            top_k,
+            current_state_hash.as_deref(),
+        ))
     })
     .await
     .map_err(|error| error.to_string())?

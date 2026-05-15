@@ -76,6 +76,13 @@ pub struct Capability {
     // Bag-of-words searchable tags lifted from element names, menu paths
     // and the canonical name. TODO: replace with embeddings.
     pub keywords: Vec<String>,
+    // Per-app state preconditions. Each entry is an opaque token (often a
+    // `state_<hash>` reachability tag, but also app-specific predicates
+    // like "document_loaded") — the registry drops capabilities whose
+    // preconditions are unmet at retrieval time. Capabilities discovered
+    // from the root state carry an empty list and are always retrievable.
+    #[serde(default)]
+    pub preconditions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -139,7 +139,34 @@ fn collect_menu_items(
             }
         }
 
+        // Some apps (Office, Electron) only realize submenu children when
+        // ExpandCollapsePattern.Expand fires — descending the tree as-is
+        // misses anything below "View → Zoom →". Try to expand, walk, then
+        // collapse so we don't leave the menu visibly hanging open.
+        let expand_collapse_pattern = menu_item
+            .get_pattern::<uiautomation::patterns::UIExpandCollapsePattern>()
+            .ok();
+        let needed_expansion = match expand_collapse_pattern.as_ref() {
+            Some(pattern) => matches!(
+                pattern.get_state(),
+                Ok(uiautomation::types::ExpandCollapseState::Collapsed)
+            ),
+            None => false,
+        };
+        if needed_expansion {
+            if let Some(pattern) = expand_collapse_pattern.as_ref() {
+                let _ = pattern.expand();
+            }
+        }
+
         collect_menu_items(automation, &menu_item, current_path, output, depth + 1);
+
+        if needed_expansion {
+            if let Some(pattern) = expand_collapse_pattern.as_ref() {
+                let _ = pattern.collapse();
+            }
+        }
+
         current_path.pop();
     }
 }
@@ -266,6 +293,126 @@ pub fn find_element_by_label(_target_app: &TargetApp, label: &str) -> Option<(f6
     }
 
     best_name_contains_match.or(best_secondary_match)
+}
+
+// Shallow UIA tree walk anchored at the foreground window. Used by the
+// capabilities explorer to fingerprint the current foreground state and
+// detect post-action visible changes; we cap depth so trees with thousands
+// of descendants (Office, IDEs) don't bloat the snapshot.
+pub fn snapshot_foreground_tree(
+    max_depth: usize,
+) -> Result<crate::capabilities::fingerprint::TreeSnapshot, String> {
+    use crate::capabilities::fingerprint::{TreeNodeSnapshot, TreeSnapshot};
+
+    let automation = UIAutomation::new().map_err(|error| error.to_string())?;
+    let focused_element = automation
+        .get_focused_element()
+        .map_err(|error| error.to_string())?;
+    let top_window = climb_to_top_window(&focused_element);
+
+    let window_title = top_window.get_name().ok().filter(|title| !title.is_empty());
+    let root_node = walk_uia_node_shallow(&top_window, 0, max_depth);
+
+    Ok(TreeSnapshot {
+        foreground_window_title: window_title,
+        root: root_node,
+    })
+}
+
+fn walk_uia_node_shallow(
+    element: &UIElement,
+    current_depth: usize,
+    max_depth: usize,
+) -> crate::capabilities::fingerprint::TreeNodeSnapshot {
+    use crate::capabilities::fingerprint::TreeNodeSnapshot;
+
+    let role = element
+        .get_control_type()
+        .map(|control_type| format!("{:?}", control_type))
+        .unwrap_or_else(|_| "Unknown".to_string());
+    let name = element.get_name().unwrap_or_default();
+
+    let mut children_snapshots: Vec<TreeNodeSnapshot> = Vec::new();
+    if current_depth < max_depth {
+        if let Ok(child_elements) = element.get_cached_children() {
+            for child_element in child_elements {
+                children_snapshots.push(walk_uia_node_shallow(
+                    &child_element,
+                    current_depth + 1,
+                    max_depth,
+                ));
+            }
+        } else if let Some(walker) = UIAutomation::new()
+            .ok()
+            .and_then(|automation| automation.create_tree_walker().ok())
+        {
+            // Fall back to a live walk when the element has no cached
+            // children — the cached path is faster but isn't populated unless
+            // a CacheRequest ran upstream of us.
+            let mut current_child = walker.get_first_child(element).ok();
+            while let Some(child_element) = current_child {
+                children_snapshots.push(walk_uia_node_shallow(
+                    &child_element,
+                    current_depth + 1,
+                    max_depth,
+                ));
+                current_child = walker.get_next_sibling(&child_element).ok();
+            }
+        }
+    }
+
+    TreeNodeSnapshot {
+        role,
+        name,
+        children: children_snapshots,
+    }
+}
+
+// Enumerates interactive descendants of the foreground window — buttons,
+// menu items, checkboxes, radio buttons, links — so the explorer can use
+// them as candidate Click actions. Returns each element's name (which the
+// resolver later reuses to ground the click at execution time).
+pub fn enumerate_interactive_element_labels() -> Result<Vec<String>, String> {
+    let automation = UIAutomation::new().map_err(|error| error.to_string())?;
+    let focused_element = automation
+        .get_focused_element()
+        .map_err(|error| error.to_string())?;
+    let top_window = climb_to_top_window(&focused_element);
+
+    let interactive_control_types: &[ControlType] = &[
+        ControlType::Button,
+        ControlType::MenuItem,
+        ControlType::CheckBox,
+        ControlType::RadioButton,
+        ControlType::Hyperlink,
+    ];
+
+    let mut labels: Vec<String> = Vec::new();
+    let mut seen_labels = std::collections::HashSet::new();
+    for control_type in interactive_control_types {
+        let condition = match automation.create_property_condition(
+            uiautomation::variants::UIProperty::ControlType.into(),
+            (*control_type as i32).into(),
+            None,
+        ) {
+            Ok(condition) => condition,
+            Err(_) => continue,
+        };
+        let matching_elements = match top_window.find_all(TreeScope::Descendants, &condition) {
+            Ok(elements) => elements,
+            Err(_) => continue,
+        };
+        for element in matching_elements {
+            let label = element.get_name().unwrap_or_default();
+            if label.trim().is_empty() {
+                continue;
+            }
+            if seen_labels.insert(label.clone()) {
+                labels.push(label);
+            }
+        }
+    }
+    Ok(labels)
 }
 
 fn center_of_element(element: &UIElement) -> Option<(f64, f64)> {

@@ -14,7 +14,13 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn load_all() -> Result<Self, String> {
-        let capabilities = persistence::load_all_capabilities()?;
+        // Match persisted tools to the running app's executable version so
+        // we don't surface stale tool schemas for an old build's UI. Fallback
+        // (most-recent-version) lives in load_all_capabilities_for_version.
+        let current_version = crate::grounding::target_app::current_target_app()
+            .and_then(|target_app| target_app.file_version);
+        let capabilities =
+            persistence::load_all_capabilities_for_version(current_version.as_deref())?;
         Ok(Self { capabilities })
     }
 
@@ -31,19 +37,38 @@ impl ToolRegistry {
     }
 
     pub fn retrieve(&self, query: &str, top_k: usize) -> Vec<ToolSchema> {
+        self.retrieve_with_state(query, top_k, None)
+    }
+
+    // `current_state_hash` is the fingerprint of the foreground app's AX/UIA
+    // tree at retrieval time. Capabilities whose preconditions reference a
+    // different `state_<hash>` are unreachable from here and dropped.
+    // Non-`state_*` preconditions (e.g. `"document_loaded"`) are unknown to
+    // the registry today and conservatively treated as unmet, hiding the
+    // capability until the runtime is taught how to check them.
+    pub fn retrieve_with_state(
+        &self,
+        query: &str,
+        top_k: usize,
+        current_state_hash: Option<&str>,
+    ) -> Vec<ToolSchema> {
+        let candidate_capabilities: Vec<&Capability> = self
+            .capabilities
+            .iter()
+            .filter(|capability| capability_preconditions_are_satisfied(capability, current_state_hash))
+            .collect();
+
         let query_tokens = tokenize(query);
         if query_tokens.is_empty() {
-            return self
-                .capabilities
-                .iter()
+            return candidate_capabilities
+                .into_iter()
                 .take(top_k)
                 .map(capability_to_tool_schema)
                 .collect();
         }
 
-        let mut scored: Vec<(f32, &Capability)> = self
-            .capabilities
-            .iter()
+        let mut scored: Vec<(f32, &Capability)> = candidate_capabilities
+            .into_iter()
             .map(|capability| (score_capability(capability, &query_tokens), capability))
             .filter(|(score, _)| *score > 0.0)
             .collect();
@@ -125,6 +150,28 @@ fn bind_action_parameters(
     }
 }
 
+fn capability_preconditions_are_satisfied(
+    capability: &Capability,
+    current_state_hash: Option<&str>,
+) -> bool {
+    if capability.preconditions.is_empty() {
+        return true;
+    }
+    for precondition in &capability.preconditions {
+        if let Some(state_hash) = precondition.strip_prefix("state_") {
+            match current_state_hash {
+                Some(current_hash) if current_hash == state_hash => continue,
+                _ => return false,
+            }
+        } else {
+            // Non-state predicates have no runtime checker yet; treat as unmet
+            // so the user only sees capabilities the registry can vouch for.
+            return false;
+        }
+    }
+    true
+}
+
 fn capability_to_tool_schema(capability: &Capability) -> ToolSchema {
     ToolSchema {
         tool_id: capability.capability_id.clone(),
@@ -184,6 +231,7 @@ mod tests {
                 element_path: vec![],
             }],
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
+            preconditions: Vec::new(),
         }
     }
 

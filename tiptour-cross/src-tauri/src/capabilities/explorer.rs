@@ -205,6 +205,10 @@ fn element_name_for_action(action: &Action) -> String {
 // retrieval layer ranks them. A future revision should fold sequences
 // (open menu → click item → confirm) into single multi-step capabilities.
 fn extract_capabilities(graph: &CapabilityGraph) -> Vec<Capability> {
+    // The initial state in the graph is the explorer's root — capabilities
+    // discovered from there are always reachable and need no preconditions.
+    let root_state_id_option: Option<&str> = graph.nodes.first().map(|node| node.state_id.as_str());
+
     let mut capabilities = Vec::new();
     for (edge_index, edge) in graph.edges.iter().enumerate() {
         if matches!(edge.safety, SafetyClassification::Destructive) {
@@ -232,6 +236,13 @@ fn extract_capabilities(graph: &CapabilityGraph) -> Vec<Capability> {
         let description = format!("Performs {} via the discovered UI path.", element_name);
         let capability_id = format!("{}::{edge_index}", graph.app_identifier);
 
+        // Tag preconditions on non-root edges so retrieval can filter out
+        // capabilities that aren't reachable from the user's current state.
+        let preconditions = match root_state_id_option {
+            Some(root_state_id) if edge.from_state_id == root_state_id => Vec::new(),
+            _ => vec![format!("state_{}", edge.from_state_id)],
+        };
+
         capabilities.push(Capability {
             capability_id,
             canonical_name,
@@ -240,6 +251,7 @@ fn extract_capabilities(graph: &CapabilityGraph) -> Vec<Capability> {
             safety: edge.safety.clone(),
             replay_actions: vec![edge.action.clone()],
             keywords,
+            preconditions,
         });
     }
     capabilities

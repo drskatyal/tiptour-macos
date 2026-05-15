@@ -115,6 +115,79 @@ pub fn load_all_capabilities() -> Result<Vec<Capability>, String> {
     Ok(all)
 }
 
+// Version-aware variant of `load_all_capabilities`. For each app we
+// prefer the directory whose name matches the sanitized `current_version`
+// passed in. If no exact match exists, we fall back to the most recent
+// version directory by filesystem mtime — that's our staleness floor when
+// the user has never explored this exact app build before but did explore
+// an older one.
+pub fn load_all_capabilities_for_version(
+    current_version: Option<&str>,
+) -> Result<Vec<Capability>, String> {
+    let root = match capabilities_root() {
+        Ok(path) => path,
+        Err(_) => return Ok(Vec::new()),
+    };
+    if !root.exists() {
+        return Ok(Vec::new());
+    }
+
+    let sanitized_current_version =
+        current_version.map(|raw_version| sanitize_path_segment(raw_version));
+
+    let mut all = Vec::new();
+    let app_dirs = fs::read_dir(&root).map_err(|error| error.to_string())?;
+    for app_entry in app_dirs.flatten() {
+        let mut version_entries: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+        let version_dirs = match fs::read_dir(app_entry.path()) {
+            Ok(iter) => iter,
+            Err(_) => continue,
+        };
+        for version_entry in version_dirs.flatten() {
+            let version_path = version_entry.path();
+            let modified_time = version_entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            version_entries.push((version_path, modified_time));
+        }
+
+        // Pick the version directory matching the running app's version
+        // exactly when we can, else the freshest one on disk.
+        let chosen_version_path: Option<PathBuf> = sanitized_current_version
+            .as_ref()
+            .and_then(|target_version_name| {
+                version_entries
+                    .iter()
+                    .find(|(path, _)| {
+                        path.file_name()
+                            .and_then(|name| name.to_str())
+                            .map(|name| name == target_version_name.as_str())
+                            .unwrap_or(false)
+                    })
+                    .map(|(path, _)| path.clone())
+            })
+            .or_else(|| {
+                version_entries
+                    .iter()
+                    .max_by_key(|(_, modified_time)| *modified_time)
+                    .map(|(path, _)| path.clone())
+            });
+
+        let Some(version_path) = chosen_version_path else { continue };
+        let tools_path = version_path.join("tools.json");
+        if !tools_path.exists() {
+            continue;
+        }
+        if let Ok(raw) = fs::read_to_string(&tools_path) {
+            if let Ok(mut parsed) = serde_json::from_str::<Vec<Capability>>(&raw) {
+                all.append(&mut parsed);
+            }
+        }
+    }
+    Ok(all)
+}
+
 fn sanitize_path_segment(segment: &str) -> String {
     segment
         .chars()
