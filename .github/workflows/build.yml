@@ -68,42 +68,50 @@ jobs:
       - name: Rust check (default features)
         id: rust-check-default
         working-directory: tiptour-cross/src-tauri
-        # `tee` so the same output lands both in the live job log and in a
-        # file we can attach to the run summary on failure. Without this the
-        # only auth-required logs hold the actual `error[E....]` diagnostics
-        # and external contributors can't see why a build broke.
+        # Explicit `shell: bash` so the step runs the same bash on every
+        # matrix leg, including Windows (which would otherwise default to
+        # PowerShell and choke on `set -o pipefail`). `continue-on-error`
+        # lets the subsequent diagnostic steps run instead of the whole
+        # job dying before we can extract the compiler output.
+        shell: bash
+        continue-on-error: true
         run: |
           set -o pipefail
           cargo check --message-format=human --color never 2>&1 | tee cargo-check.log
 
       - name: Surface cargo errors to the job summary on failure
-        if: failure() && steps.rust-check-default.outcome == 'failure'
+        if: steps.rust-check-default.outcome == 'failure'
         working-directory: tiptour-cross/src-tauri
         shell: bash
         run: |
           {
             echo "## cargo check (default features) failed on ${{ matrix.os }}"
             echo ""
-            echo "First 100 lines of compiler output:"
+            echo "First 150 lines of compiler output:"
             echo ""
             echo '```'
-            head -n 100 cargo-check.log || true
+            head -n 150 cargo-check.log || echo "(cargo-check.log was not produced — the step died before cargo ran)"
             echo '```'
             echo ""
-            echo "All error lines:"
+            echo "Every error line:"
             echo ""
             echo '```'
-            grep -E "^error" cargo-check.log || true
+            grep -E "^error" cargo-check.log || echo "(no error lines found)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload cargo log on failure
-        if: failure() && steps.rust-check-default.outcome == 'failure'
+        if: steps.rust-check-default.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: cargo-check-log-${{ matrix.os }}
           path: tiptour-cross/src-tauri/cargo-check.log
+          if-no-files-found: warn
           retention-days: 7
+
+      - name: Fail the job if cargo check failed
+        if: steps.rust-check-default.outcome == 'failure'
+        run: exit 1
 
       - name: Rust check (vosk feature, skipped on Linux without libvosk)
         if: matrix.os != 'ubuntu-22.04'
