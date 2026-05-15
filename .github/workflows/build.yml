@@ -123,11 +123,95 @@ jobs:
         run: cargo check --features vosk --message-format=short || echo "vosk feature build skipped (libvosk likely missing)"
 
       - name: Rust tests
-        if: matrix.os == 'ubuntu-22.04'
+        # Build-and-run the full integration-test suite on every leg
+        # so the platform-conditional code (e.g. mac/win-only types
+        # under cfg(target_os = ...)) is exercised on its own OS.
+        # `--workspace` keeps us future-proof if we add additional
+        # crates; today there's just the one. `--no-fail-fast` lets
+        # us see *all* failing tests, not just the first.
         working-directory: tiptour-cross/src-tauri
-        run: cargo test --no-fail-fast
+        run: cargo test --workspace --no-fail-fast
+
+      - name: Upload Rust test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-test-stdout-${{ matrix.os }}
+          path: |
+            tiptour-cross/src-tauri/target/debug/deps/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Tauri build (release, default features)
         # Full release build only on tag pushes so PRs stay fast.
         if: startsWith(github.ref, 'refs/tags/')
         run: npm run tauri build
+
+  e2e-tests:
+    name: Playwright e2e (frontend, headless Chromium)
+    runs-on: ubuntu-22.04
+    # Frontend e2e tests cover the four webview pages (panel, overlay,
+    # indicators, settings) by mocking `window.__TAURI_INTERNALS__`
+    # and asserting on rendered DOM + dispatched invokes. Chromium
+    # behaves identically across OSes so we only run this on Linux.
+    # The build matrix above is gated on this job's success so a UI
+    # regression blocks the bundle build too.
+    defaults:
+      run:
+        working-directory: tiptour-cross
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: tiptour-cross/package-lock.json
+
+      - name: Install npm deps
+        run: npm install
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('tiptour-cross/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright Chromium (with system deps)
+        # `--with-deps` pulls in the Linux libraries (libnss, libgbm,
+        # etc.) Chromium needs to render headless. Cheap if cached.
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: tiptour-cross/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build-gate:
+    name: Build matrix gate (waits on e2e)
+    needs: [build, e2e-tests]
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - name: Block release if any upstream job failed
+        # Surface a single boolean a release workflow can rely on.
+        run: |
+          if [[ "${{ needs.build.result }}" != "success" || "${{ needs.e2e-tests.result }}" != "success" ]]; then
+            echo "Upstream job(s) failed: build=${{ needs.build.result }} e2e=${{ needs.e2e-tests.result }}"
+            exit 1
+          fi
+          echo "All upstream jobs passed."
