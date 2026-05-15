@@ -44,21 +44,100 @@ grantAccessibilityButton.addEventListener("click", async () => {
   }
 });
 
-grantScreenRecordingButton.addEventListener("click", async () => {
+// macOS caches Screen Recording entitlement per-pid in TCC. Even after
+// the user flips the toggle in System Settings the running TipTour
+// process can't see the change — capture keeps failing until the app
+// is relaunched. The old flow showed a transient error toast right
+// after the user clicked Grant, which fired before they'd even left
+// for System Settings and felt like a bug ("I clicked Grant and got
+// an error?"). The new flow:
+//   1. Snapshot the current permission state at click time.
+//   2. Open System Settings via request_screen_recording_permission.
+//   3. Poll every 1s for up to 30s. If the permission flips
+//      false→true, the kernel granted it but THIS process can't see it
+//      until relaunch — surface a persistent "Restart TipTour" banner
+//      with a one-click restart button. Far less ambiguous than a
+//      vanishing toast.
+const restartRequiredBanner = document.getElementById("restart-required-banner")!;
+const restartNowButton = document.getElementById("restart-now-button")!;
+
+let screenRecordingPollerHandle: number | null = null;
+
+function showRestartRequiredBanner() {
+  restartRequiredBanner.hidden = false;
+}
+
+restartNowButton.addEventListener("click", async () => {
   try {
-    await invoke("request_screen_recording_permission");
-  } finally {
-    setTimeout(() => void refreshPermissions(), 500);
-    // macOS caches Screen Recording entitlement per-pid in TCC. Even
-    // after the user flips the toggle in System Settings, the
-    // currently running TipTour process won't pick it up — capture
-    // will keep failing until the app is relaunched. Surface that
-    // explicitly so the user isn't left wondering why Gemini still
-    // can't see the screen after a successful permission flow.
+    await invoke("quit_app_gracefully");
+  } catch (restartError) {
     showError(
-      "Screen recording permission requested. Quit and reopen TipTour for the change to take effect.",
+      "Could not auto-restart. Quit TipTour from the menu bar and reopen it. " +
+        (restartError instanceof Error ? restartError.message : String(restartError)),
     );
   }
+});
+
+async function watchForScreenRecordingPermissionFlip(initiallyHadPermission: boolean) {
+  if (screenRecordingPollerHandle !== null) {
+    window.clearInterval(screenRecordingPollerHandle);
+    screenRecordingPollerHandle = null;
+  }
+  let elapsedSeconds = 0;
+  screenRecordingPollerHandle = window.setInterval(async () => {
+    elapsedSeconds += 1;
+    try {
+      const nowGranted = await invoke<boolean>("check_screen_recording_permission");
+      // Permission flipped from "not granted" to "granted" in System
+      // Settings. The kernel has the entitlement; THIS pid still can't
+      // see captured frames until a relaunch. Surface the banner.
+      if (nowGranted && !initiallyHadPermission) {
+        showRestartRequiredBanner();
+        if (screenRecordingPollerHandle !== null) {
+          window.clearInterval(screenRecordingPollerHandle);
+          screenRecordingPollerHandle = null;
+        }
+        return;
+      }
+    } catch {
+      // ignore — keep polling
+    }
+    if (elapsedSeconds >= 30) {
+      // Give up after 30s. The user either granted it (caught above)
+      // or decided not to right now. We don't keep polling forever.
+      if (screenRecordingPollerHandle !== null) {
+        window.clearInterval(screenRecordingPollerHandle);
+        screenRecordingPollerHandle = null;
+      }
+    }
+  }, 1000);
+}
+
+grantScreenRecordingButton.addEventListener("click", async () => {
+  // Capture the current state *before* opening System Settings so we
+  // can detect the false→true transition specifically (vs the user
+  // having already granted it from a previous attempt).
+  let alreadyHadPermissionBeforeGrantClick = false;
+  try {
+    alreadyHadPermissionBeforeGrantClick = await invoke<boolean>(
+      "check_screen_recording_permission",
+    );
+  } catch {
+    // assume not granted — that's the worse-but-safe default
+  }
+  try {
+    await invoke("request_screen_recording_permission");
+  } catch (grantError) {
+    showError(
+      "Could not open Screen Recording settings: " +
+        (grantError instanceof Error ? grantError.message : String(grantError)),
+    );
+    return;
+  }
+  // Refresh the row immediately in case the user had already granted
+  // before clicking, then start polling for the flip.
+  setTimeout(() => void refreshPermissions(), 500);
+  void watchForScreenRecordingPermissionFlip(alreadyHadPermissionBeforeGrantClick);
 });
 
 let session: GeminiLiveSession | null = null;
