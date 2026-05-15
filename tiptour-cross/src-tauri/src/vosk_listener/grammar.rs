@@ -35,6 +35,23 @@ pub fn build_command_grammar_with_app_aliases(
     flow_aliases: &[Vec<String>],
     installed_app_aliases: &[String],
 ) -> String {
+    build_command_grammar_with_app_aliases_and_personas(
+        flow_titles,
+        flow_aliases,
+        installed_app_aliases,
+        &[],
+    )
+}
+
+/// Same as `build_command_grammar_with_app_aliases` but additionally
+/// folds in `switch to <persona name>` phrases so the wake-word
+/// dispatcher can flip personas hands-free.
+pub fn build_command_grammar_with_app_aliases_and_personas(
+    flow_titles: &[String],
+    flow_aliases: &[Vec<String>],
+    installed_app_aliases: &[String],
+    persona_names: &[String],
+) -> String {
     let mut phrases: Vec<String> = vec![
         "stop".to_string(),
         "cancel".to_string(),
@@ -77,6 +94,15 @@ pub fn build_command_grammar_with_app_aliases(
         phrases.push(format!("launch {trimmed}"));
         phrases.push(format!("start {trimmed}"));
         phrases.push(format!("go to {trimmed}"));
+    }
+
+    for persona_name in persona_names {
+        let trimmed = persona_name.trim().to_ascii_lowercase();
+        if trimmed.is_empty() {
+            continue;
+        }
+        phrases.push(format!("switch to {trimmed}"));
+        phrases.push(format!("become {trimmed}"));
     }
 
     phrases.push("[unk]".to_string());

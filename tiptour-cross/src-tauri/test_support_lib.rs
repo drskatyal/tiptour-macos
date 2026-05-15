@@ -20,6 +20,9 @@ pub mod keychain;
 #[path = "src/app_settings.rs"]
 pub mod app_settings;
 
+#[path = "src/personas/mod.rs"]
+pub mod personas;
+
 #[path = "src/mode.rs"]
 pub mod mode;
 

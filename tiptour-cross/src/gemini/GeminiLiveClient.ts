@@ -5,7 +5,16 @@
 // frame in, frame out, no audio device handling, no UI state, no tool
 // dispatch — those live in GeminiLiveSession.ts and the Rust audio bridge.
 
+import { invoke } from "@tauri-apps/api/core";
 import { base64ToPcm16, pcm16ToBase64 } from "./audio";
+
+interface ActivePersonaShape {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  voiceTriggerPhrases: string[];
+  isBuiltIn: boolean;
+}
 
 const GEMINI_LIVE_WS_URL =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
@@ -88,7 +97,7 @@ export class GeminiLiveClient {
       this.rejectSetupComplete = reject;
     });
 
-    this.sendSetup();
+    await this.sendSetup();
 
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(
@@ -177,9 +186,24 @@ export class GeminiLiveClient {
     this.socket.send(JSON.stringify(payload));
   }
 
-  private sendSetup(): void {
+  private async sendSetup(): Promise<void> {
     const resolvedModelShortId = this.options.modelShortId ?? DEFAULT_MODEL_SHORT_ID;
     const resolvedVoiceName = this.options.voiceName ?? DEFAULT_VOICE;
+    // Pull the active persona so its system prompt is layered onto the
+    // baseline TipTour identity. Failing to read should not block the
+    // session — fall back to the baseline-only instruction.
+    let activePersonaSystemPrompt = "";
+    try {
+      const activePersona = await invoke<ActivePersonaShape>("get_active_persona");
+      activePersonaSystemPrompt = activePersona?.systemPrompt ?? "";
+    } catch (personaError) {
+      console.warn("[gemini] get_active_persona failed:", personaError);
+    }
+    const baselineSystemInstruction =
+      "You are TipTour, a helpful voice companion. Reply concisely.";
+    const composedSystemInstruction = activePersonaSystemPrompt
+      ? `${baselineSystemInstruction}\n\n${activePersonaSystemPrompt}`
+      : baselineSystemInstruction;
     const setup = {
       setup: {
         model: `models/${resolvedModelShortId}`,
@@ -193,7 +217,7 @@ export class GeminiLiveClient {
         systemInstruction: {
           parts: [
             {
-              text: "You are TipTour, a helpful voice companion. Reply concisely.",
+              text: composedSystemInstruction,
             },
           ],
         },

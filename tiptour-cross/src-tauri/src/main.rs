@@ -21,6 +21,7 @@ mod mode;
 mod multiflow;
 mod onboarding;
 mod overlay;
+mod personas;
 #[cfg(target_os = "macos")]
 mod permissions_macos;
 mod permissions;
@@ -185,6 +186,12 @@ fn main() {
             onboarding::is_first_run,
             onboarding::mark_first_run_complete,
             onboarding::reset_first_run,
+            personas::list_personas,
+            personas::get_active_persona,
+            personas::set_active_persona,
+            personas::upsert_custom_persona,
+            personas::delete_persona,
+            personas::match_persona_by_voice,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

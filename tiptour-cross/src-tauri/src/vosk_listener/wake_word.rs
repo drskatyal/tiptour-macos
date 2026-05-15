@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter};
 use crate::app_discovery;
 use crate::multiflow;
 
-use super::grammar::{build_command_grammar_with_app_aliases, build_wake_grammar};
+use super::grammar::{build_command_grammar_with_app_aliases_and_personas, build_wake_grammar};
 use super::recognizer::{LocalRecognizer, RecognitionEvent};
 
 const SAMPLE_RATE_HZ: f32 = 16_000.0;
@@ -114,10 +114,16 @@ impl WakeWordDispatcher {
         for discovered_app in app_discovery::enabled_apps_for_grammar() {
             installed_app_aliases.extend(discovered_app.aliases);
         }
-        let command_grammar_json = build_command_grammar_with_app_aliases(
+        let persona_names: Vec<String> = crate::personas::list_personas()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|persona| persona.name)
+            .collect();
+        let command_grammar_json = build_command_grammar_with_app_aliases_and_personas(
             &flow_titles,
             &flow_aliases,
             &installed_app_aliases,
+            &persona_names,
         );
         let Ok(command_phrases) = serde_json::from_str::<Vec<String>>(&command_grammar_json) else {
             return;
@@ -179,6 +185,23 @@ impl WakeWordDispatcher {
         }
         if normalized == "pause" {
             let _ = self.app_handle.emit("vosk_command_pause", ());
+            return;
+        }
+
+        // "switch to <persona>" / "become <persona>" → flip active
+        // persona without going through Gemini. The panel listens for
+        // `persona_switched` and restarts any open session so the new
+        // system prompt takes effect.
+        if normalized.starts_with("switch to ") || normalized.starts_with("become ") {
+            if let Ok(Some(matched_persona_id)) =
+                crate::personas::match_persona_by_voice(normalized.clone())
+            {
+                if crate::personas::set_active_persona(matched_persona_id.clone()).is_ok() {
+                    let _ = self
+                        .app_handle
+                        .emit("persona_switched", matched_persona_id);
+                }
+            }
             return;
         }
 

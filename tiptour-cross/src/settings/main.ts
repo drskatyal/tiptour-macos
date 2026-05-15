@@ -11,6 +11,7 @@ import { renderAboutTab } from "./about";
 import { renderIndicatorsTab } from "./indicators";
 import { renderMemoryTab } from "./memory";
 import { renderTasksTab } from "./tasks";
+import { renderPersonasTab } from "./personas";
 
 type TabName =
   | "general"
@@ -21,6 +22,7 @@ type TabName =
   | "indicators"
   | "memory"
   | "tasks"
+  | "personas"
   | "permissions"
   | "about";
 
@@ -33,6 +35,7 @@ const tabRenderers: Record<TabName, (paneElement: HTMLElement) => Promise<void>>
   indicators: renderIndicatorsTab,
   memory: renderMemoryTab,
   tasks: renderTasksTab,
+  personas: renderPersonasTab,
   permissions: renderPermissionsTab,
   about: renderAboutTab,
 };
