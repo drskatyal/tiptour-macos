@@ -72,7 +72,10 @@ pub async fn capture_primary_screen() -> Result<RawFrame, String> {
         frame::Frame,
         graphics_capture_api::InternalCaptureControl,
         monitor::Monitor,
-        settings::{ColorFormat, CursorCaptureSettings, DrawBorderSettings, Settings},
+        settings::{
+            ColorFormat, CursorCaptureSettings, DirtyRegionSettings, DrawBorderSettings,
+            MinimumUpdateIntervalSettings, SecondaryWindowSettings, Settings,
+        },
     };
 
     // The `windows-capture` crate doesn't give the handler constructor a
@@ -131,10 +134,18 @@ pub async fn capture_primary_screen() -> Result<RawFrame, String> {
 
     let monitor = Monitor::primary()
         .map_err(|error| format!("Monitor::primary: {error:?}"))?;
+    // windows-capture 1.5 expanded Settings::new from 5 to 8 args; the new
+    // three are SecondaryWindowSettings, MinimumUpdateIntervalSettings, and
+    // DirtyRegionSettings. Defaults match the previous behaviour (don't
+    // capture secondary windows; let the OS decide the update cadence;
+    // ignore dirty-region hints since we want full frames).
     let settings = Settings::new(
         monitor,
         CursorCaptureSettings::WithoutCursor,
         DrawBorderSettings::WithoutBorder,
+        SecondaryWindowSettings::Default,
+        MinimumUpdateIntervalSettings::Default,
+        DirtyRegionSettings::Default,
         ColorFormat::Bgra8,
         (),
     );

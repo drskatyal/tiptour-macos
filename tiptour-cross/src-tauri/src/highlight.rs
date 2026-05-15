@@ -318,7 +318,7 @@ fn capture_armed_text_at_point(sample_x: f64, sample_y: f64) -> ArmedTextCapture
     };
 
     let sample_point = UiaPoint::new(sample_x as i32, sample_y as i32);
-    let range = match text_pattern.range_from_point(sample_point) {
+    let range = match text_pattern.get_range_from_point(sample_point) {
         Ok(range) => range,
         Err(_) => {
             return ArmedTextCapture {

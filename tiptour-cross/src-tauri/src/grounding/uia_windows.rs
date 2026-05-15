@@ -73,7 +73,7 @@ fn walk_menu_bars(
 ) -> Result<Vec<ShortcutBinding>, String> {
     let menu_bar_condition = automation
         .create_property_condition(
-            uiautomation::variants::UIProperty::ControlType.into(),
+            uiautomation::types::UIProperty::ControlType.into(),
             (ControlType::MenuBar as i32).into(),
             None,
         )
@@ -103,7 +103,7 @@ fn collect_menu_items(
     }
 
     let children_condition = match automation.create_property_condition(
-        uiautomation::variants::UIProperty::ControlType.into(),
+        uiautomation::types::UIProperty::ControlType.into(),
         (ControlType::MenuItem as i32).into(),
         None,
     ) {
@@ -200,7 +200,7 @@ pub fn find_element_coordinate_by_label(label: &str) -> Option<(f64, f64)> {
 
     let name_condition = automation
         .create_property_condition(
-            uiautomation::variants::UIProperty::Name.into(),
+            uiautomation::types::UIProperty::Name.into(),
             label.into(),
             None,
         )
@@ -233,7 +233,7 @@ pub fn find_element_by_label(_target_app: &TargetApp, label: &str) -> Option<(f6
 
     // Tier 1: exact Name match.
     if let Ok(exact_condition) = automation.create_property_condition(
-        uiautomation::variants::UIProperty::Name.into(),
+        uiautomation::types::UIProperty::Name.into(),
         normalized_label.into(),
         None,
     ) {
@@ -250,7 +250,7 @@ pub fn find_element_by_label(_target_app: &TargetApp, label: &str) -> Option<(f6
     // descendant with a non-empty Name once and score in Rust.
     let any_named_condition = automation
         .create_property_condition(
-            uiautomation::variants::UIProperty::IsControlElement.into(),
+            uiautomation::types::UIProperty::IsControlElement.into(),
             true.into(),
             None,
         )
@@ -389,7 +389,7 @@ pub fn enumerate_interactive_element_labels() -> Result<Vec<String>, String> {
     let mut seen_labels = std::collections::HashSet::new();
     for control_type in interactive_control_types {
         let condition = match automation.create_property_condition(
-            uiautomation::variants::UIProperty::ControlType.into(),
+            uiautomation::types::UIProperty::ControlType.into(),
             (*control_type as i32).into(),
             None,
         ) {

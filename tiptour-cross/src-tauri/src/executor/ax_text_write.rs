@@ -66,7 +66,7 @@ pub fn attempt_ax_text_write(text: &str) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 pub fn attempt_ax_text_write(text: &str) -> Result<(), String> {
-    use uiautomation::patterns::{UITextPattern, UIValuePattern};
+    use uiautomation::patterns::UIValuePattern;
     use uiautomation::UIAutomation;
 
     let automation =
@@ -75,31 +75,18 @@ pub fn attempt_ax_text_write(text: &str) -> Result<(), String> {
         .get_focused_element()
         .map_err(|error| format!("get_focused_element failed: {error}"))?;
 
-    // Prefer TextPattern + set_selected_text — it preserves whatever
-    // selection the user had, just like AXSelectedText on macOS. Some
-    // controls (plain edits, Win32 fields) only expose ValuePattern, so
-    // we fall through to set_value in that case.
-    if let Ok(text_pattern) = focused_element.get_pattern::<UITextPattern>() {
-        if let Ok(selection_ranges) = text_pattern.get_selection() {
-            for range in selection_ranges {
-                if range.set_selected_text(text).is_ok() {
-                    // Some implementations require the range to be
-                    // explicitly added to the selection after the write
-                    // to make the caret follow it; we don't strictly need
-                    // that for our insertion-only use case.
-                    return Ok(());
-                }
-            }
-        }
-    }
-
+    // uiautomation 0.16 doesn't expose UITextRange::set_selected_text the
+    // way newer wrappers do — the selection-replace surface is gone, so
+    // ValuePattern.set_value is the only direct-write path we have for
+    // Windows. The runner's clipboard-paste fallback handles every other
+    // case (rich web editors, controls without ValuePattern, etc).
     if let Ok(value_pattern) = focused_element.get_pattern::<UIValuePattern>() {
         if value_pattern.set_value(text).is_ok() {
             return Ok(());
         }
     }
 
-    Err("focused element exposes neither TextPattern.set_selected_text nor ValuePattern.set_value".to_string())
+    Err("focused element does not expose ValuePattern.set_value".to_string())
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
