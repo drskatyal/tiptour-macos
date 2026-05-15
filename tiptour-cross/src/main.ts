@@ -49,6 +49,15 @@ grantScreenRecordingButton.addEventListener("click", async () => {
     await invoke("request_screen_recording_permission");
   } finally {
     setTimeout(() => void refreshPermissions(), 500);
+    // macOS caches Screen Recording entitlement per-pid in TCC. Even
+    // after the user flips the toggle in System Settings, the
+    // currently running TipTour process won't pick it up — capture
+    // will keep failing until the app is relaunched. Surface that
+    // explicitly so the user isn't left wondering why Gemini still
+    // can't see the screen after a successful permission flow.
+    showError(
+      "Screen recording permission requested. Quit and reopen TipTour for the change to take effect.",
+    );
   }
 });
 
