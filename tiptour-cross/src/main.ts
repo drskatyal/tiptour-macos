@@ -287,6 +287,12 @@ function hideFlowNamingRow() {
   recordFlowNamingRow.hidden = true;
 }
 
+// Names of flows the user has just kicked off but whose multiflow_progress
+// terminal event we haven't yet observed. Used to disable Run on a flow
+// that's already running so a second click doesn't silently cancel the
+// first via the token-supersession path.
+const flowNamesCurrentlyReplaying = new Set<string>();
+
 async function refreshSavedFlowsList() {
   if (!savedFlowsListElement) return;
   let flows: FlowSummary[] = [];
@@ -325,12 +331,22 @@ async function refreshSavedFlowsList() {
     buttonsElement.className = "saved-flow-buttons";
 
     const runButton = document.createElement("button");
-    runButton.textContent = "Run";
     runButton.className = "saved-flow-run";
+    const isAlreadyReplaying = flowNamesCurrentlyReplaying.has(flow.name);
+    runButton.textContent = isAlreadyReplaying ? "Running…" : "Run";
+    runButton.disabled = isAlreadyReplaying;
     runButton.addEventListener("click", async () => {
+      if (flowNamesCurrentlyReplaying.has(flow.name)) {
+        showError(`"${flow.name}" is already running. Wait for it to finish or say "pause".`);
+        return;
+      }
+      flowNamesCurrentlyReplaying.add(flow.name);
+      void refreshSavedFlowsList();
       try {
         await invoke<string>("run_flow_by_name", { name: flow.name });
       } catch (error) {
+        flowNamesCurrentlyReplaying.delete(flow.name);
+        void refreshSavedFlowsList();
         showError("Run flow failed: " + (error instanceof Error ? error.message : String(error)));
       }
     });
@@ -550,6 +566,36 @@ await listen("vosk_command_pause", () => {
   // automation halts. Stop, in contrast, tears down the whole session.
   console.info("[panel] vosk pause command");
   void invoke("pause_active_replay");
+});
+
+// Panel-level multiflow_progress listener — distinct from the one inside
+// GeminiLiveSession, which only runs while a session is open. Voice
+// triggers run flows without an active session too, and we need the Run
+// button state to clear regardless of how the replay was started.
+interface PanelMultiflowProgressEvent {
+  flowId: string;
+  kind:
+    | { kind: "started" }
+    | { kind: "inputReplayed" }
+    | { kind: "appLaunched" }
+    | { kind: "waited" }
+    | { kind: "paused"; reason: string }
+    | { kind: "completed" }
+    | { kind: "failed"; message: string };
+}
+
+await listen<PanelMultiflowProgressEvent>("multiflow_progress", async (event) => {
+  const kind = event.payload.kind.kind;
+  if (kind === "completed" || kind === "failed" || kind === "paused") {
+    // We don't carry the flow name through the progress event; just
+    // empty the running set on any terminal event. Multiple concurrent
+    // replays aren't supported anyway (token supersession), so this is
+    // safe.
+    if (flowNamesCurrentlyReplaying.size > 0) {
+      flowNamesCurrentlyReplaying.clear();
+      await refreshSavedFlowsList();
+    }
+  }
 });
 
 await loadStoredApiKey();

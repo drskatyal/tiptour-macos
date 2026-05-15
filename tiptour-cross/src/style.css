@@ -323,6 +323,11 @@ body {
 .saved-flow-buttons button.saved-flow-run:hover {
   background: #5d68e6;
 }
+.saved-flow-buttons button:disabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: #6e6e74;
+  cursor: not-allowed;
+}
 .saved-flow-buttons button:hover {
   background: rgba(255, 255, 255, 0.14);
 }
