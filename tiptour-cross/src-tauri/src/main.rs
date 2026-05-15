@@ -3,10 +3,12 @@
 
 mod audio;
 mod capabilities;
+mod executor;
 mod grounding;
 mod hotkey;
 mod keychain;
 mod recorder;
+mod screen;
 mod tray;
 
 use tauri::Manager;
@@ -32,6 +34,7 @@ fn main() {
             audio::play_audio_chunk,
             grounding::prefetch_target_app,
             grounding::resolve_label,
+            grounding::resolve_label_with_hint,
             grounding::get_shortcut_index,
             capabilities::explore_app,
             capabilities::list_capabilities,
@@ -47,6 +50,8 @@ fn main() {
             recorder::list_demonstrations,
             recorder::load_demonstration,
             recorder::mine_patterns,
+            screen::start_screen_stream,
+            screen::stop_screen_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

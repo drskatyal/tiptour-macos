@@ -23,13 +23,26 @@ rdev = "0.5"
 hound = "3.5"
 chrono = { version = "0.4", features = ["clock"] }
 uuid = { version = "1", features = ["v4"] }
+enigo = "0.3"
+arboard = "3"
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "macros", "time"] }
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 uiautomation = "0.16"
+windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_Storage_FileSystem", "Win32_Foundation"] }
+windows-capture = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accessibility-sys = "0.1"
 objc2 = "0.5"
+objc2-foundation = "0.2"
+objc2-app-kit = "0.2"
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+core-graphics = "0.24"
+screencapturekit = "0.3"
 
 [features]
 default = ["custom-protocol"]

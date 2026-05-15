@@ -112,6 +112,26 @@ export class GeminiLiveClient {
     this.socket.send(JSON.stringify(payload));
   }
 
+  // Streams a single JPEG screenshot up to Gemini as a realtime media
+  // chunk. Same gating as `sendMicChunk`: silently no-ops before
+  // setupComplete or after the socket closes, since either case means
+  // the server will reject the payload anyway.
+  sendScreenshot(jpegBase64: string): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    if (!this.setupComplete) return;
+    const payload = {
+      realtimeInput: {
+        mediaChunks: [
+          {
+            mimeType: "image/jpeg",
+            data: jpegBase64,
+          },
+        ],
+      },
+    };
+    this.socket.send(JSON.stringify(payload));
+  }
+
   sendToolResponse(toolCallId: string, response: unknown): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     const payload = {

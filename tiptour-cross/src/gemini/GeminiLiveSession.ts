@@ -20,9 +20,16 @@ export interface GeminiLiveSessionOptions {
   onError: (message: string) => void;
 }
 
+interface ScreenFramePayload {
+  jpegBase64: string;
+  width: number;
+  height: number;
+}
+
 export class GeminiLiveSession {
   private client: GeminiLiveClient | null = null;
   private micUnlisten: UnlistenFn | null = null;
+  private screenFrameUnlisten: UnlistenFn | null = null;
   private readonly options: GeminiLiveSessionOptions;
 
   constructor(options: GeminiLiveSessionOptions) {
@@ -63,6 +70,26 @@ export class GeminiLiveSession {
       this.options.onStatusChange("error");
       throw error;
     }
+
+    // Wire up the screen capture stream. Screen recording is best-effort:
+    // if the user hasn't granted permission yet the Rust side will emit
+    // an error per tick that we just log — voice still works without
+    // vision, so we don't tear down the whole session for a vision-only
+    // failure.
+    this.screenFrameUnlisten = await listen<ScreenFramePayload>(
+      "screen_frame",
+      (event) => {
+        this.client?.sendScreenshot(event.payload.jpegBase64);
+      },
+    );
+    try {
+      await invoke("start_screen_stream");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[session] screen stream failed (continuing without vision):", message);
+      this.options.onError("Screen capture unavailable — grant screen recording permission. " + message);
+    }
+
     this.options.onStatusChange("listening");
   }
 
@@ -72,8 +99,15 @@ export class GeminiLiveSession {
     } catch {
       // best-effort
     }
+    try {
+      await invoke("stop_screen_stream");
+    } catch {
+      // best-effort — the streamer may never have started
+    }
     this.micUnlisten?.();
     this.micUnlisten = null;
+    this.screenFrameUnlisten?.();
+    this.screenFrameUnlisten = null;
     this.client?.close();
     this.client = null;
     this.options.onStatusChange("idle");
