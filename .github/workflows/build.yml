@@ -66,8 +66,44 @@ jobs:
         run: npm run build
 
       - name: Rust check (default features)
+        id: rust-check-default
         working-directory: tiptour-cross/src-tauri
-        run: cargo check --message-format=short
+        # `tee` so the same output lands both in the live job log and in a
+        # file we can attach to the run summary on failure. Without this the
+        # only auth-required logs hold the actual `error[E....]` diagnostics
+        # and external contributors can't see why a build broke.
+        run: |
+          set -o pipefail
+          cargo check --message-format=human --color never 2>&1 | tee cargo-check.log
+
+      - name: Surface cargo errors to the job summary on failure
+        if: failure() && steps.rust-check-default.outcome == 'failure'
+        working-directory: tiptour-cross/src-tauri
+        shell: bash
+        run: |
+          {
+            echo "## cargo check (default features) failed on ${{ matrix.os }}"
+            echo ""
+            echo "First 100 lines of compiler output:"
+            echo ""
+            echo '```'
+            head -n 100 cargo-check.log || true
+            echo '```'
+            echo ""
+            echo "All error lines:"
+            echo ""
+            echo '```'
+            grep -E "^error" cargo-check.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload cargo log on failure
+        if: failure() && steps.rust-check-default.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-check-log-${{ matrix.os }}
+          path: tiptour-cross/src-tauri/cargo-check.log
+          retention-days: 7
 
       - name: Rust check (vosk feature, skipped on Linux without libvosk)
         if: matrix.os != 'ubuntu-22.04'
