@@ -5,9 +5,12 @@ import { GeminiLiveSession, SessionStatus } from "./gemini/GeminiLiveSession";
 const statusDot = document.querySelector<HTMLElement>(".dot")!;
 const statusLabel = document.getElementById("status-label")!;
 const apiKeyInput = document.getElementById("api-key-input") as HTMLInputElement;
-const apiKeySaveButton = document.getElementById("api-key-save")!;
+const apiKeySaveButton = document.getElementById("api-key-save") as HTMLButtonElement;
+const startButton = document.getElementById("start-listening") as HTMLButtonElement;
+const stopButton = document.getElementById("stop-listening") as HTMLButtonElement;
 const transcriptEl = document.getElementById("transcript")!;
 const hotkeyDisplay = document.getElementById("hotkey-display")!;
+const errorBanner = document.getElementById("error-banner")!;
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
 hotkeyDisplay.textContent = isMac ? "Option + X" : "Alt + X";
@@ -24,6 +27,20 @@ function setStatus(status: SessionStatus) {
         : status === "speaking"
           ? "Speaking"
           : "Error";
+
+  const isActive = status === "listening" || status === "speaking";
+  startButton.hidden = isActive;
+  stopButton.hidden = !isActive;
+}
+
+function showError(message: string) {
+  errorBanner.textContent = message;
+  errorBanner.hidden = false;
+}
+
+function clearError() {
+  errorBanner.hidden = true;
+  errorBanner.textContent = "";
 }
 
 function appendTranscript(role: "user" | "model", text: string) {
@@ -37,46 +54,75 @@ async function loadStoredApiKey() {
   try {
     const key = await invoke<string | null>("get_api_key");
     if (key) apiKeyInput.value = key;
-  } catch {
-    // First run; no key stored yet.
+  } catch (error) {
+    console.warn("[panel] no stored key:", error);
   }
 }
 
 apiKeySaveButton.addEventListener("click", async () => {
   const key = apiKeyInput.value.trim();
-  if (!key) return;
-  await invoke("set_api_key", { key });
-  apiKeySaveButton.textContent = "Saved";
-  setTimeout(() => (apiKeySaveButton.textContent = "Save"), 1200);
+  if (!key) {
+    showError("Paste a Gemini API key first.");
+    return;
+  }
+  try {
+    await invoke("set_api_key", { key });
+    clearError();
+    apiKeySaveButton.textContent = "Saved";
+    setTimeout(() => (apiKeySaveButton.textContent = "Save"), 1200);
+  } catch (error) {
+    showError("Failed to save key: " + (error instanceof Error ? error.message : String(error)));
+  }
 });
 
-async function togglePushToTalk() {
+async function startSession() {
   const key = apiKeyInput.value.trim();
   if (!key) {
-    setStatus("error");
-    appendTranscript("model", "Set a Gemini API key first.");
+    showError("Paste a Gemini API key first.");
     return;
   }
-
-  if (session) {
-    await session.close();
-    session = null;
-    setStatus("idle");
-    return;
-  }
+  clearError();
+  console.info("[panel] starting session");
 
   session = new GeminiLiveSession({
     apiKey: key,
     onStatusChange: setStatus,
     onUserTranscript: (text) => appendTranscript("user", text),
     onModelTranscript: (text) => appendTranscript("model", text),
+    onError: (message) => showError(message),
   });
-  await session.open();
+
+  try {
+    await session.open();
+  } catch (error) {
+    console.error("[panel] session.open threw:", error);
+    session = null;
+  }
 }
 
+async function stopSession() {
+  if (!session) return;
+  console.info("[panel] stopping session");
+  await session.close();
+  session = null;
+}
+
+async function togglePushToTalk() {
+  if (session) {
+    await stopSession();
+  } else {
+    await startSession();
+  }
+}
+
+startButton.addEventListener("click", () => void startSession());
+stopButton.addEventListener("click", () => void stopSession());
+
 await listen("push_to_talk_toggled", () => {
+  console.info("[panel] hotkey fired");
   void togglePushToTalk();
 });
 
 await loadStoredApiKey();
 setStatus("idle");
+console.info("[panel] ready");

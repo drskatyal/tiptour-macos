@@ -90,6 +90,33 @@ body {
   background: #5d68e6;
 }
 
+.actions {
+  display: flex;
+  gap: 6px;
+}
+.actions button {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+}
+.actions button.primary {
+  background: #4f5ad9;
+  color: white;
+}
+.actions button.primary:hover {
+  background: #5d68e6;
+}
+.actions button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+}
+.actions button.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .hotkey-hint {
   font-size: 12px;
   color: #b3b3b8;
@@ -100,6 +127,17 @@ body {
   padding: 1px 6px;
   font-family: inherit;
   font-size: 11px;
+}
+
+.error-banner {
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .transcript {

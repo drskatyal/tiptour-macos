@@ -17,6 +17,7 @@ export interface GeminiLiveSessionOptions {
   onStatusChange: (status: SessionStatus) => void;
   onUserTranscript: (text: string) => void;
   onModelTranscript: (text: string) => void;
+  onError: (message: string) => void;
 }
 
 export class GeminiLiveSession {
@@ -32,13 +33,18 @@ export class GeminiLiveSession {
     this.client = new GeminiLiveClient({
       apiKey: this.options.apiKey,
       onMessage: (m) => this.handleInbound(m),
-      onClose: () => this.options.onStatusChange("idle"),
+      onClose: (reason) => {
+        console.warn("[session] websocket closed:", reason);
+        this.options.onStatusChange("idle");
+      },
     });
 
     try {
       await this.client.open();
     } catch (error) {
-      console.error(error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[session] open failed:", message);
+      this.options.onError(message);
       this.options.onStatusChange("error");
       throw error;
     }
@@ -48,7 +54,15 @@ export class GeminiLiveSession {
       this.client?.sendMicChunk(pcm);
     });
 
-    await invoke("start_mic_capture");
+    try {
+      await invoke("start_mic_capture");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[session] mic capture failed:", message);
+      this.options.onError("Mic capture failed: " + message);
+      this.options.onStatusChange("error");
+      throw error;
+    }
     this.options.onStatusChange("listening");
   }
 
@@ -92,6 +106,7 @@ export class GeminiLiveSession {
         return;
       case "error":
         console.error("Gemini Live error:", message.message);
+        this.options.onError(message.message);
         this.options.onStatusChange("error");
         return;
     }
