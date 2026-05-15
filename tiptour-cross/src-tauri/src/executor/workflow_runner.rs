@@ -26,6 +26,9 @@ use uuid::Uuid;
 use crate::executor::action::{ExecutableAction, MouseButton};
 use crate::executor::clipboard_paste;
 use crate::executor::cross_platform_input;
+use crate::executor::safety_rails::{
+    modal_dialog_blocking, current_frontmost_pid, settle_until_ui_stable, user_switched_away_from,
+};
 use crate::executor::workflow_plan::{StepType, TargetContext, WorkflowPlan, WorkflowStep};
 use crate::executor::GroundingResolver;
 
@@ -50,9 +53,16 @@ pub enum WorkflowProgress {
         // Resolved click target in global screen coordinates. Emitted just
         // before the synthetic click lands, so the overlay can fly its
         // companion cursor in lockstep with the actual cursor movement.
-        target_x: f64,
-        target_y: f64,
+        // Both coordinates are None when the runner short-circuited the
+        // click into a keyboard shortcut — `shortcut_keys` carries the
+        // chord tokens in that case.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target_x: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target_y: Option<f64>,
         label: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        shortcut_keys: Option<Vec<String>>,
     },
     StepFinished {
         step_index: usize,
@@ -93,12 +103,6 @@ pub struct WorkflowOutcome {
     pub failure_message: Option<String>,
 }
 
-/// Default settle window between click-like steps. The real fingerprint
-/// validator should replace this once Phase 2 lands AX/UIA polling — for
-/// now it's a flat sleep that gives the OS enough time to dispatch the
-/// click before the next step's grounding query runs.
-const POST_CLICK_SETTLE: Duration = Duration::from_millis(350);
-
 /// Drive a plan to completion. Returns a final outcome; intermediate
 /// updates flow over `progress`.
 pub async fn run_workflow_plan(
@@ -124,11 +128,15 @@ pub async fn run_workflow_plan(
 
     let mut executed_step_count: usize = 0;
 
+    // Capture the foreground pid at workflow start so we can detect when
+    // the user Cmd-Tabs away mid-plan. None just disables the check —
+    // safer than falsely tripping when there is no foreground app.
+    let workflow_starting_foreground_pid: Option<i32> = current_frontmost_pid();
+
     for (step_index, step) in plan.steps.iter().enumerate() {
-        // TODO(Phase 2): modal dialog detection. The Swift runner pauses
-        // when an `AXSheet`/`AXDialog` appears mid-workflow — port that
-        // here against UIA's `ControlType.Window` modal flag on Windows
-        // and AX role on macOS.
+        // Pause the workflow whenever a modal dialog/sheet pops up. The
+        // detector caches its answer for 100ms internally so polling
+        // between every step stays cheap.
         if modal_dialog_blocking() {
             let _ = progress
                 .send(WorkflowProgress::Paused {
@@ -143,11 +151,11 @@ pub async fn run_workflow_plan(
             });
         }
 
-        // TODO(Phase 2): pause-on-app-switch. Hook into
-        // `NSWorkspace.didActivateApplicationNotification` (mac) and
-        // `EVENT_SYSTEM_FOREGROUND` (windows) and trip a flag the runner
-        // polls between steps. Until then the runner stays naive.
-        if app_switched_during_run() {
+        // Pause when the user moves focus to a different app than the
+        // one the plan started in — except when the new frontmost is
+        // TipTour itself, since the panel/tray naturally grabs focus
+        // during voice activity and we don't want that to abort plans.
+        if user_switched_away_from(workflow_starting_foreground_pid) {
             let _ = progress
                 .send(WorkflowProgress::Paused {
                     reason: "user_changed_focus".to_string(),
@@ -182,12 +190,13 @@ pub async fn run_workflow_plan(
 
         if is_executed {
             executed_step_count += 1;
-            // Settle window — gives the click time to propagate before we
-            // ground the next step's label against a fresh AX/UIA snapshot.
-            // Only matters for click-like steps; cheap to apply uniformly.
-            if step_needs_post_action_settle(step_type) {
-                tokio::time::sleep(POST_CLICK_SETTLE).await;
-            }
+            // Post-action settle. For UI-mutating step types
+            // (Click/Type/Shortcut/PressKey/SetValue) this polls the
+            // foreground AX/UIA fingerprint until three consecutive
+            // samples match, capped at 600ms — so the next step's
+            // grounding query runs against a tree that has actually
+            // repainted. For LaunchApp/OpenUrl/Scroll it's a flat 350ms.
+            settle_until_ui_stable(step_type).await;
         } else if matches!(result, StepResult::ActionFailed { .. }) {
             // Hard failure: surface and stop. The user can ask the agent
             // to retry; we don't want to half-execute the rest of a plan
@@ -221,19 +230,6 @@ pub async fn run_workflow_plan(
     })
 }
 
-fn step_needs_post_action_settle(step_type: StepType) -> bool {
-    matches!(
-        step_type,
-        StepType::Click
-            | StepType::RightClick
-            | StepType::DoubleClick
-            | StepType::KeyboardShortcut
-            | StepType::PressKey
-            | StepType::OpenApp
-            | StepType::OpenUrl
-    )
-}
-
 async fn execute_step(
     step: &WorkflowStep,
     step_index: usize,
@@ -243,6 +239,33 @@ async fn execute_step(
 ) -> StepResult {
     match step_type {
         StepType::Click | StepType::RightClick | StepType::DoubleClick => {
+            // Prefer keyboard shortcut grounding when the resolver knows
+            // a chord for this label (menu accelerators are deterministic;
+            // synthetic clicks on menu items are not). Skip the
+            // coordinate resolution entirely in that case.
+            if let Some(label) = step.label.as_deref() {
+                if let Some(shortcut_tokens) = grounding.resolve_shortcut(label) {
+                    let _ = progress
+                        .send(WorkflowProgress::StepResolved {
+                            step_index,
+                            target_x: None,
+                            target_y: None,
+                            label: step.label.clone(),
+                            shortcut_keys: Some(shortcut_tokens.clone()),
+                        })
+                        .await;
+                    if matches!(
+                        crate::mode::current_operating_mode(),
+                        crate::mode::OperatingMode::Teaching
+                    ) {
+                        return StepResult::Executed;
+                    }
+                    return deliver(ExecutableAction::KeyboardShortcut {
+                        keys: shortcut_tokens,
+                    });
+                }
+            }
+
             let target_context = step.target_context();
             let (x, y) = match resolve_step_coordinate(step, target_context, grounding) {
                 Some(point) => point,
@@ -262,9 +285,10 @@ async fn execute_step(
             let _ = progress
                 .send(WorkflowProgress::StepResolved {
                     step_index,
-                    target_x: x,
-                    target_y: y,
+                    target_x: Some(x),
+                    target_y: Some(y),
                     label: step.label.clone(),
+                    shortcut_keys: None,
                 })
                 .await;
             // Teaching mode: the overlay still points, but TipTour does NOT
@@ -409,20 +433,25 @@ fn resolve_step_coordinate(
     grounding: &mut dyn GroundingResolver,
 ) -> Option<(f64, f64)> {
     match target_context {
-        // For highlight/selection/focus the click coordinate isn't the
-        // right grounding output — the action layer should send the key
-        // chord or paste action to whatever the OS reports as focused.
-        // We deliberately fall back to box_2d if Gemini supplied it so
-        // the runner remains useful before the focus-binding wiring lands.
-        Some(TargetContext::CurrentHighlight)
-        | Some(TargetContext::CurrentSelection)
-        | Some(TargetContext::FocusedElement) => {
-            // TODO(focus binding): resolve through AX/UIA focused element.
-            return step.box_2d_u32().and_then(|_| {
-                // Fall through to grounding for now.
-                let label = step.label.as_deref()?;
-                grounding.resolve_label(label, step.box_2d_u32())
-            });
+        Some(TargetContext::CurrentHighlight) => {
+            // The brush module owns the latest painted region. Anchor
+            // point is the last hovered point on the painted polyline —
+            // exactly what we want as the click target.
+            if let Some(highlight_context) = crate::highlight::current_highlight_context() {
+                if let Some(anchor_point) = highlight_context.anchor_point {
+                    return Some(anchor_point);
+                }
+            }
+        }
+        Some(TargetContext::CurrentSelection) => {
+            if let Some(point) = current_selection_center_point() {
+                return Some(point);
+            }
+        }
+        Some(TargetContext::FocusedElement) => {
+            if let Some(point) = focused_element_center_point() {
+                return Some(point);
+            }
         }
         _ => {}
     }
@@ -588,15 +617,284 @@ fn open_url(url: &str) -> Result<(), String> {
     }
 }
 
-/// Stub: modal-dialog detection. Real implementation polls AX/UIA for a
-/// front-and-center sheet/dialog window. See TODO at the call site.
-fn modal_dialog_blocking() -> bool {
-    false
+
+/// Center point of the user's current text selection (in global screen
+/// coordinates), or None if nothing is selected. Used to bind a step's
+/// `targetContext: "currentSelection"` to an actual click target so
+/// follow-up clicks land inside the selected range.
+fn current_selection_center_point() -> Option<(f64, f64)> {
+    #[cfg(target_os = "macos")]
+    {
+        return macos_current_selection_center();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        return windows_current_selection_center();
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        None
+    }
 }
 
-/// Stub: pause-on-app-switch. Real implementation listens for the OS
-/// foreground-change notification and toggles a flag the runner reads
-/// between steps. See TODO at the call site.
-fn app_switched_during_run() -> bool {
-    false
+/// Center point of the system-wide focused UI element, or None if no
+/// element reports focus. Lets the runner bind `targetContext:
+/// "focusedElement"` steps to the field the OS reports as accepting
+/// input right now.
+fn focused_element_center_point() -> Option<(f64, f64)> {
+    #[cfg(target_os = "macos")]
+    {
+        return macos_focused_element_center();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        return windows_focused_element_center();
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_focused_element_center() -> Option<(f64, f64)> {
+    use accessibility_sys::{
+        kAXFocusedUIElementAttribute, kAXPositionAttribute, kAXSizeAttribute,
+        kAXValueTypeCGPoint, kAXValueTypeCGSize, AXUIElementCopyAttributeValue,
+        AXUIElementCreateSystemWide, AXUIElementRef, AXUIElementSetMessagingTimeout,
+        AXValueGetType, AXValueGetValue, AXValueRef,
+    };
+    use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::CFString;
+
+    unsafe {
+        let system_wide_element: AXUIElementRef = AXUIElementCreateSystemWide();
+        if system_wide_element.is_null() {
+            return None;
+        }
+        AXUIElementSetMessagingTimeout(system_wide_element, 0.4);
+        let focused_attribute = CFString::new(kAXFocusedUIElementAttribute);
+        let mut focused_raw: CFTypeRef = std::ptr::null_mut();
+        let status = AXUIElementCopyAttributeValue(
+            system_wide_element,
+            focused_attribute.as_concrete_TypeRef(),
+            &mut focused_raw,
+        );
+        CFRelease(system_wide_element as CFTypeRef);
+        if status != 0 || focused_raw.is_null() {
+            return None;
+        }
+        let focused_element_ref = focused_raw as AXUIElementRef;
+        AXUIElementSetMessagingTimeout(focused_element_ref, 0.4);
+
+        let position = read_ax_point(focused_element_ref, kAXPositionAttribute, kAXValueTypeCGPoint);
+        let size = read_ax_size(focused_element_ref, kAXSizeAttribute, kAXValueTypeCGSize);
+        CFRelease(focused_raw);
+
+        let (origin_x, origin_y) = position?;
+        let (width, height) = size?;
+        Some((origin_x + width / 2.0, origin_y + height / 2.0))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_current_selection_center() -> Option<(f64, f64)> {
+    use accessibility_sys::{
+        kAXBoundsForRangeParameterizedAttribute, kAXFocusedUIElementAttribute,
+        kAXSelectedTextRangeAttribute, kAXValueTypeCGRect, AXUIElementCopyAttributeValue,
+        AXUIElementCopyParameterizedAttributeValue, AXUIElementCreateSystemWide,
+        AXUIElementRef, AXUIElementSetMessagingTimeout, AXValueGetType, AXValueGetValue,
+        AXValueRef,
+    };
+    use core_foundation::base::{CFGetTypeID, CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::CFString;
+    use core_graphics::geometry::CGRect;
+
+    unsafe {
+        let system_wide_element: AXUIElementRef = AXUIElementCreateSystemWide();
+        if system_wide_element.is_null() {
+            return None;
+        }
+        AXUIElementSetMessagingTimeout(system_wide_element, 0.4);
+        let focused_attribute = CFString::new(kAXFocusedUIElementAttribute);
+        let mut focused_raw: CFTypeRef = std::ptr::null_mut();
+        let focused_status = AXUIElementCopyAttributeValue(
+            system_wide_element,
+            focused_attribute.as_concrete_TypeRef(),
+            &mut focused_raw,
+        );
+        CFRelease(system_wide_element as CFTypeRef);
+        if focused_status != 0 || focused_raw.is_null() {
+            return None;
+        }
+        let focused_element_ref = focused_raw as AXUIElementRef;
+        AXUIElementSetMessagingTimeout(focused_element_ref, 0.4);
+
+        // Pull the AXSelectedTextRange (CFRange-style AXValue) from the
+        // focused element. If nothing is selected the read fails or the
+        // range length is zero and we bail.
+        let selected_range_attribute = CFString::new(kAXSelectedTextRangeAttribute);
+        let mut selected_range_raw: CFTypeRef = std::ptr::null_mut();
+        let range_status = AXUIElementCopyAttributeValue(
+            focused_element_ref,
+            selected_range_attribute.as_concrete_TypeRef(),
+            &mut selected_range_raw,
+        );
+        if range_status != 0 || selected_range_raw.is_null() {
+            CFRelease(focused_raw);
+            return None;
+        }
+
+        // Convert that range into screen-space bounds via the
+        // AXBoundsForRange parameterized attribute. The returned AXValue
+        // wraps a CGRect we can use directly.
+        let bounds_attribute = CFString::new(kAXBoundsForRangeParameterizedAttribute);
+        let mut bounds_raw: CFTypeRef = std::ptr::null_mut();
+        let bounds_status = AXUIElementCopyParameterizedAttributeValue(
+            focused_element_ref,
+            bounds_attribute.as_concrete_TypeRef(),
+            selected_range_raw,
+            &mut bounds_raw,
+        );
+        CFRelease(selected_range_raw);
+        CFRelease(focused_raw);
+        if bounds_status != 0 || bounds_raw.is_null() {
+            return None;
+        }
+
+        let value_ref = bounds_raw as AXValueRef;
+        let value_type = AXValueGetType(value_ref);
+        if value_type != kAXValueTypeCGRect {
+            CFRelease(bounds_raw);
+            return None;
+        }
+        let mut rect = CGRect::new(
+            &core_graphics::geometry::CGPoint::new(0.0, 0.0),
+            &core_graphics::geometry::CGSize::new(0.0, 0.0),
+        );
+        let got_value = AXValueGetValue(
+            value_ref,
+            value_type,
+            &mut rect as *mut CGRect as *mut std::ffi::c_void,
+        );
+        CFRelease(bounds_raw);
+        if !got_value {
+            return None;
+        }
+        let _ = CFGetTypeID;
+        Some((
+            rect.origin.x + rect.size.width / 2.0,
+            rect.origin.y + rect.size.height / 2.0,
+        ))
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn read_ax_point(
+    element: accessibility_sys::AXUIElementRef,
+    attribute_name: &str,
+    expected_type: u32,
+) -> Option<(f64, f64)> {
+    use accessibility_sys::{
+        AXUIElementCopyAttributeValue, AXValueGetType, AXValueGetValue, AXValueRef,
+    };
+    use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::CFString;
+    use core_graphics::geometry::CGPoint;
+
+    let attribute = CFString::new(attribute_name);
+    let mut raw: CFTypeRef = std::ptr::null_mut();
+    let status = AXUIElementCopyAttributeValue(element, attribute.as_concrete_TypeRef(), &mut raw);
+    if status != 0 || raw.is_null() {
+        return None;
+    }
+    let value_ref = raw as AXValueRef;
+    if AXValueGetType(value_ref) != expected_type {
+        CFRelease(raw);
+        return None;
+    }
+    let mut cg_point = CGPoint::new(0.0, 0.0);
+    let ok = AXValueGetValue(
+        value_ref,
+        expected_type,
+        &mut cg_point as *mut CGPoint as *mut std::ffi::c_void,
+    );
+    CFRelease(raw);
+    if !ok {
+        return None;
+    }
+    Some((cg_point.x, cg_point.y))
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn read_ax_size(
+    element: accessibility_sys::AXUIElementRef,
+    attribute_name: &str,
+    expected_type: u32,
+) -> Option<(f64, f64)> {
+    use accessibility_sys::{
+        AXUIElementCopyAttributeValue, AXValueGetType, AXValueGetValue, AXValueRef,
+    };
+    use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::CFString;
+    use core_graphics::geometry::CGSize;
+
+    let attribute = CFString::new(attribute_name);
+    let mut raw: CFTypeRef = std::ptr::null_mut();
+    let status = AXUIElementCopyAttributeValue(element, attribute.as_concrete_TypeRef(), &mut raw);
+    if status != 0 || raw.is_null() {
+        return None;
+    }
+    let value_ref = raw as AXValueRef;
+    if AXValueGetType(value_ref) != expected_type {
+        CFRelease(raw);
+        return None;
+    }
+    let mut cg_size = CGSize::new(0.0, 0.0);
+    let ok = AXValueGetValue(
+        value_ref,
+        expected_type,
+        &mut cg_size as *mut CGSize as *mut std::ffi::c_void,
+    );
+    CFRelease(raw);
+    if !ok {
+        return None;
+    }
+    Some((cg_size.width, cg_size.height))
+}
+
+#[cfg(target_os = "windows")]
+fn windows_focused_element_center() -> Option<(f64, f64)> {
+    use uiautomation::UIAutomation;
+    let automation = UIAutomation::new().ok()?;
+    let focused_element = automation.get_focused_element().ok()?;
+    let bounding_rect = focused_element.get_bounding_rectangle().ok()?;
+    let left = bounding_rect.get_left() as f64;
+    let top = bounding_rect.get_top() as f64;
+    let right = bounding_rect.get_right() as f64;
+    let bottom = bounding_rect.get_bottom() as f64;
+    Some(((left + right) / 2.0, (top + bottom) / 2.0))
+}
+
+#[cfg(target_os = "windows")]
+fn windows_current_selection_center() -> Option<(f64, f64)> {
+    // The `uiautomation` crate (0.16) doesn't expose
+    // ITextRangeProvider::GetBoundingRectangles, so we fall back to the
+    // selection's enclosing element bounding rect — for selections
+    // inside text controls this gives us a click target inside the
+    // field, which is good enough for "click in this selection" intent.
+    use uiautomation::patterns::UITextPattern;
+    use uiautomation::UIAutomation;
+    let automation = UIAutomation::new().ok()?;
+    let focused_element = automation.get_focused_element().ok()?;
+    let text_pattern = focused_element.get_pattern::<UITextPattern>().ok()?;
+    let selection_ranges = text_pattern.get_selection().ok()?;
+    let first_range = selection_ranges.into_iter().next()?;
+    let enclosing_element = first_range.get_enclosing_element().ok()?;
+    let bounding_rect = enclosing_element.get_bounding_rectangle().ok()?;
+    let left = bounding_rect.get_left() as f64;
+    let top = bounding_rect.get_top() as f64;
+    let right = bounding_rect.get_right() as f64;
+    let bottom = bounding_rect.get_bottom() as f64;
+    Some(((left + right) / 2.0, (top + bottom) / 2.0))
 }

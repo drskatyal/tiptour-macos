@@ -11,6 +11,7 @@
 pub mod action;
 pub mod clipboard_paste;
 pub mod cross_platform_input;
+pub mod safety_rails;
 pub mod workflow_plan;
 pub mod workflow_runner;
 
@@ -28,6 +29,16 @@ use workflow_runner::{run_workflow_plan, WorkflowProgress};
 /// without breaking the contract.
 pub trait GroundingResolver: Send {
     fn resolve_label(&mut self, label: &str, box_2d: Option<[u32; 4]>) -> Option<(f64, f64)>;
+
+    /// When the grounding layer prefers a keyboard chord for this label
+    /// (menu-item shortcut bindings on Windows, AX menu accelerators on
+    /// macOS), surface the modifier-and-key tokens here. The workflow
+    /// runner uses this to short-circuit click steps into keyboard
+    /// shortcuts before it bothers with coordinate resolution — far more
+    /// reliable than dispatching synthetic clicks at menu items.
+    fn resolve_shortcut(&mut self, _label: &str) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// Default grounding implementation. Delegates to the existing
@@ -54,9 +65,25 @@ impl GroundingResolver for DefaultGroundingResolver {
         let resolved = grounding::resolver::resolve(label, self.target_app.clone())?;
         match resolved {
             grounding::types::ResolvedTarget::Coordinate { x, y } => Some((x, y)),
-            // TODO: route Shortcut through the action layer when the
-            // runner gains a "prefer keyboard for this label" hook.
+            // Shortcut binding flows through `resolve_shortcut` below; we
+            // return None here so the runner's coordinate path doesn't
+            // pretend it succeeded.
             grounding::types::ResolvedTarget::Shortcut { .. } => None,
+        }
+    }
+
+    fn resolve_shortcut(&mut self, label: &str) -> Option<Vec<String>> {
+        let resolved = grounding::resolver::resolve(label, self.target_app.clone())?;
+        match resolved {
+            grounding::types::ResolvedTarget::Shortcut { chord } => {
+                // Flatten ["Cmd","Shift"] + "S" into the flat token list
+                // the cross-platform input layer expects.
+                let mut chord_tokens: Vec<String> =
+                    chord.modifiers.into_iter().collect();
+                chord_tokens.push(chord.key);
+                Some(chord_tokens)
+            }
+            grounding::types::ResolvedTarget::Coordinate { .. } => None,
         }
     }
 }

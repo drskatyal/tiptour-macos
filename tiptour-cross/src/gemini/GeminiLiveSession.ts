@@ -32,7 +32,17 @@ interface ScreenFramePayload {
 type WorkflowProgressEvent =
   | { kind: "started"; workflowId: string; goal?: string | null; totalSteps: number }
   | { kind: "stepStarted"; stepIndex: number; label?: string | null; stepType: string }
-  | { kind: "stepResolved"; stepIndex: number; targetX: number; targetY: number; label?: string | null }
+  | {
+      kind: "stepResolved";
+      stepIndex: number;
+      // Coordinates are absent when the runner short-circuited a click
+      // step into a keyboard shortcut — `shortcutKeys` carries the
+      // chord tokens in that case.
+      targetX?: number;
+      targetY?: number;
+      label?: string | null;
+      shortcutKeys?: string[];
+    }
   | { kind: "stepFinished"; stepIndex: number; result: unknown }
   | { kind: "paused"; reason: string }
   | { kind: "completed" }
@@ -113,11 +123,16 @@ export class GeminiLiveSession {
         // animation duration in CSS matches the click-settle delay so the
         // companion cursor lands at the same moment the real cursor does.
         if (payload.kind === "stepResolved") {
-          void invoke("overlay_fly_cursor_to", {
-            x: payload.targetX,
-            y: payload.targetY,
-            label: payload.label ?? null,
-          });
+          // Only fly the overlay cursor when the runner emitted a
+          // coordinate target. Shortcut-grounded steps have no on-screen
+          // destination so the overlay stays put.
+          if (typeof payload.targetX === "number" && typeof payload.targetY === "number") {
+            void invoke("overlay_fly_cursor_to", {
+              x: payload.targetX,
+              y: payload.targetY,
+              label: payload.label ?? null,
+            });
+          }
         }
         if (payload.kind === "completed" || payload.kind === "failed" || payload.kind === "paused") {
           void invoke("overlay_hide_response");
