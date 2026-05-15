@@ -22,6 +22,19 @@ pub fn build_wake_grammar() -> String {
 /// (canonical name + each alias) wrapped in "do ..." / "run ..." so the
 /// caller doesn't have to enumerate both verb forms.
 pub fn build_command_grammar(flow_titles: &[String], flow_aliases: &[Vec<String>]) -> String {
+    build_command_grammar_with_app_aliases(flow_titles, flow_aliases, &[])
+}
+
+/// Variant of `build_command_grammar` that also injects launch phrases
+/// ("open <alias>", "launch <alias>", "start <alias>", "go to <alias>")
+/// for every discovered-and-enabled app alias the caller passes in.
+/// Kept separate so the existing tests covering "do <flow>" / "run <flow>"
+/// behavior don't need a discovered-apps fixture.
+pub fn build_command_grammar_with_app_aliases(
+    flow_titles: &[String],
+    flow_aliases: &[Vec<String>],
+    installed_app_aliases: &[String],
+) -> String {
     let mut phrases: Vec<String> = vec![
         "stop".to_string(),
         "cancel".to_string(),
@@ -49,6 +62,21 @@ pub fn build_command_grammar(flow_titles: &[String], flow_aliases: &[Vec<String>
     for target_phrase in &voice_target_phrases {
         phrases.push(format!("do {target_phrase}"));
         phrases.push(format!("run {target_phrase}"));
+    }
+
+    // Each discovered + enabled installed app contributes four launch
+    // verbs. We accept all four ("open"/"launch"/"start"/"go to") because
+    // users phrase the same intent in any of them and Vosk grammar size
+    // grows linearly without hurting recognition quality at this scale.
+    for installed_app_alias in installed_app_aliases {
+        let trimmed = installed_app_alias.trim().to_ascii_lowercase();
+        if trimmed.is_empty() {
+            continue;
+        }
+        phrases.push(format!("open {trimmed}"));
+        phrases.push(format!("launch {trimmed}"));
+        phrases.push(format!("start {trimmed}"));
+        phrases.push(format!("go to {trimmed}"));
     }
 
     phrases.push("[unk]".to_string());

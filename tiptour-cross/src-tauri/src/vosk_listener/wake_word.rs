@@ -19,9 +19,10 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter};
 
+use crate::app_discovery;
 use crate::multiflow;
 
-use super::grammar::{build_command_grammar, build_wake_grammar};
+use super::grammar::{build_command_grammar_with_app_aliases, build_wake_grammar};
 use super::recognizer::{LocalRecognizer, RecognitionEvent};
 
 const SAMPLE_RATE_HZ: f32 = 16_000.0;
@@ -106,7 +107,18 @@ impl WakeWordDispatcher {
             .iter()
             .map(|f| f.trigger_aliases.clone())
             .collect();
-        let command_grammar_json = build_command_grammar(&flow_titles, &flow_aliases);
+        // Pull the user-enabled discovered apps so the grammar can fire
+        // launch phrases entirely locally — no Gemini round-trip needed
+        // for "open chrome" / "launch slack" / etc.
+        let mut installed_app_aliases: Vec<String> = Vec::new();
+        for discovered_app in app_discovery::enabled_apps_for_grammar() {
+            installed_app_aliases.extend(discovered_app.aliases);
+        }
+        let command_grammar_json = build_command_grammar_with_app_aliases(
+            &flow_titles,
+            &flow_aliases,
+            &installed_app_aliases,
+        );
         let Ok(command_phrases) = serde_json::from_str::<Vec<String>>(&command_grammar_json) else {
             return;
         };
@@ -156,6 +168,45 @@ impl WakeWordDispatcher {
         if normalized == "pause" {
             let _ = self.app_handle.emit("vosk_command_pause", ());
             return;
+        }
+
+        // "open X" / "launch X" / "start X" / "go to X" → look up the
+        // alias in the discovered-apps cache and dispatch a local launch
+        // via the same code path the workflow runner uses for
+        // `ExecutableAction::LaunchApp`. Stays entirely on-device — the
+        // Gemini Live session is never opened for this branch.
+        let launch_query_opt = normalized
+            .strip_prefix("open ")
+            .or_else(|| normalized.strip_prefix("launch "))
+            .or_else(|| normalized.strip_prefix("start "))
+            .or_else(|| normalized.strip_prefix("go to "));
+        if let Some(launch_query) = launch_query_opt {
+            let trimmed_launch_query = launch_query.trim().to_string();
+            if !trimmed_launch_query.is_empty() {
+                if let Some(matched_app) =
+                    app_discovery::find_enabled_app_by_alias(&trimmed_launch_query)
+                {
+                    let launch_identifier = matched_app.launch_identifier().to_string();
+                    let display_name_for_event = matched_app.display_name.clone();
+                    let app_handle_for_event = self.app_handle.clone();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        if let Err(launch_error) =
+                            crate::executor::workflow_runner::launch_app_public(&launch_identifier)
+                        {
+                            eprintln!(
+                                "[vosk] local launch '{display_name_for_event}' failed: {launch_error}"
+                            );
+                        }
+                        let _ = app_handle_for_event
+                            .emit("vosk_local_launch_fired", display_name_for_event);
+                    });
+                    return;
+                }
+                // Alias didn't match anything in the cache — fall through
+                // to the saved-flow fuzzy match below in case the user
+                // recorded a flow whose trigger phrase starts with "open"
+                // (e.g. "open daily standup notes").
+            }
         }
 
         // "do X" / "run X" → fuzzy-match against saved flows.

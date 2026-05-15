@@ -604,6 +604,14 @@ fn deliver(action: ExecutableAction) -> StepResult {
 /// string to `cmd /C start`, which handles both executables on PATH and
 /// shell-registered URIs. We keep this as a subprocess shell-out because
 /// it lets the OS apply all its usual handler resolution.
+/// Public wrapper around `launch_app` so non-runner callers (the local
+/// Vosk dispatcher) can fire the exact same OS-launch path without
+/// constructing a synthetic `WorkflowPlan`. Internal callers keep using
+/// `launch_app` directly to avoid an unnecessary public-API hop.
+pub fn launch_app_public(identifier: &str) -> Result<(), String> {
+    launch_app(identifier)
+}
+
 fn launch_app(identifier: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {

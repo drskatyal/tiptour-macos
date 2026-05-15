@@ -1,6 +1,7 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_discovery;
 mod app_metadata;
 mod app_settings;
 mod audio;
@@ -48,6 +49,12 @@ fn main() {
             // opted in on a previous launch. No-op when the feature
             // flag is off or the model isn't on disk.
             vosk_listener::auto_start_if_user_opted_in(app.handle());
+
+            // Warm the discovered-apps cache from disk and trigger a
+            // background rescan if the on-disk snapshot is stale. The
+            // Vosk grammar builder reads from this cache, so we want
+            // results available before the user says the wake word.
+            app_discovery::kickoff_background_scan(app.handle());
 
             // Panel starts hidden; tray click reveals it.
             if let Some(window) = app.get_webview_window("panel") {
@@ -129,6 +136,9 @@ fn main() {
             custom_commands::delete_custom_voice_command,
             settings_window::open_settings_window,
             hotkey::reregister_push_to_talk_hotkey,
+            app_discovery::list_discovered_apps,
+            app_discovery::rescan_installed_apps,
+            app_discovery::set_app_command_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

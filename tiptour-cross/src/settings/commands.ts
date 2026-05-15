@@ -19,7 +19,19 @@ const IMMUTABLE_SYSTEM_COMMANDS: { phrase: string; description: string }[] = [
   { phrase: "pause", description: "Pause the in-flight replay." },
   { phrase: "do <flow>", description: "Run a saved flow by name." },
   { phrase: "run <flow>", description: "Run a saved flow by name." },
+  { phrase: "open <app>", description: "Locally launch a discovered app." },
+  { phrase: "launch <app>", description: "Locally launch a discovered app." },
+  { phrase: "start <app>", description: "Locally launch a discovered app." },
+  { phrase: "go to <app>", description: "Locally launch a discovered app." },
 ];
+
+interface DiscoveredApp {
+  canonicalId: string;
+  displayName: string;
+  launchTarget: { kind: "bundleId" | "executablePath"; value: string };
+  aliases: string[];
+  isUserEnabled: boolean;
+}
 
 export async function renderCommandsTab(paneElement: HTMLElement): Promise<void> {
   const customCommands = await invoke<CustomVoiceCommand[]>("list_custom_voice_commands").catch(
@@ -32,6 +44,14 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
 
     <h3>Built-in (read-only)</h3>
     <ul class="list-rows" id="commands-builtin"></ul>
+
+    <h3>Auto-detected app commands</h3>
+    <p class="lede" id="discovered-apps-status">Scanning installed applications…</p>
+    <div class="row-actions" style="margin-bottom:8px">
+      <input type="search" id="discovered-apps-search" placeholder="Filter by name or alias" style="flex:1" />
+      <button id="discovered-apps-rescan">Re-scan installed apps</button>
+    </div>
+    <ul class="list-rows" id="discovered-apps-list"></ul>
 
     <h3>Custom</h3>
     <div id="commands-custom-editors"></div>
@@ -54,6 +74,104 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
     `;
     builtinListElement.appendChild(rowElement);
   }
+
+  const discoveredAppsListElement = paneElement.querySelector<HTMLUListElement>(
+    "#discovered-apps-list",
+  )!;
+  const discoveredAppsStatusElement = paneElement.querySelector<HTMLParagraphElement>(
+    "#discovered-apps-status",
+  )!;
+  const discoveredAppsSearchElement = paneElement.querySelector<HTMLInputElement>(
+    "#discovered-apps-search",
+  )!;
+  const discoveredAppsRescanButtonElement = paneElement.querySelector<HTMLButtonElement>(
+    "#discovered-apps-rescan",
+  )!;
+
+  let currentDiscoveredApps: DiscoveredApp[] = [];
+
+  function renderDiscoveredApps(filterSubstring: string): void {
+    discoveredAppsListElement.innerHTML = "";
+    const lowerFilter = filterSubstring.trim().toLowerCase();
+    const filtered = currentDiscoveredApps.filter((app) => {
+      if (lowerFilter === "") return true;
+      if (app.displayName.toLowerCase().includes(lowerFilter)) return true;
+      return app.aliases.some((alias) => alias.toLowerCase().includes(lowerFilter));
+    });
+    const enabledCount = currentDiscoveredApps.filter((app) => app.isUserEnabled).length;
+    discoveredAppsStatusElement.textContent = `${currentDiscoveredApps.length} apps detected — ${enabledCount} enabled.`;
+
+    for (const app of filtered) {
+      const rowElement = document.createElement("li");
+      rowElement.className = "list-row";
+      const samplePhrases = app.aliases
+        .slice(0, 2)
+        .map((alias) => `"open ${alias}"`)
+        .join(", ");
+      rowElement.innerHTML = `
+        <div class="row-main">
+          <span class="row-title">${escapeHtml(app.displayName)}</span>
+          <span class="row-sub">say: ${escapeHtml(samplePhrases || "(no aliases)")}</span>
+        </div>
+        <div class="row-actions">
+          <label class="toggle">
+            <input type="checkbox" data-canonical-id="${escapeHtml(app.canonicalId)}" ${
+              app.isUserEnabled ? "checked" : ""
+            } />
+            <span>Enabled</span>
+          </label>
+        </div>
+      `;
+      const toggleInputElement = rowElement.querySelector<HTMLInputElement>(
+        "input[type='checkbox']",
+      )!;
+      toggleInputElement.addEventListener("change", async () => {
+        try {
+          await invoke("set_app_command_enabled", {
+            canonicalId: app.canonicalId,
+            enabled: toggleInputElement.checked,
+          });
+          app.isUserEnabled = toggleInputElement.checked;
+          const newEnabledCount = currentDiscoveredApps.filter((a) => a.isUserEnabled).length;
+          discoveredAppsStatusElement.textContent = `${currentDiscoveredApps.length} apps detected — ${newEnabledCount} enabled.`;
+        } catch (toggleError) {
+          flashBanner(`Toggle failed: ${errorMessageOf(toggleError)}`);
+          toggleInputElement.checked = app.isUserEnabled;
+        }
+      });
+      discoveredAppsListElement.appendChild(rowElement);
+    }
+  }
+
+  async function loadDiscoveredApps(): Promise<void> {
+    try {
+      currentDiscoveredApps = await invoke<DiscoveredApp[]>("list_discovered_apps");
+    } catch (loadError) {
+      discoveredAppsStatusElement.textContent = `Discovery failed: ${errorMessageOf(loadError)}`;
+      currentDiscoveredApps = [];
+    }
+    renderDiscoveredApps(discoveredAppsSearchElement.value);
+  }
+
+  discoveredAppsSearchElement.addEventListener("input", () => {
+    renderDiscoveredApps(discoveredAppsSearchElement.value);
+  });
+
+  discoveredAppsRescanButtonElement.addEventListener("click", async () => {
+    discoveredAppsRescanButtonElement.disabled = true;
+    discoveredAppsStatusElement.textContent = "Re-scanning…";
+    try {
+      currentDiscoveredApps = await invoke<DiscoveredApp[]>("rescan_installed_apps");
+      renderDiscoveredApps(discoveredAppsSearchElement.value);
+      flashBanner("Re-scan complete.");
+    } catch (rescanError) {
+      flashBanner(`Re-scan failed: ${errorMessageOf(rescanError)}`);
+    } finally {
+      discoveredAppsRescanButtonElement.disabled = false;
+    }
+  });
+
+  void loadDiscoveredApps();
 
   const customEditorsContainer = paneElement.querySelector<HTMLDivElement>(
     "#commands-custom-editors",
