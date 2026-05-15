@@ -96,6 +96,18 @@
   --surface-input-focus: rgba(255, 255, 255, 0.085);
   --surface-divider: rgba(255, 255, 255, 0.07);
 
+  /* --color-* aliases. The Tasks and Memory settings tabs were built
+     against a `--color-surface`/`--color-border`/`--color-accent`
+     naming convention that didn't exist in this token sheet. Rather
+     than rename every inline style, we alias the canonical tokens here
+     so the kanban grid cards, drawer, memory table borders, and
+     importance bar all render with the rest of the design system
+     instead of falling through to the hardcoded `#1d1d22` fallback. */
+  --color-surface: var(--surface-raised);
+  --color-surface-alt: rgba(255, 255, 255, 0.025);
+  --color-border: var(--surface-glass-border);
+  --color-accent: var(--accent-500);
+
   /* Spacing scale on a 4px grid. The panel is dense so we lean on the
      small end; the settings dashboard uses --space-5 / --space-6 for
      pane padding. */
