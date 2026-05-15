@@ -465,24 +465,71 @@ fn resolve_step_coordinate(
         }
     }
 
-    // Pure box_2d fallback: convert the normalized [y1,x1,y2,x2] center
-    // back into screen pixels. We don't know the screenshot resolution
-    // here, so we treat the box as already-pixel coordinates when the
-    // values exceed the normalized range (Gemini sometimes emits raw
-    // pixels). This matches Swift's hintCoordinate fallback.
+    // Pure box_2d fallback: Gemini emits the bounding box as
+    // [y1, x1, y2, x2] each value normalized to 0..=1000 with origin at
+    // top-left, matching its multimodal box convention. Convert the
+    // normalized center back into absolute screen pixels by multiplying
+    // against the primary monitor's pixel dimensions. If a value happens
+    // to exceed 1000, treat it as already-pixel coordinates — Gemini
+    // occasionally emits raw pixels and the comparison short-circuits
+    // the rescale cleanly.
     if let Some(box_2d) = step.box_2d_u32() {
-        let center_x = (box_2d[1] as f64 + box_2d[3] as f64) / 2.0;
-        let center_y = (box_2d[0] as f64 + box_2d[2] as f64) / 2.0;
-        // We can't usefully scale here without screen dims; the calling
-        // layer is expected to provide grounding that knows the capture
-        // resolution. Return None to avoid clicking the wrong pixel.
-        let _ = (center_x, center_y);
+        let normalized_center_x = (box_2d[1] as f64 + box_2d[3] as f64) / 2.0;
+        let normalized_center_y = (box_2d[0] as f64 + box_2d[2] as f64) / 2.0;
+        let already_pixel_units =
+            normalized_center_x > 1000.0 || normalized_center_y > 1000.0;
+        if already_pixel_units {
+            return Some((normalized_center_x, normalized_center_y));
+        }
+        if let Some((screen_width, screen_height)) = primary_screen_dimensions() {
+            let pixel_x = normalized_center_x / 1000.0 * screen_width as f64;
+            let pixel_y = normalized_center_y / 1000.0 * screen_height as f64;
+            return Some((pixel_x, pixel_y));
+        }
     }
 
     if let (Some(hx), Some(hy)) = (step.hint_x, step.hint_y) {
         return Some((hx as f64, hy as f64));
     }
 
+    None
+}
+
+/// Primary display pixel dimensions used to rescale Gemini's normalized
+/// `box_2d` coordinates back into screen pixels. Cached for the process
+/// lifetime — users rarely hot-plug their primary display, and a stale
+/// value just yields a stale rescale on the rare case they do.
+fn primary_screen_dimensions() -> Option<(u32, u32)> {
+    use once_cell::sync::OnceCell;
+    static CACHED_DIMENSIONS: OnceCell<Option<(u32, u32)>> = OnceCell::new();
+    *CACHED_DIMENSIONS.get_or_init(query_primary_screen_dimensions)
+}
+
+#[cfg(target_os = "macos")]
+fn query_primary_screen_dimensions() -> Option<(u32, u32)> {
+    use core_graphics::display::CGDisplay;
+    let main_display = CGDisplay::main();
+    Some((
+        main_display.pixels_wide() as u32,
+        main_display.pixels_high() as u32,
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn query_primary_screen_dimensions() -> Option<(u32, u32)> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+    unsafe {
+        let width = GetSystemMetrics(SM_CXSCREEN);
+        let height = GetSystemMetrics(SM_CYSCREEN);
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+        Some((width as u32, height as u32))
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn query_primary_screen_dimensions() -> Option<(u32, u32)> {
     None
 }
 

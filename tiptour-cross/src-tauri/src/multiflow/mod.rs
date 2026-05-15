@@ -101,7 +101,7 @@ pub async fn run_flow_by_name(name: String, app: AppHandle) -> Result<String, St
     let replay_id = uuid::Uuid::new_v4().to_string();
     // Installing the new replay token implicitly tells any in-flight
     // replay to bail on its next step check.
-    let _cancellation_flag = replayer::install_new_replay_and_cancel_previous(&replay_id);
+    replayer::set_active_replay_token(&replay_id);
 
     let (progress_sender, mut progress_receiver) = mpsc::channel::<ReplayProgress>(64);
     let app_clone = app.clone();

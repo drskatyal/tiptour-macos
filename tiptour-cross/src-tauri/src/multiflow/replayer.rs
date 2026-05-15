@@ -13,7 +13,6 @@
 // REPLAY_APP_LAUNCH_WAIT_MS so we don't try to type into the previous
 // app's window while the new one is still painting.
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -42,17 +41,13 @@ const REPLAY_APP_LAUNCH_POLL_INTERVAL_MS: u64 = 100;
 static CURRENT_REPLAY_OPERATION_TOKEN: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
 /// Replace the in-flight replay token with `new_replay_id` and return
-/// the new token wrapped in an `Arc<AtomicBool>` the running task can
-/// cheaply poll. The caller is expected to spawn the replay with the
-/// returned cancellation flag.
-pub fn install_new_replay_and_cancel_previous(new_replay_id: &str) -> Arc<AtomicBool> {
+/// Stamps the new replay's id as the active token. Any older replay still
+/// looping picks this up on its next `current_replay_token_matches` check
+/// and exits cleanly. There's no per-replay cancellation flag — the global
+/// token IS the cancellation mechanism, so the function returns nothing.
+pub fn set_active_replay_token(new_replay_id: &str) {
     let mut current = CURRENT_REPLAY_OPERATION_TOKEN.lock();
     *current = Some(new_replay_id.to_string());
-    // The cancellation flag the new replay watches. The previous replay's
-    // flag was never tracked here — replays self-check by comparing their
-    // captured replay_id against the global token, so installing a new
-    // token implicitly cancels the older runner on its next step.
-    Arc::new(AtomicBool::new(false))
 }
 
 fn current_replay_token_matches(expected_replay_id: &str) -> bool {
@@ -197,17 +192,22 @@ pub async fn replay_flow(
         // Safety rail: pause when the user took the foreground away
         // mid-replay. We compare against the pid at replay start, not
         // the per-step recorded pid — clicking-into-Notion mid-replay
-        // is expected to change the frontmost app, but a user Cmd-Tab
-        // back to a third app is not.
+        // is expected to change the frontmost app, but a Cmd-Tab back
+        // to an unrelated third app is not. The check ignores switches
+        // to TipTour's own pid via `safety_rails::user_switched_away_from`.
         if safety_rails::user_switched_away_from(starting_pid) {
-            // The recorded trace itself might switch apps; only treat
-            // this as a user-initiated switch if the current frontmost
-            // pid also doesn't match anything in our recorded
-            // trajectory's per-step snapshots. We approximate that
-            // by checking the current step's expected snapshot_before
-            // pid would be unrelated info — for v1 we just pause on
-            // any mid-replay foreground swap to a non-starting pid.
-            // TODO: tighten this once we record per-snapshot pids.
+            emit_progress(
+                &progress_sender,
+                &flow_id,
+                &replay_id,
+                step_index,
+                total_steps,
+                ReplayProgressKind::Paused {
+                    reason: "user_changed_focus".to_string(),
+                },
+            )
+            .await;
+            return Ok(());
         }
 
         // Preserve original inter-event timing, capped.
