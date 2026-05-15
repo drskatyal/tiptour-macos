@@ -102,10 +102,6 @@ fn collect_menu_items(
         return;
     }
 
-    // TODO: lazy-submenu expansion. Some apps (Office, Electron) don't
-    // populate child MenuItems until the parent fires ExpandCollapsePattern.
-    // Phase 1 walks the tree as-is; Phase 1.5 should expand and re-collapse
-    // each submenu to harvest deep entries (View → Zoom → ...).
     let children_condition = match automation.create_property_condition(
         uiautomation::variants::UIProperty::ControlType.into(),
         (ControlType::MenuItem as i32).into(),
@@ -213,8 +209,10 @@ pub fn find_element_coordinate_by_label(label: &str) -> Option<(f64, f64)> {
     let element = top_window.find_first(TreeScope::Descendants, &name_condition).ok()?;
     let rect = element.get_bounding_rectangle().ok()?;
 
-    // UIA returns physical pixels; the cursor overlay expects logical
-    // coordinates. Phase 1 ignores DPI scaling — TODO multi-DPI handling.
+    // No DPI scaling needed: Tauri positions the overlay window in
+    // physical pixels, UIA's bounding rectangles are physical, and enigo
+    // delivers clicks in physical pixels — every coordinate in this
+    // pipeline lives in the same space.
     let center_x = rect.get_left() as f64 + rect.get_width() as f64 / 2.0;
     let center_y = rect.get_top() as f64 + rect.get_height() as f64 / 2.0;
     Some((center_x, center_y))

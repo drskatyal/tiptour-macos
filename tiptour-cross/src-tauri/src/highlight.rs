@@ -30,6 +30,15 @@ pub struct HighlightContext {
     pub bounding_rect: HighlightRect,
     pub points: Vec<(f64, f64)>,
     pub anchor_point: Option<(f64, f64)>,
+    // Optional AX text range captured under the highlight centroid at
+    // paint-end. The workflow runner restores this range on the focused
+    // element before pasting so "rewrite this" lands inside the
+    // originally-highlighted run even if the user has moved focus.
+    // None on Windows today (UIA range capture is still TODO) and on
+    // non-text highlights where AXRangeForPosition returns nothing.
+    pub armed_element_role: Option<String>,
+    pub armed_text_range_location: Option<i64>,
+    pub armed_text_range_length: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +216,21 @@ fn build_context_from_points(points: &[(f64, f64)]) -> Option<HighlightContext> 
 
     let anchor_point = points.last().copied();
 
+    // Geometric centroid of the painted polyline — used as the sample
+    // point for AXRangeForPosition so the armed range tracks the visual
+    // center of what the user actually painted (not just the last hover).
+    let mut centroid_x = 0.0;
+    let mut centroid_y = 0.0;
+    for &(x, y) in points {
+        centroid_x += x;
+        centroid_y += y;
+    }
+    centroid_x /= points.len() as f64;
+    centroid_y /= points.len() as f64;
+
+    let (armed_element_role, armed_text_range_location, armed_text_range_length) =
+        capture_armed_text_range_at_point(centroid_x, centroid_y);
+
     Some(HighlightContext {
         bounding_rect: HighlightRect {
             origin_x,
@@ -216,7 +240,131 @@ fn build_context_from_points(points: &[(f64, f64)]) -> Option<HighlightContext> 
         },
         points: points.to_vec(),
         anchor_point,
+        armed_element_role,
+        armed_text_range_location,
+        armed_text_range_length,
     })
+}
+
+#[cfg(target_os = "macos")]
+fn capture_armed_text_range_at_point(
+    sample_x: f64,
+    sample_y: f64,
+) -> (Option<String>, Option<i64>, Option<i64>) {
+    use accessibility_sys::{
+        kAXFocusedUIElementAttribute, kAXRangeForPositionParameterizedAttribute,
+        kAXRoleAttribute, kAXValueTypeCFRange, AXUIElementCopyAttributeValue,
+        AXUIElementCopyParameterizedAttributeValue, AXUIElementCreateSystemWide, AXUIElementRef,
+        AXUIElementSetMessagingTimeout, AXValueCreate, AXValueGetType, AXValueGetValue, AXValueRef,
+    };
+    use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::{CFString, CFStringRef};
+    use core_graphics::geometry::CGPoint;
+
+    #[repr(C)]
+    struct CoreFoundationRange {
+        location: core::ffi::c_long,
+        length: core::ffi::c_long,
+    }
+
+    unsafe {
+        let system_wide_element: AXUIElementRef = AXUIElementCreateSystemWide();
+        if system_wide_element.is_null() {
+            return (None, None, None);
+        }
+        AXUIElementSetMessagingTimeout(system_wide_element, 0.4);
+        let focused_attribute = CFString::new(kAXFocusedUIElementAttribute);
+        let mut focused_raw: CFTypeRef = std::ptr::null_mut();
+        let focused_status = AXUIElementCopyAttributeValue(
+            system_wide_element,
+            focused_attribute.as_concrete_TypeRef(),
+            &mut focused_raw,
+        );
+        CFRelease(system_wide_element as CFTypeRef);
+        if focused_status != 0 || focused_raw.is_null() {
+            return (None, None, None);
+        }
+        let focused_element_ref = focused_raw as AXUIElementRef;
+        AXUIElementSetMessagingTimeout(focused_element_ref, 0.4);
+
+        // Pull the role first — gives the caller something to gate
+        // unconditional range writes on, and helps debugging when the
+        // armed range later fails to round-trip.
+        let mut role_value: Option<String> = None;
+        let role_attribute = CFString::new(kAXRoleAttribute);
+        let mut role_raw: CFTypeRef = std::ptr::null_mut();
+        let role_status = AXUIElementCopyAttributeValue(
+            focused_element_ref,
+            role_attribute.as_concrete_TypeRef(),
+            &mut role_raw,
+        );
+        if role_status == 0 && !role_raw.is_null() {
+            let cf_string_ref = role_raw as CFStringRef;
+            let role_cf = CFString::wrap_under_get_rule(cf_string_ref);
+            role_value = Some(role_cf.to_string());
+            CFRelease(role_raw);
+        }
+
+        // Build a CGPoint AXValue at the painted centroid and ask the
+        // focused element which text range covers that screen position.
+        let mut cg_point = CGPoint::new(sample_x, sample_y);
+        let point_value_ref = AXValueCreate(
+            accessibility_sys::kAXValueTypeCGPoint,
+            &mut cg_point as *mut CGPoint as *mut std::ffi::c_void,
+        );
+        if point_value_ref.is_null() {
+            CFRelease(focused_raw);
+            return (role_value, None, None);
+        }
+
+        let range_for_position_attribute = CFString::new(kAXRangeForPositionParameterizedAttribute);
+        let mut range_raw: CFTypeRef = std::ptr::null_mut();
+        let range_status = AXUIElementCopyParameterizedAttributeValue(
+            focused_element_ref,
+            range_for_position_attribute.as_concrete_TypeRef(),
+            point_value_ref as CFTypeRef,
+            &mut range_raw,
+        );
+        CFRelease(point_value_ref as CFTypeRef);
+        CFRelease(focused_raw);
+        if range_status != 0 || range_raw.is_null() {
+            return (role_value, None, None);
+        }
+
+        let value_ref = range_raw as AXValueRef;
+        if AXValueGetType(value_ref) != kAXValueTypeCFRange {
+            CFRelease(range_raw);
+            return (role_value, None, None);
+        }
+        let mut cf_range = CoreFoundationRange {
+            location: 0,
+            length: 0,
+        };
+        let got_value = AXValueGetValue(
+            value_ref,
+            kAXValueTypeCFRange,
+            &mut cf_range as *mut CoreFoundationRange as *mut std::ffi::c_void,
+        );
+        CFRelease(range_raw);
+        if !got_value {
+            return (role_value, None, None);
+        }
+        (
+            role_value,
+            Some(cf_range.location as i64),
+            Some(cf_range.length as i64),
+        )
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn capture_armed_text_range_at_point(
+    _sample_x: f64,
+    _sample_y: f64,
+) -> (Option<String>, Option<i64>, Option<i64>) {
+    // Windows/UIA range capture is a follow-up. Returning None keeps the
+    // SetSelectedText path on the plain-paste fallback.
+    (None, None, None)
 }
 
 // ---------------- macOS implementation ----------------

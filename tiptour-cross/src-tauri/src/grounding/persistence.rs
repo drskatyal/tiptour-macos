@@ -47,6 +47,3 @@ pub fn load_shortcut_index(application_identifier: &str) -> Option<ShortcutIndex
     let bytes = fs::read(&file_path).ok()?;
     serde_json::from_slice(&bytes).ok()
 }
-
-// TODO: cache invalidation hook. For now we rely on file_version being part
-// of the key — a stale entry simply gets re-indexed on next launch.

@@ -9,6 +9,7 @@
 // frontend via `workflow_progress` Tauri events.
 
 pub mod action;
+pub mod ax_text_write;
 pub mod clipboard_paste;
 pub mod cross_platform_input;
 pub mod safety_rails;

@@ -6,7 +6,8 @@
 //   * Operation token stamped on each plan so callbacks from a stale plan
 //     can't mutate the current one after a rapid restart.
 //   * 350ms settle window after click-like steps before we look for the
-//     next UI state (post-click AX fingerprint validation is a TODO).
+//     next UI state, with post-click AX/UIA fingerprint validation
+//     supplied by `safety_rails::settle_until_ui_stable`.
 //   * Modal-dialog pause hook (stub for now — Phase 2 follow-up).
 //   * App-switch pause hook (stub for now — wired to platform-specific
 //     foreground change events later).
@@ -503,24 +504,39 @@ fn deliver(action: ExecutableAction) -> StepResult {
         }
         ExecutableAction::Type {
             text,
-            into_focused: _,
+            into_focused,
         } => {
-            // TODO: prefer AX/UIA selected-text insertion when `into_focused`
-            // is true. For now we always fall back to clipboard paste for
-            // multi-line / long text and direct keystroke synthesis for
-            // short text. The heuristic mirrors the Swift implementation,
-            // which uses paste for >80 chars or strings containing newlines.
-            if text.len() > 80 || text.contains('\n') {
+            // When the LLM marked this step as `into_focused`, try the
+            // deterministic AX/UIA path first. It preserves the user's
+            // clipboard and won't race with their physical keyboard. The
+            // helper returns Err on any platform/element mismatch, in
+            // which case we drop through to the length-heuristic fallback
+            // (paste for >80 chars / multi-line, keystrokes otherwise).
+            if into_focused {
+                if crate::executor::ax_text_write::attempt_ax_text_write(&text).is_ok() {
+                    Ok(())
+                } else if text.len() > 80 || text.contains('\n') {
+                    clipboard_paste::paste_text(&text)
+                } else {
+                    cross_platform_input::type_text(&text)
+                }
+            } else if text.len() > 80 || text.contains('\n') {
                 clipboard_paste::paste_text(&text)
             } else {
                 cross_platform_input::type_text(&text)
             }
         }
         ExecutableAction::SetSelectedText { text } => {
-            // TODO: apply armed AXSelectedTextRange before pasting (mac)
-            // and the UIA TextPattern equivalent on Windows. Without the
-            // range restore this falls back to a plain paste, which only
-            // works when the user hasn't moved focus since the highlight.
+            // Replace the highlighted run. On macOS we first restore the
+            // armed AXSelectedTextRange captured at paint-end so the paste
+            // lands inside the originally-highlighted span even if the
+            // user has since clicked elsewhere; only then do we paste. On
+            // Windows we don't have the armed-range capture yet, so the
+            // plain paste path is used.
+            #[cfg(target_os = "macos")]
+            {
+                restore_armed_selection_range_on_macos();
+            }
             clipboard_paste::paste_text(&text)
         }
         ExecutableAction::Scroll { x, y, dx, dy } => cross_platform_input::scroll(x, y, dx, dy),
@@ -861,6 +877,93 @@ unsafe fn read_ax_size(
         return None;
     }
     Some((cg_size.width, cg_size.height))
+}
+
+/// Restore the AX text range captured when the user finished painting the
+/// highlight. Writing `kAXSelectedTextRangeAttribute` back onto the
+/// focused element re-selects the original span, so the subsequent paste
+/// replaces *that* run instead of whatever happens to be selected (or
+/// nothing) at the moment the workflow step fires.
+#[cfg(target_os = "macos")]
+fn restore_armed_selection_range_on_macos() {
+    use accessibility_sys::{
+        kAXFocusedUIElementAttribute, kAXSelectedTextRangeAttribute, kAXValueTypeCFRange,
+        AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide, AXUIElementRef,
+        AXUIElementSetAttributeValue, AXUIElementSetMessagingTimeout, AXValueCreate,
+    };
+    use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
+    use core_foundation::string::CFString;
+
+    // Pull the armed range from the latest highlight context. If the user
+    // hasn't painted anything (or the painter never recorded a range),
+    // there's nothing to restore and the caller will plain-paste.
+    let highlight_context = match crate::highlight::current_highlight_context() {
+        Some(context) => context,
+        None => return,
+    };
+    let (range_location, range_length) = match (
+        highlight_context.armed_text_range_location,
+        highlight_context.armed_text_range_length,
+    ) {
+        (Some(location), Some(length)) if length > 0 => (location, length),
+        _ => return,
+    };
+
+    #[repr(C)]
+    struct CoreFoundationRange {
+        location: core::ffi::c_long,
+        length: core::ffi::c_long,
+    }
+    let mut cf_range = CoreFoundationRange {
+        location: range_location as core::ffi::c_long,
+        length: range_length as core::ffi::c_long,
+    };
+
+    unsafe {
+        let system_wide_element: AXUIElementRef = AXUIElementCreateSystemWide();
+        if system_wide_element.is_null() {
+            return;
+        }
+        AXUIElementSetMessagingTimeout(system_wide_element, 0.4);
+        let focused_attribute = CFString::new(kAXFocusedUIElementAttribute);
+        let mut focused_raw: CFTypeRef = std::ptr::null_mut();
+        let focused_status = AXUIElementCopyAttributeValue(
+            system_wide_element,
+            focused_attribute.as_concrete_TypeRef(),
+            &mut focused_raw,
+        );
+        CFRelease(system_wide_element as CFTypeRef);
+        if focused_status != 0 || focused_raw.is_null() {
+            return;
+        }
+        let focused_element_ref = focused_raw as AXUIElementRef;
+        AXUIElementSetMessagingTimeout(focused_element_ref, 0.4);
+
+        let ax_value_ref = AXValueCreate(
+            kAXValueTypeCFRange,
+            &mut cf_range as *mut CoreFoundationRange as *mut std::ffi::c_void,
+        );
+        if ax_value_ref.is_null() {
+            CFRelease(focused_raw);
+            return;
+        }
+
+        let selected_range_attribute = CFString::new(kAXSelectedTextRangeAttribute);
+        let set_status = AXUIElementSetAttributeValue(
+            focused_element_ref,
+            selected_range_attribute.as_concrete_TypeRef(),
+            ax_value_ref as CFTypeRef,
+        );
+        CFRelease(ax_value_ref as CFTypeRef);
+        CFRelease(focused_raw);
+        if set_status != 0 {
+            // Range write failed — the focused element probably changed
+            // since paint-end. Caller's plain paste is the safest action.
+            eprintln!(
+                "workflow_runner: AXSelectedTextRange restore failed with status {set_status}; falling back to plain paste"
+            );
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
