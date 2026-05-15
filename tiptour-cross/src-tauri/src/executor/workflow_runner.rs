@@ -538,7 +538,18 @@ fn query_primary_screen_dimensions() -> Option<(u32, u32)> {
 /// continue, pause, or surface the failure.
 fn deliver(action: ExecutableAction) -> StepResult {
     let result = match action {
-        ExecutableAction::LaunchApp { bundle_id_or_exe } => launch_app(&bundle_id_or_exe),
+        ExecutableAction::LaunchApp { bundle_id_or_exe } => {
+            let launch_result = launch_app(&bundle_id_or_exe);
+            if launch_result.is_ok() {
+                crate::indicators::emit_via_global(
+                    crate::indicators::IndicatorKind::AppLaunched,
+                    format!("Launched {bundle_id_or_exe}"),
+                    None,
+                    None,
+                );
+            }
+            launch_result
+        }
         ExecutableAction::OpenUrl { url } => open_url(&url),
         ExecutableAction::Click { x, y, button } => cross_platform_input::click_at(x, y, button),
         ExecutableAction::DoubleClick { x, y } => cross_platform_input::double_click_at(x, y),
@@ -609,7 +620,20 @@ fn deliver(action: ExecutableAction) -> StepResult {
 /// constructing a synthetic `WorkflowPlan`. Internal callers keep using
 /// `launch_app` directly to avoid an unnecessary public-API hop.
 pub fn launch_app_public(identifier: &str) -> Result<(), String> {
-    launch_app(identifier)
+    let result = launch_app(identifier);
+    if result.is_ok() {
+        // Surface a side-of-screen indicator so the user gets visual
+        // confirmation that the local-launch path fired. Uses the
+        // process-global AppHandle slot because callers of this
+        // function (Vosk dispatcher) don't carry an AppHandle.
+        crate::indicators::emit_via_global(
+            crate::indicators::IndicatorKind::AppLaunched,
+            format!("Launched {identifier}"),
+            None,
+            None,
+        );
+    }
+    result
 }
 
 fn launch_app(identifier: &str) -> Result<(), String> {

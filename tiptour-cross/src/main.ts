@@ -82,6 +82,16 @@ function setStatus(status: SessionStatus) {
 function showError(message: string) {
   errorBanner.textContent = message;
   errorBanner.hidden = false;
+  // Mirror every panel-surfaced error into the side-of-screen indicator
+  // strip so the user notices even when the panel isn't visible. The
+  // Rust emit handler honors the per-type enable flag, so users who
+  // disabled error pills won't see anything.
+  void invoke("emit_indicator_from_frontend", {
+    kind: "error",
+    title: "TipTour error",
+    subtitle: message,
+    sourceId: null,
+  }).catch(() => undefined);
 }
 
 function clearError() {

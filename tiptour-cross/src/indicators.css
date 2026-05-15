@@ -1,0 +1,219 @@
+/*
+ * Right-edge indicator pill stack. The window is click-through by
+ * default; only individual pill surfaces opt into pointer-events on
+ * hover. Background is fully transparent so the strip is invisible
+ * when no pills are present.
+ */
+
+html,
+body.indicators-body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  /* Stack inherits pointer-events: none from here so the rest of the
+     strip never blocks clicks on the user's apps behind it. Individual
+     pills flip pointer-events back on. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.indicator-stack {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.indicator-stack[data-edge="left"] {
+  right: auto;
+  left: var(--space-4);
+  align-items: flex-start;
+}
+
+/*
+ * Pill — collapsed default state. 56×56 circular disc with the kind
+ * icon centered. The label is laid out next to the icon at 0 width so
+ * the hover-expand transition can grow into it without reflow.
+ */
+.indicator-pill {
+  display: flex;
+  align-items: center;
+  /* Default collapsed-circle dimensions. The hover state grows width
+     to 300px; height stays fixed so the icon disc never resizes. */
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+    var(--surface-glass);
+  border: 1px solid var(--surface-glass-border);
+  box-shadow: var(--shadow-elevated), var(--surface-glass-inner);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  overflow: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+  /* Entry state — set in JS, then animation removes the inline style
+     to release back to the resting state. */
+  opacity: 0;
+  transform: translateX(60px) scale(0.85);
+  transition:
+    width 180ms ease,
+    opacity 220ms ease-in,
+    transform 220ms ease-in;
+}
+
+.indicator-pill.indicator-pill-entering {
+  animation: indicator-pill-entry 260ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.indicator-pill.indicator-pill-leaving {
+  animation: indicator-pill-leave 220ms ease-in forwards;
+}
+
+/* Stack-shift nudge: when a new pill is prepended, the existing pills
+   bob down 4px and back via the same spring easing. */
+.indicator-pill.indicator-pill-nudging {
+  animation: indicator-pill-nudge 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes indicator-pill-entry {
+  0% {
+    opacity: 0;
+    transform: translateX(60px) scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes indicator-pill-leave {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(60px) scale(0.85);
+  }
+}
+
+@keyframes indicator-pill-nudge {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Icon disc — fixed 56×56 area at the front of the pill. The accent
+ * ring is rendered via a 2px inset box-shadow so it scales with the
+ * disc and doesn't change the layout box.
+ */
+.indicator-pill-icon {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-on-accent);
+}
+
+.indicator-pill-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding-right: var(--space-4);
+  opacity: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 180ms ease;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.indicator-pill-title {
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indicator-pill-subtitle {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: var(--type-11-track);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Expanded state — applied on pill hover in Normal density, always
+ * applied in Verbose density, never applied in Compact density.
+ */
+.indicator-pill.indicator-pill-expanded {
+  width: 300px;
+}
+
+.indicator-pill.indicator-pill-expanded .indicator-pill-body {
+  opacity: 1;
+}
+
+/*
+ * Per-kind accent tints. The icon disc gets a soft tinted background;
+ * the inset ring uses the same accent so the disc reads as a unit.
+ */
+.indicator-pill[data-kind="step"] .indicator-pill-icon {
+  background: rgba(74, 222, 128, 0.22);
+  box-shadow: inset 0 0 0 2px var(--warm-500);
+  color: var(--warm-500);
+}
+.indicator-pill[data-kind="flow"] .indicator-pill-icon {
+  background: var(--accent-300);
+  box-shadow: inset 0 0 0 2px var(--accent-500);
+  color: #c8cfff;
+}
+.indicator-pill[data-kind="voice"] .indicator-pill-icon {
+  background: rgba(167, 139, 250, 0.22);
+  box-shadow: inset 0 0 0 2px #a78bfa;
+  color: #d8ccff;
+}
+.indicator-pill[data-kind="app"] .indicator-pill-icon {
+  background: rgba(45, 212, 191, 0.22);
+  box-shadow: inset 0 0 0 2px #2dd4bf;
+  color: #b6f6ec;
+}
+.indicator-pill[data-kind="screenshot"] .indicator-pill-icon {
+  background: rgba(245, 196, 81, 0.22);
+  box-shadow: inset 0 0 0 2px var(--warning-500);
+  color: #ffe9ad;
+}
+.indicator-pill[data-kind="error"] .indicator-pill-icon {
+  background: rgba(248, 113, 113, 0.22);
+  box-shadow: inset 0 0 0 2px var(--danger-500);
+  color: #ffd0d0;
+}

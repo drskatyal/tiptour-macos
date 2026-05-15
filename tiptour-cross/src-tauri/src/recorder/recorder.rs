@@ -364,5 +364,14 @@ async fn write_demonstration_screenshot(
     let jpeg_bytes = crate::screen::jpeg::encode_frame_to_jpeg(&raw_frame)?;
     let mut output_path = screenshots_directory;
     output_path.push(format!("{timestamp_unix_ms}.jpg"));
-    std::fs::write(&output_path, &jpeg_bytes).map_err(|error| error.to_string())
+    std::fs::write(&output_path, &jpeg_bytes).map_err(|error| error.to_string())?;
+    // Side-of-screen pill so the user sees a discreet confirmation that
+    // a screenshot landed on disk during demonstration recording.
+    crate::indicators::emit_via_global(
+        crate::indicators::IndicatorKind::Screenshot,
+        "Screenshot captured".to_string(),
+        None,
+        None,
+    );
+    Ok(())
 }

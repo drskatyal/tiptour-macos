@@ -105,8 +105,30 @@ pub async fn run_flow_by_name(name: String, app: AppHandle) -> Result<String, St
 
     let (progress_sender, mut progress_receiver) = mpsc::channel::<ReplayProgress>(64);
     let app_clone = app.clone();
+    let matched_flow_name = matched_entry.name.clone();
     tauri::async_runtime::spawn(async move {
         while let Some(progress) = progress_receiver.recv().await {
+            match &progress.kind {
+                types::ReplayProgressKind::Completed => {
+                    crate::indicators::emit(
+                        &app_clone,
+                        crate::indicators::IndicatorKind::FlowDone,
+                        format!("Flow '{matched_flow_name}' done"),
+                        None,
+                        Some(progress.replay_id.clone()),
+                    );
+                }
+                types::ReplayProgressKind::Failed { message } => {
+                    crate::indicators::emit(
+                        &app_clone,
+                        crate::indicators::IndicatorKind::Error,
+                        format!("Flow '{matched_flow_name}' failed"),
+                        Some(message.clone()),
+                        Some(progress.replay_id.clone()),
+                    );
+                }
+                _ => {}
+            }
             let _ = app_clone.emit("multiflow_progress", progress);
         }
     });

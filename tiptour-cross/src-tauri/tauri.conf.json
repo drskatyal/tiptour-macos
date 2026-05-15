@@ -63,6 +63,24 @@
         "visible": false,
         "shadow": true,
         "titleBarStyle": "Overlay"
+      },
+      {
+        "label": "indicators",
+        "url": "indicators.html",
+        "title": "TipTour Indicators",
+        "width": 320,
+        "height": 1080,
+        "x": 1920,
+        "y": 0,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
       }
     ],
     "security": {

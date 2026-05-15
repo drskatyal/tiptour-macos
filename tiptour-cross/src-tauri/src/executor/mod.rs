@@ -118,8 +118,36 @@ pub async fn execute_workflow_plan(
     // Forwarder task: drain progress events from the runner channel and
     // re-emit them as Tauri events the panel listens for.
     let app_clone = app.clone();
+    let workflow_id_for_forwarder = workflow_id.clone();
     tauri::async_runtime::spawn(async move {
         while let Some(progress) = progress_receiver.recv().await {
+            // Fire indicator-pill events for the noteworthy progress
+            // points before re-emitting the raw progress event. The
+            // indicator emitter honors its own enable/disable flags
+            // internally, so unconditional calls here are safe.
+            match &progress {
+                workflow_runner::WorkflowProgress::StepFinished { step_index, result } => {
+                    if matches!(result, workflow_runner::StepResult::Executed) {
+                        crate::indicators::emit(
+                            &app_clone,
+                            crate::indicators::IndicatorKind::WorkflowStep,
+                            format!("Step {} done", step_index + 1),
+                            None,
+                            Some(workflow_id_for_forwarder.clone()),
+                        );
+                    }
+                }
+                workflow_runner::WorkflowProgress::Failed { message } => {
+                    crate::indicators::emit(
+                        &app_clone,
+                        crate::indicators::IndicatorKind::Error,
+                        "Workflow failed".to_string(),
+                        Some(message.clone()),
+                        Some(workflow_id_for_forwarder.clone()),
+                    );
+                }
+                _ => {}
+            }
             let _ = app_clone.emit("workflow_progress", progress);
         }
     });

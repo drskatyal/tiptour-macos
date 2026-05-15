@@ -11,6 +11,9 @@ mod executor;
 mod grounding;
 mod highlight;
 mod hotkey;
+mod indicators;
+mod indicators_settings;
+mod indicators_window;
 mod keychain;
 mod mode;
 mod multiflow;
@@ -44,6 +47,12 @@ fn main() {
                 );
             }
             overlay::ensure_installed(app.handle())?;
+            indicators_window::ensure_installed(app.handle())?;
+            // Stash the AppHandle globally so deep callers (the
+            // recorder's fire-and-forget screenshot writer, etc.) can
+            // emit indicator events without threading a handle through
+            // every layer.
+            indicators::install_global_app_handle(app.handle().clone());
             highlight::start_listening(app.handle().clone());
             // Try to resume the always-on local listener if the user
             // opted in on a previous launch. No-op when the feature
@@ -139,6 +148,10 @@ fn main() {
             app_discovery::list_discovered_apps,
             app_discovery::rescan_installed_apps,
             app_discovery::set_app_command_enabled,
+            indicators_settings::get_indicators_settings,
+            indicators_settings::set_indicators_settings,
+            indicators_window::indicators_set_click_through,
+            indicators::emit_indicator_from_frontend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

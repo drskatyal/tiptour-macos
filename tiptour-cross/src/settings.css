@@ -524,3 +524,43 @@ body {
   background: rgba(255, 255, 255, 0.24);
   background-clip: padding-box;
 }
+
+/* Indicators tab specifics — section sub-heading and per-type toggle
+   rows. Reuses the dashboard's row spacing tokens. */
+.settings-subhead {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.indicators-type-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.indicators-type-toggle-row {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+.indicators-type-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.indicators-type-toggle-label {
+  color: var(--text-primary);
+  font-size: var(--type-13-size);
+  font-weight: 500;
+}
+.indicators-type-toggle-description {
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+}

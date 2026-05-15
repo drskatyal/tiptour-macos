@@ -159,6 +159,18 @@ impl WakeWordDispatcher {
             return;
         }
 
+        // Surface every grammar match as a Voice Command indicator. The
+        // recognized phrase comes from the static command grammar the
+        // user authored (or the discovered-apps alias set), not from
+        // raw open-ended dictation, so it's safe to put in the pill.
+        crate::indicators::emit(
+            &self.app_handle,
+            crate::indicators::IndicatorKind::VoiceCommand,
+            "Voice command".to_string(),
+            Some(normalized.clone()),
+            None,
+        );
+
         // Static control verbs first. Match by `starts_with` to tolerate
         // recognizer adding stray trailing words inside the grammar set.
         if normalized == "stop" || normalized == "cancel" {
