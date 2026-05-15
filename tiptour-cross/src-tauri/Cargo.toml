@@ -33,6 +33,19 @@ vosk = { version = "0.3", optional = true }
 ureq = { version = "2", optional = true }
 zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
 plist = "1"
+# Optional vector-DB + on-device embedder for agent memory. These are
+# heavy native deps (LanceDB pulls Arrow + tokio runtime extras;
+# fastembed downloads an ONNX model on first use). They are gated
+# behind the `agent-memory-vector` feature so default builds stay lean
+# and Linux CI doesn't need to compile the full Arrow stack. When the
+# feature is off, the memory store falls back to a JSON-backed
+# bag-of-words ranker that exposes the same Tauri command surface, so
+# the UI + Gemini tool layer work unchanged.
+lancedb = { version = "0.10", optional = true }
+fastembed = { version = "4", optional = true }
+arrow = { version = "53", optional = true }
+arrow-array = { version = "53", optional = true }
+arrow-schema = { version = "53", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 uiautomation = "0.16"
@@ -54,3 +67,10 @@ screencapturekit = "0.3"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 vosk = ["dep:vosk", "dep:ureq", "dep:zip"]
+agent-memory-vector = [
+    "dep:lancedb",
+    "dep:fastembed",
+    "dep:arrow",
+    "dep:arrow-array",
+    "dep:arrow-schema",
+]

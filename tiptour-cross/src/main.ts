@@ -645,11 +645,90 @@ await listen<PanelMultiflowProgressEvent>("multiflow_progress", async (event) =>
   }
 });
 
+// Live "Tasks: N in progress" pill under the saved-flows list. Polls
+// every 8s — cheap because the count is a tiny read off the in-memory
+// task store. Clicking opens the Tasks tab.
+const tasksInProgressLineElement = document.getElementById(
+  "tasks-in-progress-line",
+) as HTMLDivElement | null;
+
+async function refreshTasksInProgressLine(): Promise<void> {
+  if (!tasksInProgressLineElement) return;
+  try {
+    const count = await invoke<number>("count_tasks_in_progress");
+    if (count === 0) {
+      tasksInProgressLineElement.hidden = true;
+      return;
+    }
+    tasksInProgressLineElement.hidden = false;
+    tasksInProgressLineElement.textContent = `Tasks: ${count} in progress →`;
+  } catch (error) {
+    console.warn("[panel] count_tasks_in_progress failed:", error);
+  }
+}
+
+tasksInProgressLineElement?.addEventListener("click", async () => {
+  try {
+    await invoke("open_settings_window");
+  } catch (error) {
+    console.warn("[panel] open_settings_window failed:", error);
+  }
+});
+
+// Sub-agent spawn handler. The Rust pool emits `subagent_spawn_request`
+// when a queued sub-agent gets promoted to Running and needs an actual
+// Gemini Live socket. We stub this for now: log + report a synthetic
+// "started" progress event so the registry and UI both reflect the
+// "running" state. End-to-end Gemini chat for sub-agents will be wired
+// in a follow-up — the registry, transcripts, budget enforcement, and
+// UI all work in the meantime.
+interface SubagentSpawnRequest {
+  subagentId: string;
+  name: string;
+  taskDescription: string;
+  systemPrompt: string | null;
+  tokenBudgetUsd: number;
+}
+
+await listen<SubagentSpawnRequest>("subagent_spawn_request", async (event) => {
+  const request = event.payload;
+  console.info(
+    "[panel] subagent spawn request:",
+    request.subagentId,
+    request.name,
+  );
+  // Mark as running so the kanban badge advances; the actual
+  // conversational loop is not yet wired. We append a transcript line
+  // so the on-disk trace reflects the lifecycle truthfully.
+  try {
+    await invoke("append_subagent_transcript", {
+      subagentId: request.subagentId,
+      role: "system",
+      text: `Spawned: ${request.name} — ${request.taskDescription}`,
+    });
+    await invoke("report_subagent_progress", {
+      subagentId: request.subagentId,
+      status: "running",
+      message: "started (panel stub runner; full Gemini Live socket not yet wired)",
+      spentUsdDelta: null,
+    });
+  } catch (reportError) {
+    console.warn("[panel] subagent spawn report failed:", reportError);
+  }
+});
+
+await listen<string>("subagent_cancel_request", (event) => {
+  console.info("[panel] subagent cancel request:", event.payload);
+  // No active socket to close in the stub runner.
+});
+
 await loadStoredApiKey();
 await loadOperatingMode();
 await refreshPermissions();
 await refreshSavedFlowsList();
 await loadRecordingOptInInitialState();
 await loadAlwaysOnListenerInitialState();
+await refreshTasksInProgressLine();
+setInterval(() => void refreshTasksInProgressLine(), 8000);
 setStatus("idle");
 console.info("[panel] ready");

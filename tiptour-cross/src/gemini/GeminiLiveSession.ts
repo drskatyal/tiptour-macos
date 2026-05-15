@@ -198,6 +198,28 @@ export class GeminiLiveSession {
       },
     );
 
+    // Inject the top-importance memories as priming context so the
+    // agent starts each session knowing the user's recurring facts.
+    // Best-effort: a memory-store failure shouldn't block the voice
+    // session from opening.
+    try {
+      const topMemories = await invoke<Array<{ key: string; value: string }>>(
+        "list_top_importance_memories",
+        { limit: 10 },
+      );
+      if (topMemories.length > 0) {
+        const memoryLines = topMemories
+          .map((m) => `- ${m.key}: ${m.value}`)
+          .join("\n");
+        this.client.sendTextTurn(
+          `Context from previous sessions (do not read aloud, just remember):\n${memoryLines}`,
+          false,
+        );
+      }
+    } catch (memoryError) {
+      console.warn("[session] memory priming skipped:", memoryError);
+    }
+
     try {
       await invoke("start_mic_capture");
     } catch (error) {
@@ -323,6 +345,156 @@ export class GeminiLiveSession {
         this.client?.sendToolResponse(toolCallId, {
           status: "error",
           message,
+        });
+      }
+      return;
+    }
+
+    // --- Agent memory tools ---------------------------------------
+    if (name === "remember") {
+      try {
+        const a = args as { key: string; value: string; tags?: string[] };
+        const record = await invoke("remember", {
+          key: a.key,
+          value: a.value,
+          tags: a.tags ?? [],
+          source: "gemini",
+        });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", record });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "recall") {
+      try {
+        const a = args as { query: string; top_k?: number };
+        const records = await invoke("recall", { query: a.query, topK: a.top_k ?? 5 });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", records });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "forget") {
+      try {
+        const a = args as { memory_id: string };
+        await invoke("forget", { id: a.memory_id });
+        this.client?.sendToolResponse(toolCallId, { status: "ok" });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "list_memories") {
+      try {
+        const a = args as { tag?: string };
+        const records = await invoke("list_memories", { tagFilter: a.tag ?? null });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", records });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    // --- Sub-agent tools ------------------------------------------
+    if (name === "spawn_subagent") {
+      try {
+        const a = args as { name: string; task_description: string };
+        const subagentId = await invoke<string>("spawn_subagent_command", {
+          name: a.name,
+          taskDescription: a.task_description,
+          parentSubagentId: null,
+          systemPromptOverride: null,
+          tokenBudgetUsd: null,
+        });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", subagentId });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "list_subagents") {
+      try {
+        const subagents = await invoke("list_subagents");
+        this.client?.sendToolResponse(toolCallId, { status: "ok", subagents });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "cancel_subagent") {
+      try {
+        const a = args as { subagent_id: string };
+        await invoke("cancel_subagent", { id: a.subagent_id });
+        this.client?.sendToolResponse(toolCallId, { status: "ok" });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    // --- Task tools -----------------------------------------------
+    if (name === "create_task") {
+      try {
+        const a = args as { title: string; description?: string };
+        const task = await invoke("create_task", {
+          title: a.title,
+          description: a.description ?? "",
+          priority: "medium",
+          parentTaskId: null,
+          tags: [],
+        });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", task });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "update_task_status") {
+      try {
+        const a = args as { task_id: string; status: string };
+        const task = await invoke("update_task_status", { id: a.task_id, status: a.status });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", task });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+    if (name === "list_tasks") {
+      try {
+        const a = args as { status?: string };
+        const tasks = await invoke("list_tasks", { statusFilter: a.status ?? null, tagFilter: null });
+        this.client?.sendToolResponse(toolCallId, { status: "ok", tasks });
+      } catch (error) {
+        this.client?.sendToolResponse(toolCallId, {
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
         });
       }
       return;

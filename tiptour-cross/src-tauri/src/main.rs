@@ -1,6 +1,7 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent_memory;
 mod app_discovery;
 mod app_metadata;
 mod app_settings;
@@ -24,6 +25,8 @@ mod permissions;
 mod recorder;
 mod screen;
 mod settings_window;
+mod subagents;
+mod tasks;
 mod tray;
 mod vosk_listener;
 
@@ -152,6 +155,29 @@ fn main() {
             indicators_settings::set_indicators_settings,
             indicators_window::indicators_set_click_through,
             indicators::emit_indicator_from_frontend,
+            agent_memory::remember,
+            agent_memory::recall,
+            agent_memory::forget,
+            agent_memory::list_memories,
+            agent_memory::update_memory,
+            agent_memory::list_top_importance_memories,
+            subagents::spawn_subagent_command,
+            subagents::list_subagents,
+            subagents::get_subagent_status,
+            subagents::cancel_subagent,
+            subagents::pause_subagent,
+            subagents::resume_subagent,
+            subagents::report_subagent_progress,
+            subagents::append_subagent_transcript,
+            subagents::sweep_stalled_subagents_command,
+            subagents::get_subagent_transcript_path,
+            tasks::create_task,
+            tasks::update_task_status,
+            tasks::update_task,
+            tasks::delete_task,
+            tasks::list_tasks,
+            tasks::count_tasks_in_progress,
+            tasks::dispatch_task_to_subagent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

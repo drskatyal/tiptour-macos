@@ -142,6 +142,26 @@ export class GeminiLiveClient {
     this.socket.send(JSON.stringify(payload));
   }
 
+  /// Sends a one-shot textual user turn over the live socket. We use
+  /// this to inject "here are facts you remembered last time" context
+  /// at session open without re-running the full setup payload.
+  sendTextTurn(text: string, isUserTurn: boolean): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    if (!this.setupComplete) return;
+    const payload = {
+      clientContent: {
+        turns: [
+          {
+            role: isUserTurn ? "user" : "model",
+            parts: [{ text }],
+          },
+        ],
+        turnComplete: false,
+      },
+    };
+    this.socket.send(JSON.stringify(payload));
+  }
+
   sendToolResponse(toolCallId: string, response: unknown): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     const payload = {
@@ -211,6 +231,121 @@ export class GeminiLiveClient {
                     },
                   },
                   required: ["steps"],
+                },
+              },
+              {
+                name: "remember",
+                description:
+                  "Save a fact to the agent's persistent memory. The fact will be recalled in future sessions by semantic search.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    key: { type: "string", description: "Short label for the fact." },
+                    value: { type: "string", description: "The fact itself." },
+                    tags: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Optional tags for filtering.",
+                    },
+                  },
+                  required: ["key", "value"],
+                },
+              },
+              {
+                name: "recall",
+                description:
+                  "Semantic search over the agent's memory. Returns up to top_k relevant memories.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string" },
+                    top_k: { type: "number" },
+                  },
+                  required: ["query"],
+                },
+              },
+              {
+                name: "forget",
+                description: "Soft-delete a memory by id.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    memory_id: { type: "string" },
+                  },
+                  required: ["memory_id"],
+                },
+              },
+              {
+                name: "list_memories",
+                description: "List stored memories, optionally filtered by tag.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    tag: { type: "string" },
+                  },
+                },
+              },
+              {
+                name: "spawn_subagent",
+                description:
+                  "Spawn a parallel sub-agent to chase down an independent task. Returns the new sub-agent id.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    task_description: { type: "string" },
+                  },
+                  required: ["name", "task_description"],
+                },
+              },
+              {
+                name: "list_subagents",
+                description: "List active and recent sub-agents.",
+                parameters: { type: "object", properties: {} },
+              },
+              {
+                name: "cancel_subagent",
+                description: "Cancel a running sub-agent by id.",
+                parameters: {
+                  type: "object",
+                  properties: { subagent_id: { type: "string" } },
+                  required: ["subagent_id"],
+                },
+              },
+              {
+                name: "create_task",
+                description:
+                  "Create a kanban task. Use this when the user mentions something they want to do later.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    description: { type: "string" },
+                  },
+                  required: ["title"],
+                },
+              },
+              {
+                name: "update_task_status",
+                description: "Move a task between kanban columns.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    task_id: { type: "string" },
+                    status: {
+                      type: "string",
+                      enum: ["backlog", "inProgress", "blocked", "done", "cancelled"],
+                    },
+                  },
+                  required: ["task_id", "status"],
+                },
+              },
+              {
+                name: "list_tasks",
+                description: "List tasks, optionally filtered by status.",
+                parameters: {
+                  type: "object",
+                  properties: { status: { type: "string" } },
                 },
               },
               {
