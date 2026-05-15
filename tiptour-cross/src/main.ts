@@ -144,12 +144,25 @@ async function stopSession() {
   session = null;
 }
 
+// Serializes overlapping push-to-talk toggles. Without this guard rapid
+// Alt+X presses could fire `stopSession` while `startSession`'s
+// `await session.open()` is still installing mic + screen listeners,
+// leaving stranded listeners attached after close (they only get
+// unregistered inside `session.close()` AFTER `open()` completes).
+let pushToTalkInFlightPromise: Promise<void> | null = null;
+
 async function togglePushToTalk() {
-  if (session) {
-    await stopSession();
-  } else {
-    await startSession();
+  if (pushToTalkInFlightPromise) {
+    // A previous toggle is mid-flight (open or close). Wait for it to
+    // settle so the resulting `session` state reflects truth before we
+    // decide what to do next.
+    await pushToTalkInFlightPromise;
   }
+  const nextTransition = session ? stopSession() : startSession();
+  pushToTalkInFlightPromise = nextTransition.finally(() => {
+    pushToTalkInFlightPromise = null;
+  });
+  await pushToTalkInFlightPromise;
 }
 
 startButton.addEventListener("click", () => void startSession());
