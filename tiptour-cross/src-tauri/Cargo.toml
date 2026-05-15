@@ -8,6 +8,9 @@ rust-version = "1.77"
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [dependencies]
 tauri = { version = "2.1", features = ["tray-icon", "macos-private-api", "devtools"] }
 tauri-plugin-global-shortcut = "2.0"

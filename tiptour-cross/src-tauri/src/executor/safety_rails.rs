@@ -325,3 +325,119 @@ fn detect_modal_dialog() -> bool {
 fn detect_modal_dialog() -> bool {
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn click_steps_request_fingerprint_polling() {
+        // The whole point of fingerprint polling is to wait for visible
+        // UI changes after an action that's expected to mutate the AX
+        // tree. The four canonical "user touched UI" step types should
+        // all opt in.
+        for click_step_type in [
+            StepType::Click,
+            StepType::RightClick,
+            StepType::DoubleClick,
+        ] {
+            assert!(
+                step_type_should_poll_fingerprint(click_step_type),
+                "{:?} should poll fingerprint",
+                click_step_type,
+            );
+        }
+    }
+
+    #[test]
+    fn keyboard_input_steps_request_fingerprint_polling() {
+        for keyboard_step_type in [
+            StepType::KeyboardShortcut,
+            StepType::PressKey,
+            StepType::Type,
+            StepType::SetValue,
+        ] {
+            assert!(
+                step_type_should_poll_fingerprint(keyboard_step_type),
+                "{:?} should poll fingerprint",
+                keyboard_step_type,
+            );
+        }
+    }
+
+    #[test]
+    fn launch_and_navigation_steps_skip_fingerprint_polling() {
+        // OpenApp / OpenUrl / Scroll just need a flat sleep — the
+        // launched window or scrolled viewport doesn't usually look like
+        // an AX-tree mutation in the foreground app the runner started
+        // observing, so polling burns time without giving us signal.
+        for navigation_step_type in [
+            StepType::OpenApp,
+            StepType::OpenUrl,
+            StepType::Scroll,
+            StepType::WaitForState,
+            StepType::Observe,
+        ] {
+            assert!(
+                !step_type_should_poll_fingerprint(navigation_step_type),
+                "{:?} should NOT poll fingerprint",
+                navigation_step_type,
+            );
+        }
+    }
+
+    #[test]
+    fn modal_cache_is_invalidated_after_ttl() {
+        // On Linux test hosts detect_modal_dialog() always returns
+        // false, so we can verify the cache lifecycle (insertion,
+        // expiry) without needing a real AX backend.
+        {
+            let mut cache = MODAL_DIALOG_CACHE.lock();
+            *cache = None;
+        }
+
+        let first_call_value = modal_dialog_blocking();
+        // Cache entry should now exist with a recent timestamp.
+        {
+            let cache = MODAL_DIALOG_CACHE.lock();
+            assert!(
+                cache.is_some(),
+                "first call should populate the modal cache",
+            );
+        }
+        assert_eq!(
+            first_call_value, false,
+            "no AX backend on this platform — should report no modal",
+        );
+
+        // Forcibly age the cache entry past its TTL so the next call has
+        // to re-detect; verify the cache timestamp is updated rather
+        // than reused.
+        let original_timestamp = {
+            let mut cache = MODAL_DIALOG_CACHE.lock();
+            if let Some((cached_at, cached_value)) = *cache {
+                let stale_instant = cached_at - (MODAL_CACHE_DURATION + Duration::from_millis(50));
+                *cache = Some((stale_instant, cached_value));
+                Some(stale_instant)
+            } else {
+                None
+            }
+        };
+        assert!(original_timestamp.is_some());
+
+        let _ = modal_dialog_blocking();
+        let new_timestamp = {
+            let cache = MODAL_DIALOG_CACHE.lock();
+            cache.as_ref().map(|(when, _value)| *when)
+        };
+        assert!(
+            new_timestamp.unwrap() > original_timestamp.unwrap(),
+            "cache should be refreshed once TTL expires",
+        );
+    }
+
+    #[test]
+    fn user_switched_away_returns_false_when_no_original_pid_recorded() {
+        assert!(!user_switched_away_from(None));
+    }
+}

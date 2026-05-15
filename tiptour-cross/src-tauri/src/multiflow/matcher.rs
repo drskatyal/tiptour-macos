@@ -73,3 +73,67 @@ pub fn best_match_for_query<'flows>(
     }
     best_match
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn flow(name: &str, aliases: &[&str]) -> FlowSummary {
+        FlowSummary {
+            flow_id: format!("id-{name}"),
+            name: name.to_string(),
+            created_at_unix_ms: 0,
+            step_count: 1,
+            trigger_aliases: aliases.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn exact_match_returns_confident_score() {
+        let flows = vec![flow("morning routine", &[])];
+        let (entry, score) = best_match_for_query("morning routine", &flows).expect("match");
+        assert_eq!(entry.name, "morning routine");
+        assert!(score >= MATCH_CONFIDENT_THRESHOLD);
+    }
+
+    #[test]
+    fn normalized_punctuation_still_matches() {
+        let flows = vec![flow("Slack + Notion start", &[])];
+        let (entry, score) =
+            best_match_for_query("Slack, Notion start!!", &flows).expect("match despite punct");
+        assert_eq!(entry.name, "Slack + Notion start");
+        assert!(score >= MATCH_CONFIDENT_THRESHOLD);
+    }
+
+    #[test]
+    fn alias_match_beats_canonical_name() {
+        // Canonical name shares no useful tokens with the query, but an
+        // alias does. The alias path should win.
+        let flows = vec![flow("Slack + Notion start", &["morning routine"])];
+        let (entry, _score) = best_match_for_query(
+            "do my morning routine please",
+            &flows,
+        )
+        .expect("alias match");
+        assert_eq!(entry.name, "Slack + Notion start");
+    }
+
+    #[test]
+    fn rejects_query_below_threshold() {
+        let flows = vec![flow("morning routine", &[])];
+        // A totally unrelated query should fall under MATCH_ACCEPT_THRESHOLD.
+        let result = best_match_for_query("compile the kernel", &flows);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn picks_highest_scoring_among_multiple() {
+        let flows = vec![
+            flow("morning routine", &[]),
+            flow("evening shutdown", &[]),
+        ];
+        let (entry, _score) =
+            best_match_for_query("evening shutdown", &flows).expect("match");
+        assert_eq!(entry.name, "evening shutdown");
+    }
+}

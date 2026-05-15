@@ -79,6 +79,13 @@ impl JsonBagOfWordsBackend {
         let directory = default_memory_directory()?;
         fs::create_dir_all(&directory).map_err(|e| format!("create memory dir: {e}"))?;
         let file_path = directory.join(MEMORY_FILE_NAME);
+        Self::open_at(file_path)
+    }
+
+    /// Open the JSON store rooted at an explicit file path. Used by the
+    /// tests to point at a tempdir-backed file so they don't stomp on
+    /// the user's real `memory.json`.
+    pub fn open_at(file_path: PathBuf) -> Result<Self, String> {
         let records = if file_path.exists() {
             let raw = fs::read_to_string(&file_path).map_err(|e| format!("read memory: {e}"))?;
             let parsed: MemoryFile =
@@ -309,4 +316,90 @@ fn cosine_similarity(a: &HashMap<String, f32>, b: &HashMap<String, f32>) -> f32 
         return 0.0;
     }
     dot_product / (magnitude_a * magnitude_b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn fresh_backend() -> (tempfile::TempDir, JsonBagOfWordsBackend) {
+        let temporary_directory = tempdir().expect("tempdir");
+        let backend_file_path = temporary_directory.path().join(MEMORY_FILE_NAME);
+        let backend = JsonBagOfWordsBackend::open_at(backend_file_path).expect("open_at");
+        (temporary_directory, backend)
+    }
+
+    #[test]
+    fn round_trips_a_remembered_memory_through_disk() {
+        let (temporary_directory, mut backend) = fresh_backend();
+        backend
+            .remember("favorite editor", "Helix", &[], None)
+            .expect("remember");
+
+        // Re-open from the same path; the persisted file should hydrate
+        // the record losslessly.
+        let backend_file_path = temporary_directory.path().join(MEMORY_FILE_NAME);
+        let reopened_backend =
+            JsonBagOfWordsBackend::open_at(backend_file_path).expect("reopen");
+        let listed = reopened_backend
+            .list_memories(None)
+            .expect("list after reopen");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].key, "favorite editor");
+        assert_eq!(listed[0].value, "Helix");
+    }
+
+    #[test]
+    fn recall_orders_higher_importance_first_when_similarity_ties() {
+        let (_temporary_directory, mut backend) = fresh_backend();
+        // Two memories with token-identical (key, value) pairs so the
+        // bag-of-words similarity to the query is exactly equal — the
+        // *only* signal left is importance. Ranking should put the
+        // higher-importance row first regardless of insertion order.
+        backend
+            .remember("note one", "shared launch checklist tokens", &[], None)
+            .expect("remember one");
+        backend
+            .remember("note two", "shared launch checklist tokens", &[], None)
+            .expect("remember two");
+
+        // Bump only "note two"'s importance directly so the test isn't
+        // sensitive to the exact bag-of-words tie-breaking inside recall.
+        for record in backend.records.iter_mut() {
+            if record.key == "note two" {
+                record.importance = 0.95;
+            }
+        }
+        let recalled = backend
+            .recall("shared launch checklist tokens", 5)
+            .expect("recall ranks");
+        assert_eq!(recalled.len(), 2);
+        assert_eq!(recalled[0].key, "note two");
+        assert_eq!(recalled[1].key, "note one");
+    }
+
+    #[test]
+    fn forget_soft_deletes_so_listing_hides_the_row() {
+        let (_temporary_directory, mut backend) = fresh_backend();
+        let stored = backend
+            .remember("temporary fact", "delete me", &[], None)
+            .expect("remember");
+        backend.forget(&stored.id).expect("forget");
+        let listed = backend
+            .list_memories(None)
+            .expect("list after forget");
+        assert!(
+            listed.is_empty(),
+            "soft-deleted memory should not appear in list",
+        );
+        // The on-disk row is still there with importance zeroed out —
+        // re-open and verify the raw record count rather than the
+        // filtered list.
+        let backend_file_path = backend.file_path.clone();
+        let raw = fs::read_to_string(&backend_file_path).expect("read raw json");
+        let parsed: MemoryFile = serde_json::from_str(&raw).expect("parse json");
+        assert_eq!(parsed.records.len(), 1);
+        assert_eq!(parsed.records[0].importance, 0.0);
+    }
 }
