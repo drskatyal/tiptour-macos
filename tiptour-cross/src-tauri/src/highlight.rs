@@ -485,7 +485,7 @@ mod macos {
     use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
     use core_graphics::event::{
         CGEvent, CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
-        CGEventType, EventField,
+        CGEventType,
     };
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
@@ -540,7 +540,7 @@ mod macos {
         // CGEventTap's Drop will tear the tap down — keep it alive by
         // anchoring it inside this thread's stack frame for the run loop's
         // lifetime.
-        let mach_port: &CFMachPort = event_tap.mach_port();
+        let mach_port: &CFMachPort = &event_tap.mach_port;
         let run_loop_source = match mach_port.create_runloop_source(0) {
             Ok(source) => source,
             Err(_) => {
@@ -582,17 +582,12 @@ mod macos {
             && (flags & CG_EVENT_FLAG_MASK_ALTERNATE) == 0
             && (flags & CG_EVENT_FLAG_MASK_COMMAND) == 0;
 
-        let location_x =
-            event.get_integer_value_field(EventField::MOUSE_EVENT_X) as f64;
-        let location_y =
-            event.get_integer_value_field(EventField::MOUSE_EVENT_Y) as f64;
-        // FlagsChanged events don't carry mouse fields; fall back to the
-        // generic CGEvent location accessor in that case.
-        let mouse_point = if location_x == 0.0 && location_y == 0.0 {
-            event.location()
-        } else {
-            core_graphics::geometry::CGPoint::new(location_x, location_y)
-        };
+        // `core-graphics 0.25`'s `EventField` doesn't expose per-mouse-event
+        // X/Y constants (older versions did). The generic `event.location()`
+        // accessor works for every event type we care about (FlagsChanged
+        // included) by reading the CGEvent's stored cursor location, so
+        // skip the field-based fast path entirely.
+        let mouse_point = event.location();
 
         let is_already_painting = super::HIGHLIGHT_STATE.lock().is_painting;
         let is_mouse_movement_event = matches!(

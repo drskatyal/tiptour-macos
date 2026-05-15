@@ -9,13 +9,18 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use accessibility_sys::{
-    kAXChildrenAttribute, kAXDescriptionAttribute, kAXManualAccessibility,
+    kAXChildrenAttribute, kAXDescriptionAttribute,
     kAXPositionAttribute, kAXRoleAttribute, kAXSizeAttribute, kAXTitleAttribute,
     kAXValueAttribute, kAXValueTypeCGPoint, kAXValueTypeCGSize, AXError,
     AXUIElementCopyAttributeValue, AXUIElementCopyMultipleAttributeValues,
     AXUIElementCreateApplication, AXUIElementRef, AXUIElementSetAttributeValue,
     AXUIElementSetMessagingTimeout, AXValueGetType, AXValueGetValue, AXValueRef,
 };
+
+// accessibility-sys 0.1.3 doesn't re-export the Electron AX-manual-accessibility
+// constant — newer 0.2.x does. It's a CFString attribute the framework matches
+// on by string value, so we just construct one from the literal at the call
+// site rather than bumping the crate.
 use core_foundation::array::{CFArray, CFArrayRef};
 use core_foundation::base::{CFRelease, CFType, CFTypeID, CFTypeRef, TCFType};
 use core_foundation::boolean::CFBoolean;
@@ -259,8 +264,13 @@ fn batch_read_node_attributes(element: AXUIElementRef) -> Option<BatchedNodeAttr
         let description = string_at(2);
         let value = string_at(3);
 
-        let frame_center =
-            extract_frame_center(values_array.get(4), values_array.get(5));
+        // core-foundation 0.10's `CFArray::get` returns `Option<ItemRef<T>>`
+        // — a borrowed handle. `extract_frame_center` wants owned `CFType`
+        // so we clone through the `Deref<Target = T>` impl.
+        let frame_center = extract_frame_center(
+            values_array.get(4).map(|item_ref| item_ref.clone()),
+            values_array.get(5).map(|item_ref| item_ref.clone()),
+        );
 
         Some(BatchedNodeAttributes {
             role,

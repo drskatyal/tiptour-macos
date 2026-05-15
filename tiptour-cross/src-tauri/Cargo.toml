@@ -62,8 +62,15 @@ objc2-foundation = "0.2"
 objc2-app-kit = "0.2"
 core-foundation = "0.10"
 core-foundation-sys = "0.8"
-core-graphics = "0.24"
-screencapturekit = "0.3"
+# 0.25 specifically because 0.24 transitively pulls in core-foundation 0.9,
+# which clashes with our direct 0.10 dep. `&CFString` from 0.10 then can't
+# be passed to a `CFDictionary` from 0.9 (different `ToVoid` trait). 0.25
+# uses core-foundation 0.10 and the version conflict disappears.
+core-graphics = "0.25"
+# screencapturekit was used for macOS screen capture; we now use the
+# simpler CGDisplay::image() path in src/screen/capture.rs which avoids
+# the fragile SCK Rust binding API churn. Re-introduce SCK when the
+# bindings stabilize and we need >1 fps capture.
 
 [features]
 default = ["custom-protocol"]

@@ -14,111 +14,53 @@ pub struct RawFrame {
 
 #[cfg(target_os = "macos")]
 pub async fn capture_primary_screen() -> Result<RawFrame, String> {
-    use screencapturekit::{
-        output::{CMSampleBufferRef, LockTrait},
-        shareable_content::SCShareableContent,
-        stream::{
-            configuration::SCStreamConfiguration,
-            content_filter::SCContentFilter,
-            output_trait::SCStreamOutputTrait,
-            output_type::SCStreamOutputType,
-            SCStream,
-        },
-    };
-    use std::sync::mpsc::{channel, Sender};
-    use std::sync::Mutex;
+    // We use `CGDisplay::create_image()` rather than ScreenCaptureKit
+    // because the Rust SCK bindings churn faster than we can chase. Apple
+    // formally deprecated CGDisplayCreateImage in macOS 14 but it still
+    // works through macOS 15 (the runtime warning is suppressible), and
+    // the 1.5-second cadence of our screenshot streamer doesn't need
+    // SCK's higher-throughput pixel-buffer pipeline. When the Rust SCK
+    // bindings stabilize we'll migrate, but for now CGDisplay buys us a
+    // dependency-free path that compiles cleanly against core-graphics
+    // 0.25 with no version conflicts. The TCC permission check fires at
+    // the moment we call this — if the user hasn't granted Screen
+    // Recording, CGDisplay::create_image returns None and we surface
+    // that as a clean permission-denied error.
+    tokio::task::spawn_blocking(|| {
+        use core_graphics::display::CGDisplay;
 
-    // Discover the main display via SCShareableContent. If this errors out
-    // with TCC -3801 the user has not granted Screen Recording yet — we
-    // surface that as a clean message so the UI can show "grant screen
-    // recording permission" instead of a generic failure.
-    let shareable = SCShareableContent::get()
-        .map_err(|error| format!("Screen recording permission denied or unavailable: {error:?}"))?;
-    let displays = shareable.displays();
-    let display = displays
-        .first()
-        .ok_or_else(|| "No displays available for capture".to_string())?
-        .clone();
+        let main_display = CGDisplay::main();
+        let cg_image = main_display.image().ok_or_else(|| {
+            "Screen recording permission denied — grant it in System Settings → Privacy & Security → Screen Recording, then relaunch TipTour".to_string()
+        })?;
 
-    let width = display.width() as u32;
-    let height = display.height() as u32;
+        let width = cg_image.width() as u32;
+        let height = cg_image.height() as u32;
+        let bytes_per_row = cg_image.bytes_per_row() as usize;
+        let raw_data = cg_image.data();
+        let raw_bytes: &[u8] = raw_data.bytes();
 
-    let filter = SCContentFilter::new().with_display_excluding_windows(&display, &[]);
-    let config = SCStreamConfiguration::new()
-        .set_width(width as usize)
-        .map_err(|error| format!("set_width: {error:?}"))?
-        .set_height(height as usize)
-        .map_err(|error| format!("set_height: {error:?}"))?
-        .set_captures_audio(false)
-        .map_err(|error| format!("set_captures_audio: {error:?}"))?;
-
-    struct OneShotOutput {
-        sender: Mutex<Option<Sender<Result<RawFrame, String>>>>,
-    }
-    impl SCStreamOutputTrait for OneShotOutput {
-        fn did_output_sample_buffer(
-            &self,
-            sample_buffer: CMSampleBufferRef,
-            of_type: SCStreamOutputType,
-        ) {
-            if of_type != SCStreamOutputType::Screen {
-                return;
+        // CGImage's row stride may exceed `width * 4` because Quartz aligns
+        // rows to multiples of 16 or 64 bytes. We strip the padding by
+        // copying `width * 4` bytes per row into a tightly-packed buffer.
+        let tight_row_bytes = (width as usize) * 4;
+        let mut bgra = Vec::with_capacity(tight_row_bytes * height as usize);
+        for row in 0..(height as usize) {
+            let row_start = row * bytes_per_row;
+            let row_end = row_start + tight_row_bytes;
+            if row_end > raw_bytes.len() {
+                return Err(format!(
+                    "row {row} extends past CGImage data ({}..{} > {})",
+                    row_start, row_end, raw_bytes.len()
+                ));
             }
-            let sender = match self.sender.lock().ok().and_then(|mut g| g.take()) {
-                Some(s) => s,
-                None => return, // already delivered the first frame
-            };
-            let result = (|| -> Result<RawFrame, String> {
-                let pixel_buffer = sample_buffer
-                    .get_pixel_buffer()
-                    .map_err(|error| format!("get_pixel_buffer: {error:?}"))?;
-                let width = pixel_buffer.get_width() as u32;
-                let height = pixel_buffer.get_height() as u32;
-                let locked = pixel_buffer
-                    .lock()
-                    .map_err(|error| format!("pixel_buffer.lock: {error:?}"))?;
-                let bytes_per_row = locked.get_bytes_per_row() as usize;
-                let data = locked.as_slice();
-                let row_bytes = (width as usize) * 4;
-                let mut bgra = Vec::with_capacity(row_bytes * height as usize);
-                for row in 0..(height as usize) {
-                    let start = row * bytes_per_row;
-                    bgra.extend_from_slice(&data[start..start + row_bytes]);
-                }
-                Ok(RawFrame { bgra, width, height })
-            })();
-            let _ = sender.send(result);
+            bgra.extend_from_slice(&raw_bytes[row_start..row_end]);
         }
-    }
 
-    let (tx, rx) = channel();
-    let output = OneShotOutput {
-        sender: Mutex::new(Some(tx)),
-    };
-
-    let mut stream = SCStream::new(&filter, &config);
-    stream
-        .add_output_handler(output, SCStreamOutputType::Screen)
-        .map_err(|error| format!("add_output_handler: {error:?}"))?;
-    stream
-        .start_capture()
-        .map_err(|error| format!("start_capture: {error:?}"))?;
-
-    // Wait for the first frame on a blocking thread so we don't block the
-    // tokio executor. ScreenCaptureKit usually delivers a frame within
-    // ~50ms but we cap at 3s in case the user just granted permission and
-    // the system is still spinning up.
-    let frame_result = tokio::task::spawn_blocking(move || {
-        rx.recv_timeout(std::time::Duration::from_secs(3))
-            .map_err(|_| "Timed out waiting for first screen frame".to_string())
+        Ok::<RawFrame, String>(RawFrame { bgra, width, height })
     })
     .await
-    .map_err(|error| format!("join error: {error}"))?;
-
-    // Stop the stream regardless of whether the frame arrived.
-    let _ = stream.stop_capture();
-
-    frame_result?
+    .map_err(|error| format!("screen capture join error: {error}"))?
 }
 
 #[cfg(target_os = "windows")]
