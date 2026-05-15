@@ -6,6 +6,7 @@ mod app_discovery;
 mod app_metadata;
 mod app_settings;
 mod audio;
+mod bug_report;
 mod capabilities;
 mod cost_meter;
 mod custom_commands;
@@ -197,6 +198,7 @@ fn main() {
             cost_meter::get_session_cost,
             cost_meter::get_today_cost,
             cost_meter::get_cost_history,
+            bug_report::export_bug_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");

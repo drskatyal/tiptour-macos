@@ -31,6 +31,7 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
     <h3>Actions</h3>
     <div class="button-stack">
       <button id="about-open-data-folder">Open data folder</button>
+      <button id="about-export-bug-report">Export bug report</button>
       <button id="about-show-onboarding-again">Show onboarding again</button>
       <button id="about-reset-settings" class="danger">Reset all settings</button>
       <button id="about-quit" class="danger">Quit TipTour</button>
@@ -59,6 +60,18 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
       statusBannerElement.hidden = true;
     }, 2000);
   }
+
+  const exportBugReportButton = paneElement.querySelector<HTMLButtonElement>(
+    "#about-export-bug-report",
+  )!;
+  exportBugReportButton.addEventListener("click", async () => {
+    try {
+      const zipPath = await invoke<string>("export_bug_report");
+      flashBanner(`Bug report saved to ${zipPath}`);
+    } catch (exportError) {
+      flashBanner(`Export failed: ${errorMessageOf(exportError)}`);
+    }
+  });
 
   openDataFolderButton.addEventListener("click", async () => {
     try {

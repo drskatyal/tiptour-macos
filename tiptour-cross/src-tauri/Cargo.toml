@@ -53,7 +53,7 @@ image = { version = "0.25", default-features = false, features = ["jpeg"] }
 strsim = "0.11"
 vosk = { version = "0.3", optional = true }
 ureq = { version = "2", optional = true }
-zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 plist = "1"
 # Optional vector-DB + on-device embedder for agent memory. These are
 # heavy native deps (LanceDB pulls Arrow + tokio runtime extras;
@@ -98,7 +98,7 @@ core-graphics = "0.24"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-vosk = ["dep:vosk", "dep:ureq", "dep:zip"]
+vosk = ["dep:vosk", "dep:ureq"]
 agent-memory-vector = [
     "dep:lancedb",
     "dep:fastembed",
