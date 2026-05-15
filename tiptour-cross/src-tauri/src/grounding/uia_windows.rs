@@ -192,3 +192,91 @@ pub fn find_element_coordinate_by_label(label: &str) -> Option<(f64, f64)> {
     let center_y = rect.get_top() as f64 + rect.get_height() as f64 / 2.0;
     Some((center_x, center_y))
 }
+
+// Three-tier lookup against the foreground app's UIA tree: exact Name match,
+// case-insensitive Name contains, then AccessibilityName/HelpText fallback.
+// Returns the bounding-rectangle center in physical pixels.
+pub fn find_element_by_label(_target_app: &TargetApp, label: &str) -> Option<(f64, f64)> {
+    let normalized_label = label.trim();
+    if normalized_label.is_empty() {
+        return None;
+    }
+
+    let automation = UIAutomation::new().ok()?;
+    let root = automation.get_focused_element().ok()?;
+    let top_window = climb_to_top_window(&root);
+
+    // Tier 1: exact Name match.
+    if let Ok(exact_condition) = automation.create_property_condition(
+        uiautomation::variants::UIProperty::Name.into(),
+        normalized_label.into(),
+        None,
+    ) {
+        if let Ok(element) = top_window.find_first(TreeScope::Descendants, &exact_condition) {
+            if let Some(center) = center_of_element(&element) {
+                return Some(center);
+            }
+        }
+    }
+
+    // Tier 2 + 3: walk all named elements, prefer case-insensitive Name
+    // contains, then AccessibilityName/HelpText contains. UIA doesn't expose
+    // a "contains" property condition in this crate, so we enumerate every
+    // descendant with a non-empty Name once and score in Rust.
+    let any_named_condition = automation
+        .create_property_condition(
+            uiautomation::variants::UIProperty::IsControlElement.into(),
+            true.into(),
+            None,
+        )
+        .ok()?;
+
+    let candidate_elements = top_window
+        .find_all(TreeScope::Descendants, &any_named_condition)
+        .ok()?;
+
+    let needle_lowercased = normalized_label.to_lowercase();
+    let mut best_name_contains_match: Option<(f64, f64)> = None;
+    let mut best_secondary_match: Option<(f64, f64)> = None;
+
+    for candidate_element in candidate_elements {
+        let candidate_name = candidate_element.get_name().unwrap_or_default();
+        if !candidate_name.is_empty()
+            && candidate_name.to_lowercase().contains(&needle_lowercased)
+            && best_name_contains_match.is_none()
+        {
+            if let Some(center) = center_of_element(&candidate_element) {
+                best_name_contains_match = Some(center);
+            }
+        }
+
+        if best_name_contains_match.is_none() && best_secondary_match.is_none() {
+            let accessibility_name = candidate_element.get_localized_control_type().unwrap_or_default();
+            let help_text = candidate_element.get_help_text().unwrap_or_default();
+            if (accessibility_name.to_lowercase().contains(&needle_lowercased)
+                && !accessibility_name.is_empty())
+                || (help_text.to_lowercase().contains(&needle_lowercased)
+                    && !help_text.is_empty())
+            {
+                if let Some(center) = center_of_element(&candidate_element) {
+                    best_secondary_match = Some(center);
+                }
+            }
+        }
+    }
+
+    best_name_contains_match.or(best_secondary_match)
+}
+
+fn center_of_element(element: &UIElement) -> Option<(f64, f64)> {
+    let rect = element.get_bounding_rectangle().ok()?;
+    let width = rect.get_width() as f64;
+    let height = rect.get_height() as f64;
+    if width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    Some((
+        rect.get_left() as f64 + width / 2.0,
+        rect.get_top() as f64 + height / 2.0,
+    ))
+}
