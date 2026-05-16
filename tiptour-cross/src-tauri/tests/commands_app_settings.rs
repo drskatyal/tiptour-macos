@@ -60,6 +60,7 @@ fn app_settings_round_trip_atomic_write_and_reset_all_paths() {
         theme: "light".to_string(),
         voice_mode: "quick".to_string(),
         hotkey_behavior: "toggle".to_string(),
+        presence_mode: "dock".to_string(),
         brain_dump_folder: String::new(),
     };
     set_app_settings(outgoing.clone()).expect("set_app_settings must succeed");

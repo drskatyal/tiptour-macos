@@ -21,6 +21,26 @@
   --dock-glass-shade: rgba(0, 0, 0, 0.18);
 }
 
+/* The dock window is a transparent rectangle — anything that
+ * paints outside the chip cluster bleeds onto the user's desktop.
+ * Hard-pin no-scroll + no-overflow so the webview never grows
+ * scrollbars when content briefly overflows during the toolbar
+ * expansion animation. */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .dock-body {
   margin: 0;
   background: transparent;
@@ -28,10 +48,12 @@
   font-family: var(--font-sans);
   font-size: var(--type-13-size);
   height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
+  overflow: hidden;
 }
 
 .dock-root {
@@ -39,9 +61,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Generous hover hit-area so the user never has to land a pixel
-   * on the 6px-tall sliver. */
-  padding: 22px 60px;
+  /* Tight hit-area around the dash; the unified pill is its own
+   * hover target once expanded. */
+  padding: 16px 30px;
   cursor: pointer;
 }
 
@@ -76,19 +98,39 @@
   pointer-events: none;
 }
 
-/* Expanded toolbar — a row of small circular icon-only buttons.
- * No outer capsule frame, each button floats on its own so the
- * composition looks like the screenshot's chip cluster. */
+/* Expanded toolbar — ONE unified liquid glass capsule that holds
+ * every control. Same recipe (translucent tint + backdrop blur +
+ * specular highlight + lit rim) but at the wrapper level, so the
+ * whole row reads as one piece of material instead of separate
+ * chips floating on the desktop. */
 .dock-toolbar {
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0;
-  background: transparent;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 999px;
   opacity: 0;
   transform: translateY(8px) scale(0.96);
   pointer-events: none;
+  /* Single glass capsule — the buttons inside are visually
+     subordinate. */
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.03) 35%,
+      rgba(255, 255, 255, 0)    65%,
+      rgba(0, 0, 0, 0.10)       100%),
+    var(--dock-glass-tint);
+  backdrop-filter: blur(36px) saturate(180%) brightness(1.08);
+  -webkit-backdrop-filter: blur(36px) saturate(180%) brightness(1.08);
+  box-shadow:
+    inset 0 0.5px 0 var(--dock-glass-rim-bright),
+    inset 0 -0.5px 0 var(--dock-glass-shade),
+    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
+    0 0.5px 0 rgba(0, 0, 0, 0.30),
+    0 6px 16px -2px rgba(0, 0, 0, 0.32),
+    0 22px 48px -10px rgba(0, 0, 0, 0.40);
   transition:
     opacity 200ms cubic-bezier(0.2, 0.7, 0.2, 1),
     transform 280ms cubic-bezier(0.34, 1.36, 0.64, 1);
@@ -103,93 +145,54 @@
 /* Individual buttons in the toolbar — small dark circles with a
  * single white-tinted icon. Slight scale on hover so the user gets
  * tactile feedback. */
+/* Buttons live INSIDE the toolbar pill so they read as subordinate
+ * elements of one glass capsule — no individual chip backgrounds,
+ * just a hover halo that lights up the surrounding pill area. */
 .dock-button {
   appearance: none;
   border: none;
   cursor: pointer;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  isolation: isolate;
   color: var(--dock-glass-text);
-  /* Layered glass — top specular gradient over a translucent tint. */
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.04) 30%,
-      rgba(255, 255, 255, 0)    60%,
-      rgba(0, 0, 0, 0.10)       100%),
-    var(--dock-glass-tint);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  box-shadow:
-    /* lit top edge */
-    inset 0 0.5px 0 var(--dock-glass-rim-bright),
-    /* shaded bottom edge */
-    inset 0 -0.5px 0 var(--dock-glass-shade),
-    /* full inner rim */
-    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    /* hard 1px contact */
-    0 0.5px 0 rgba(0, 0, 0, 0.30),
-    /* mid lift */
-    0 4px 10px -2px rgba(0, 0, 0, 0.28),
-    /* wide diffuse */
-    0 16px 36px -8px rgba(0, 0, 0, 0.34);
+  background: transparent;
+  box-shadow: none;
   transition:
-    transform 200ms cubic-bezier(0.34, 1.36, 0.64, 1),
-    box-shadow 220ms ease,
-    background 200ms ease;
+    transform 160ms cubic-bezier(0.34, 1.36, 0.64, 1),
+    background 160ms ease;
   padding: 0;
 }
 .dock-button:hover {
-  transform: translateY(-3px) scale(1.08);
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.20) 0%,
-      rgba(255, 255, 255, 0.06) 30%,
-      rgba(255, 255, 255, 0)    60%,
-      rgba(0, 0, 0, 0.08)       100%),
-    rgba(20, 20, 22, 0.68);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.36),
-    inset 0 -0.5px 0 var(--dock-glass-shade),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
-    0 0.5px 0 rgba(0, 0, 0, 0.32),
-    0 6px 14px -2px rgba(0, 0, 0, 0.36),
-    0 24px 48px -10px rgba(0, 0, 0, 0.42);
+  background: rgba(255, 255, 255, 0.10);
+  transform: scale(1.06);
 }
 .dock-button:active {
-  transform: translateY(-1px) scale(0.98);
+  transform: scale(0.94);
   transition: transform 80ms ease;
 }
 
-/* Primary action (Ask / mic) — accent rim so it reads as the
- * anchor of the row, but keep the same glass body. */
+/* Primary action (Ask / mic) — subtle accent ring so the row has a
+ * visual anchor without breaking the unified-capsule look. */
 .dock-button.dock-primary {
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -0.5px 0 var(--dock-glass-shade),
-    inset 0 0 0 0.75px rgba(255, 138, 214, 0.42),
-    0 0.5px 0 rgba(0, 0, 0, 0.32),
-    0 4px 10px -2px rgba(0, 0, 0, 0.30),
-    0 12px 28px -6px rgba(255, 138, 214, 0.22),
-    0 22px 44px -10px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 138, 214, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 138, 214, 0.32);
+}
+.dock-button.dock-primary:hover {
+  background: rgba(255, 138, 214, 0.22);
 }
 
-/* Ghost buttons (Panel / Settings) — lighter tint so they read as
- * secondary even though they're the same shape. */
+/* Ghost buttons (Panel / Settings) — same shape, slightly dimmer
+ * icon so they fade against the primary control. */
 .dock-button.dock-ghost {
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.08) 0%,
-      rgba(255, 255, 255, 0.02) 30%,
-      rgba(255, 255, 255, 0)    60%,
-      rgba(0, 0, 0, 0.08)       100%),
-    rgba(10, 10, 12, 0.40);
+  opacity: 0.75;
+}
+.dock-button.dock-ghost:hover {
+  opacity: 1;
 }
 
 /* Icons — SVG masks tinted by background-color so we don't have to
@@ -233,63 +236,41 @@
 
 /* Focused-app pip — compact 36px circle on the far left, mono
  * 2-letter badge so it matches the chip cluster aesthetic. */
+/* Focused-app pip — small mono badge inside the unified pill;
+ * no separate background, just a tinted oval. */
 .dock-focused-pip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 38px;
-  height: 38px;
-  padding: 0 12px;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  margin-right: 4px;
   border-radius: 999px;
   color: var(--dock-glass-text);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
   white-space: nowrap;
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.02) 60%,
-      rgba(0, 0, 0, 0.10)       100%),
-    var(--dock-glass-tint);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  box-shadow:
-    inset 0 0.5px 0 var(--dock-glass-rim-bright),
-    inset 0 -0.5px 0 var(--dock-glass-shade),
-    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    0 0.5px 0 rgba(0, 0, 0, 0.32),
-    0 6px 14px -2px rgba(0, 0, 0, 0.30),
-    0 18px 38px -8px rgba(0, 0, 0, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.10);
 }
 
-/* Transient dispatch chip — same glass treatment, slid in from the
- * right edge of the cluster, auto-hides after ~1.6s. */
+/* Transient dispatch chip — inline-pill inside the unified
+ * capsule. No own glass since the wrapper carries it. */
 .dock-dispatch-chip {
   display: inline-flex;
   align-items: center;
-  height: 38px;
-  padding: 0 16px;
+  height: 26px;
+  padding: 0 12px;
+  margin-left: 4px;
   border-radius: 999px;
   color: var(--dock-glass-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.02) 60%,
-      rgba(0, 0, 0, 0.10)       100%),
-    var(--dock-glass-tint);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.08);
-  box-shadow:
-    inset 0 0.5px 0 var(--dock-glass-rim-bright),
-    inset 0 -0.5px 0 var(--dock-glass-shade),
-    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    0 0.5px 0 rgba(0, 0, 0, 0.32),
-    0 6px 14px -2px rgba(0, 0, 0, 0.36),
-    0 20px 42px -8px rgba(0, 0, 0, 0.40);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.10);
   animation: dock-chip-in 240ms cubic-bezier(0.34, 1.36, 0.64, 1);
 }
 .dock-dispatch-chip[data-ok="false"] {

@@ -7,11 +7,11 @@ import { installThemeBridge } from "./theme";
 void installThemeBridge();
 
 // Fail-loud panel: when ANY uncaught error or unhandled promise
-// rejection slips through, slap a red banner across the panel so
-// the user sees it instead of staring at a frozen UI. This is the
-// single most important reliability change for the panel — silent
-// JS errors here were the root of "Start listening does nothing".
+// rejection slips through, slap a banner across the panel + log to
+// console so we can debug live. Banner includes a Dismiss button so
+// the user can clear it once they've copied the message.
 function renderFatalErrorOverlay(message: string): void {
+  console.error("[panel-error]", message);
   let overlay = document.getElementById("panel-fatal-error-overlay");
   if (!overlay) {
     overlay = document.createElement("div");
@@ -22,7 +22,7 @@ function renderFatalErrorOverlay(message: string): void {
       "left:0",
       "right:0",
       "z-index:2147483647",
-      "padding:10px 14px",
+      "padding:10px 36px 10px 14px",
       "background:#7a1c1c",
       "color:#fff",
       "font:12px/1.4 ui-monospace,monospace",
@@ -31,19 +31,56 @@ function renderFatalErrorOverlay(message: string): void {
       "max-height:40vh",
       "overflow:auto",
     ].join(";");
+    const dismissButton = document.createElement("button");
+    dismissButton.textContent = "×";
+    dismissButton.setAttribute("aria-label", "Dismiss error");
+    dismissButton.style.cssText = [
+      "position:absolute",
+      "top:4px",
+      "right:8px",
+      "background:transparent",
+      "border:none",
+      "color:#fff",
+      "font:16px/1 sans-serif",
+      "cursor:pointer",
+    ].join(";");
+    dismissButton.addEventListener("click", () => overlay?.remove());
+    overlay.appendChild(dismissButton);
     document.body.appendChild(overlay);
   }
-  overlay.textContent =
-    `Panel error — please screenshot this and share:\n${message}\n\n` +
-    (overlay.textContent ?? "");
+  const line = document.createElement("div");
+  line.textContent = message;
+  overlay.appendChild(line);
 }
 window.addEventListener("error", (event) => {
   renderFatalErrorOverlay(`${event.message} @ ${event.filename}:${event.lineno}`);
 });
 window.addEventListener("unhandledrejection", (event) => {
-  const reason = event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason);
-  renderFatalErrorOverlay(`Unhandled promise rejection: ${reason}`);
+  const reason =
+    event.reason instanceof Error
+      ? (event.reason.stack ?? event.reason.message)
+      : typeof event.reason === "object"
+        ? JSON.stringify(event.reason)
+        : String(event.reason);
+  renderFatalErrorOverlay(`Unhandled rejection: ${reason}`);
 });
+
+// Wraps an `await listen(...)` call so a single failure (e.g. the
+// Tauri events plugin denying a label that's missing from
+// capabilities) doesn't blow up the whole panel boot.
+// Signature kept compatible with `@tauri-apps/api/event` listen: the
+// callback receives the full Event<T> object, not just `{ payload }`.
+async function safeListen<T>(
+  eventName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  callback: (event: any) => void | Promise<void>,
+): Promise<void> {
+  try {
+    await listen<T>(eventName, callback);
+  } catch (listenError) {
+    console.warn(`[panel] listen(${eventName}) failed:`, listenError);
+  }
+}
 
 const statusDot = document.querySelector<HTMLElement>(".dot")!;
 const statusLabel = document.getElementById("status-label")!;
@@ -518,10 +555,14 @@ const voiceModeSelect = document.getElementById(
 const hotkeyBehaviorSelect = document.getElementById(
   "hotkey-behavior-select",
 ) as HTMLSelectElement | null;
+const presenceModeSelect = document.getElementById(
+  "presence-mode-select",
+) as HTMLSelectElement | null;
 
 interface VoiceAndHotkeySettings {
   voiceMode?: string;
   hotkeyBehavior?: string;
+  presenceMode?: string;
 }
 
 async function loadVoiceAndHotkeyPanelControls(): Promise<void> {
@@ -536,10 +577,37 @@ async function loadVoiceAndHotkeyPanelControls(): Promise<void> {
     ) {
       hotkeyBehaviorSelect.value = s.hotkeyBehavior;
     }
+    if (
+      presenceModeSelect &&
+      (s?.presenceMode === "dock" ||
+        s?.presenceMode === "cursor-buddy" ||
+        s?.presenceMode === "notch")
+    ) {
+      presenceModeSelect.value = s.presenceMode;
+    }
   } catch (loadError) {
     console.warn("[panel] could not load voice/hotkey settings:", loadError);
   }
 }
+
+presenceModeSelect?.addEventListener("change", async () => {
+  try {
+    await invoke("set_app_setting_field", {
+      field: "presence_mode",
+      value: presenceModeSelect.value,
+    });
+    // Tell the running app to swap the active presence surface live
+    // (show/hide dock, kick off cursor buddy, etc.) — the Rust side
+    // listens for this event and reconfigures windows.
+    const { emit } = await import("@tauri-apps/api/event");
+    await emit("presence_mode_changed", presenceModeSelect.value);
+  } catch (saveError) {
+    showError(
+      "Could not change presence mode: " +
+        (saveError instanceof Error ? saveError.message : String(saveError)),
+    );
+  }
+});
 
 voiceModeSelect?.addEventListener("change", async () => {
   try {
@@ -587,7 +655,7 @@ void refreshLastHotkeyBehavior();
 // having to restart the app.
 window.addEventListener("focus", () => void refreshLastHotkeyBehavior());
 
-await listen("push_to_talk_toggled", () => {
+await safeListen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey press");
   // Refresh once per press so a settings flip is picked up on the
   // very next hotkey use, not the one after that.
@@ -608,7 +676,7 @@ await listen("push_to_talk_toggled", () => {
   });
 });
 
-await listen("push_to_talk_released", () => {
+await safeListen("push_to_talk_released", () => {
   console.info("[panel] hotkey release");
   if (lastHotkeyBehavior === "hold" && quickCaptureState === "armed") {
     void endQuickCaptureLoop().catch((endError) => {
@@ -624,7 +692,7 @@ await listen("push_to_talk_released", () => {
 // transcription into whatever has focus. Independent of the
 // push-to-talk path; same listener whether the chord fired from the
 // global registration, the dock button, or a future voice command.
-await listen("transcribe_toggled", async () => {
+await safeListen("transcribe_toggled", async () => {
   console.info("[panel] transcribe hotkey fired");
   try {
     await invoke("toggle_soniox_transcription");
@@ -644,14 +712,14 @@ await listen("transcribe_toggled", async () => {
 // pipeline so it can stream tokens out. A separate listener so it
 // runs independently of quick-voice and live-session paths.
 let sonioxState: "idle" | "transcribing" = "idle";
-await listen<string>("soniox_state", (event) => {
+await safeListen<string>("soniox_state", (event) => {
   if (event.payload === "transcribing") {
     sonioxState = "transcribing";
   } else {
     sonioxState = "idle";
   }
 });
-await listen<number[]>("mic_chunk", (event) => {
+await safeListen<number[]>("mic_chunk", (event) => {
   if (sonioxState === "transcribing") {
     void invoke("append_soniox_audio_chunk", { pcmBytes: event.payload });
   }
@@ -661,7 +729,7 @@ await listen<number[]>("mic_chunk", (event) => {
 // macOS Accessibility permission not granted, or another app stole the
 // chord), surface it as a panel error banner so users stop pressing
 // Alt+X expecting silence to mean "broken app".
-await listen<string>("hotkey_registration_failed", (event) => {
+await safeListen<string>("hotkey_registration_failed", (event) => {
   const detail = event.payload ?? "unknown";
   showError(
     `Push-to-talk hotkey couldn't register (${detail}). ` +
@@ -1028,7 +1096,7 @@ alwaysOnListeningToggle?.addEventListener("change", async () => {
   }
 });
 
-await listen<string>("vosk_partial_transcript", (event) => {
+await safeListen<string>("vosk_partial_transcript", (event) => {
   if (!alwaysOnListeningHeardElement) return;
   const heardText = event.payload?.trim();
   if (!heardText) {
@@ -1039,16 +1107,16 @@ await listen<string>("vosk_partial_transcript", (event) => {
   alwaysOnListeningHeardElement.textContent = `heard: "${heardText}"`;
 });
 
-await listen("vosk_wake_detected", () => {
+await safeListen("vosk_wake_detected", () => {
   console.info("[panel] vosk wake word detected");
 });
 
-await listen("vosk_command_stop", () => {
+await safeListen("vosk_command_stop", () => {
   console.info("[panel] vosk stop command");
   void stopSession();
 });
 
-await listen("vosk_command_pause", () => {
+await safeListen("vosk_command_pause", () => {
   // Pause cancels any in-flight multiflow replay without closing the
   // Gemini Live session, so the user can keep conversing while the
   // automation halts. Stop, in contrast, tears down the whole session.
@@ -1072,7 +1140,7 @@ interface PanelMultiflowProgressEvent {
     | { kind: "failed"; message: string };
 }
 
-await listen<PanelMultiflowProgressEvent>("multiflow_progress", async (event) => {
+await safeListen<PanelMultiflowProgressEvent>("multiflow_progress", async (event) => {
   const kind = event.payload.kind.kind;
   if (kind === "completed" || kind === "failed" || kind === "paused") {
     // We don't carry the flow name through the progress event; just
@@ -1176,7 +1244,7 @@ interface SubagentSpawnRequest {
   tokenBudgetUsd: number;
 }
 
-await listen<SubagentSpawnRequest>("subagent_spawn_request", async (event) => {
+await safeListen<SubagentSpawnRequest>("subagent_spawn_request", async (event) => {
   const request = event.payload;
   console.info(
     "[panel] subagent spawn request:",
@@ -1203,7 +1271,7 @@ await listen<SubagentSpawnRequest>("subagent_spawn_request", async (event) => {
   }
 });
 
-await listen<string>("subagent_cancel_request", (event) => {
+await safeListen<string>("subagent_cancel_request", (event) => {
   console.info("[panel] subagent cancel request:", event.payload);
   // No active socket to close in the stub runner.
 });
@@ -1236,7 +1304,7 @@ crashRecoveryDismissButton?.addEventListener("click", () => {
   crashRecoveryBanner.hidden = true;
 });
 
-await listen("previous_session_crashed", () => {
+await safeListen("previous_session_crashed", () => {
   crashRecoveryBanner.hidden = false;
 });
 

@@ -61,6 +61,15 @@ pub struct AppSettings {
     /// setup don't have to keep a finger down.
     #[serde(default = "default_hotkey_behavior")]
     pub hotkey_behavior: String,
+    /// Which on-screen presence the agent uses:
+    ///   "dock"          — floating toolbar at the bottom-center
+    ///   "cursor-buddy"  — small avatar follows the user's mouse
+    ///   "notch"         — tiny indicator pinned to the menu-bar area
+    /// The cursor-buddy + notch modes are wired into the overlay
+    /// window when selected — the dock window is hidden in those
+    /// modes so we don't have two presences fighting for attention.
+    #[serde(default = "default_presence_mode")]
+    pub presence_mode: String,
     /// Path the brain-dump adapter writes captures to. Empty = use
     /// the default `~/Documents/TipTour Brain Dumps/`. Point at an
     /// Obsidian vault root to make captures part of an Obsidian
@@ -97,6 +106,9 @@ fn default_voice_mode() -> String {
 fn default_hotkey_behavior() -> String {
     "toggle".to_string()
 }
+fn default_presence_mode() -> String {
+    "dock".to_string()
+}
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -109,6 +121,7 @@ impl Default for AppSettings {
             theme: default_theme(),
             voice_mode: default_voice_mode(),
             hotkey_behavior: default_hotkey_behavior(),
+            presence_mode: default_presence_mode(),
             brain_dump_folder: String::new(),
         }
     }
@@ -188,6 +201,12 @@ pub fn set_app_setting_field(field: String, value: String) -> Result<(), String>
                 return Err(format!("invalid hotkey_behavior '{value}'"));
             }
             current.hotkey_behavior = value;
+        }
+        "presence_mode" => {
+            if value != "dock" && value != "cursor-buddy" && value != "notch" {
+                return Err(format!("invalid presence_mode '{value}'"));
+            }
+            current.presence_mode = value;
         }
         "gemini_model" => {
             current.gemini_model = value;

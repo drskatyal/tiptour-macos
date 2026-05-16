@@ -44,7 +44,28 @@ mod tool_dispatch;
 mod tray;
 mod vosk_listener;
 
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
+
+/// Show or hide the dock window based on the user's presence mode.
+/// Dock mode = visible; cursor-buddy and notch modes hide the dock
+/// because they own the foreground presence themselves and a second
+/// floating surface would compete for attention. Future modes can
+/// add their own setup hooks here.
+fn apply_presence_mode_visibility(app: &AppHandle, presence_mode: &str) {
+    if let Some(dock_window) = app.get_webview_window("dock") {
+        match presence_mode {
+            "dock" => {
+                let _ = dock_window.show();
+            }
+            _ => {
+                let _ = dock_window.hide();
+            }
+        }
+    }
+    // Notify any window that wants to react to the mode swap (e.g.
+    // the overlay can render a cursor buddy in cursor-buddy mode).
+    let _ = tauri::Emitter::emit(app, "presence_mode_applied", presence_mode.to_string());
+}
 
 fn main() {
     tauri::Builder::default()
@@ -113,8 +134,8 @@ fn main() {
                 if let Ok(Some(primary_monitor)) = dock_window.primary_monitor() {
                     let monitor_position = primary_monitor.position();
                     let monitor_size = primary_monitor.size();
-                    let dock_width: u32 = 520;
-                    let dock_height: u32 = 120;
+                    let dock_width: u32 = 420;
+                    let dock_height: u32 = 140;
                     // Sit ~7% above the bottom edge so the dock floats
                     // in the visual lower-middle rather than glued to
                     // the screen edge. On a 1080p display this lands
@@ -137,29 +158,48 @@ fn main() {
                 }
             }
 
-            // Position the panel near the top-right of the primary
+            // Center the panel near the top-center of the primary
             // monitor so users always see it when the app launches.
-            // Without this Tauri picks a default that's often offscreen
-            // on multi-monitor setups, which has been the root of
-            // "I launched the app and nothing happened" reports.
+            // Top-right was unusable on small displays; centering is
+            // safer. Without an explicit position Tauri picks a
+            // default that's often offscreen on multi-monitor setups.
             if let Some(panel_window) = app.handle().get_webview_window("panel") {
                 if let Ok(Some(primary_monitor)) = panel_window.primary_monitor() {
                     let monitor_position = primary_monitor.position();
                     let monitor_size = primary_monitor.size();
                     let panel_width: u32 = 380;
                     let panel_height: u32 = 600;
-                    // 24px from the right edge, 80px from the top so it
-                    // doesn't collide with the menu bar / taskbar.
-                    let new_x = monitor_position.x + monitor_size.width as i32
-                        - panel_width as i32
-                        - 24;
-                    let new_y = monitor_position.y + 80;
+                    let new_x = monitor_position.x
+                        + ((monitor_size.width as i32 - panel_width as i32) / 2);
+                    let new_y = monitor_position.y + 60;
                     let _ = panel_window
                         .set_position(tauri::PhysicalPosition::new(new_x, new_y));
                     let _ = panel_window.show();
                     let _ = panel_window.set_focus();
                 }
             }
+            // Apply the persisted presence mode immediately so the dock
+            // is hidden when the user picked cursor-buddy or notch on a
+            // previous run.
+            apply_presence_mode_visibility(
+                app.handle(),
+                &app_settings::load_app_settings_from_disk().presence_mode,
+            );
+
+            // Listen for live presence-mode changes from the panel.
+            let app_handle_for_presence = app.handle().clone();
+            let _ = tauri::Listener::listen(
+                app.handle(),
+                "presence_mode_changed",
+                move |event| {
+                    let payload = event.payload();
+                    // Payload arrives as a JSON-quoted string from emit;
+                    // strip the surrounding quotes for the match.
+                    let cleaned = payload.trim().trim_matches('"');
+                    apply_presence_mode_visibility(&app_handle_for_presence, cleaned);
+                },
+            );
+
             // Stash the AppHandle globally so deep callers (the
             // recorder's fire-and-forget screenshot writer, etc.) can
             // emit indicator events without threading a handle through
