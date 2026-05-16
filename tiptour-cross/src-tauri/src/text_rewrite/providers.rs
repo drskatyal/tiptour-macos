@@ -109,6 +109,19 @@ pub const CATALOG: &[(&str, &str, bool, &[&str])] = &[
             "o3-mini",
         ],
     ),
+    // Soniox is a speech-to-text provider; it doesn't do
+    // chat-completion. Listed in the catalog so users can paste their
+    // API key on the same Personas tab page as the LLM providers —
+    // the soniox_transcribe module reads the key from the same
+    // keychain slot. resolve() returns None for this id so it can't
+    // be picked as a rewrite provider, only as the transcription
+    // backend.
+    (
+        "soniox",
+        "Soniox (real-time STT)",
+        false,
+        &["stt-rt-preview"],
+    ),
 ];
 
 pub struct CompletionRequest {
@@ -395,8 +408,19 @@ mod tests {
     }
 
     #[test]
-    fn resolve_returns_some_for_every_catalog_entry() {
+    fn resolve_returns_some_for_every_chat_completion_catalog_entry() {
+        // Soniox is in the catalog as a key-storage entry (speech-to-
+        // text provider) but is NOT a chat-completion provider, so
+        // it intentionally has no resolve() impl. Skip it here.
+        const NON_CHAT_COMPLETION_IDS: &[&str] = &["soniox"];
         for (id, ..) in CATALOG {
+            if NON_CHAT_COMPLETION_IDS.contains(id) {
+                assert!(
+                    resolve(id).is_none(),
+                    "resolve({id}) returned Some but {id} is documented as non-chat-completion"
+                );
+                continue;
+            }
             assert!(
                 resolve(id).is_some(),
                 "resolve({id}) returned None but {id} is in CATALOG"

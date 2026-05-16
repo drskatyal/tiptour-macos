@@ -1,10 +1,12 @@
-// Global push-to-talk hotkey.
+// Global hotkeys.
 //
-// Default is Alt+X on both macOS and Windows. One-hand chord: left thumb
-// on Alt, left ring finger on X. Not assigned by either OS as a system
-// shortcut. The user can override the chord via the Settings dashboard;
-// the new chord is parsed by `parse_chord_string` and re-registered
-// through `reregister_push_to_talk_hotkey`.
+// Two chords:
+//   push_to_talk   — default Alt+X — fires the quick voice flow
+//   transcribe     — default Alt+Z — toggles Soniox transcription
+//
+// Both are customizable via the Settings dashboard. The two-key
+// constraint (one modifier + one key) holds for both so the user
+// never trips on a 3-modifier chord they have to remember.
 
 use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -12,29 +14,38 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 use crate::app_settings::load_app_settings_from_disk;
 
-// Tracks the chord we currently have registered so we can `unregister`
-// it before installing the user's new pick.
-static CURRENTLY_REGISTERED_CHORD: Mutex<Option<Shortcut>> = Mutex::new(None);
+// Track each registered chord separately so reregister can find the
+// right one to unregister before swapping in the user's new pick.
+static CURRENTLY_REGISTERED_PUSH_TO_TALK: Mutex<Option<Shortcut>> = Mutex::new(None);
+static CURRENTLY_REGISTERED_TRANSCRIBE: Mutex<Option<Shortcut>> = Mutex::new(None);
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
-    let configured_chord_string = load_app_settings_from_disk().push_to_talk_chord;
-    let chord = parse_chord_string(&configured_chord_string)
+    let settings = load_app_settings_from_disk();
+
+    let push_to_talk_chord = parse_chord_string(&settings.push_to_talk_chord)
         .unwrap_or_else(|| Shortcut::new(Some(Modifiers::ALT), Code::KeyX));
-    register_chord(app, chord)
+    register_chord(app, push_to_talk_chord, "push_to_talk_toggled")?;
+    *CURRENTLY_REGISTERED_PUSH_TO_TALK.lock() = Some(push_to_talk_chord);
+
+    let transcribe_chord = parse_chord_string(&settings.transcribe_chord)
+        .unwrap_or_else(|| Shortcut::new(Some(Modifiers::ALT), Code::KeyZ));
+    register_chord(app, transcribe_chord, "transcribe_toggled")?;
+    *CURRENTLY_REGISTERED_TRANSCRIBE.lock() = Some(transcribe_chord);
+
+    Ok(())
 }
 
-fn register_chord(app: &AppHandle, chord: Shortcut) -> tauri::Result<()> {
+fn register_chord(app: &AppHandle, chord: Shortcut, event_name: &'static str) -> tauri::Result<()> {
     let app_handle = app.clone();
 
     app.global_shortcut()
         .on_shortcut(chord, move |_app, _sc, event| {
             if event.state == ShortcutState::Pressed {
-                let _ = app_handle.emit("push_to_talk_toggled", ());
+                let _ = app_handle.emit(event_name, ());
             }
         })
         .map_err(|error| tauri::Error::Anyhow(anyhow::anyhow!(error.to_string())))?;
 
-    *CURRENTLY_REGISTERED_CHORD.lock() = Some(chord);
     Ok(())
 }
 
@@ -162,24 +173,47 @@ fn key_code_from_token(token: &str) -> Option<Code> {
 /// than silently dropping the hotkey.
 #[tauri::command]
 pub fn reregister_push_to_talk_hotkey(app: AppHandle, chord_string: String) -> Result<(), String> {
+    reregister_hotkey(
+        app,
+        chord_string,
+        "push_to_talk_toggled",
+        &CURRENTLY_REGISTERED_PUSH_TO_TALK,
+        |s, value| s.push_to_talk_chord = value,
+    )
+}
+
+#[tauri::command]
+pub fn reregister_transcribe_hotkey(app: AppHandle, chord_string: String) -> Result<(), String> {
+    reregister_hotkey(
+        app,
+        chord_string,
+        "transcribe_toggled",
+        &CURRENTLY_REGISTERED_TRANSCRIBE,
+        |s, value| s.transcribe_chord = value,
+    )
+}
+
+fn reregister_hotkey(
+    app: AppHandle,
+    chord_string: String,
+    event_name: &'static str,
+    slot: &Mutex<Option<Shortcut>>,
+    persist_field: fn(&mut crate::app_settings::AppSettings, String),
+) -> Result<(), String> {
     let parsed_chord = parse_chord_string(&chord_string)
         .ok_or_else(|| format!("could not parse chord '{chord_string}'"))?;
 
-    // Unregister the previous chord if any. Silently ignore unregister
-    // errors — if the previous chord was lost (e.g. another app stole
-    // it), we still want the new one to register cleanly.
-    if let Some(previous_chord) = *CURRENTLY_REGISTERED_CHORD.lock() {
+    if let Some(previous_chord) = *slot.lock() {
         let _ = app.global_shortcut().unregister(previous_chord);
     }
 
-    // Persist before registering so a crash inside `register_chord`
-    // doesn't leave settings.json out of sync with the live chord —
-    // the user's last successful pick wins on next launch.
     let mut current_settings = load_app_settings_from_disk();
-    current_settings.push_to_talk_chord = chord_string;
+    persist_field(&mut current_settings, chord_string);
     crate::app_settings::save_app_settings_to_disk(&current_settings)?;
 
-    register_chord(&app, parsed_chord).map_err(|error| error.to_string())
+    register_chord(&app, parsed_chord, event_name).map_err(|error| error.to_string())?;
+    *slot.lock() = Some(parsed_chord);
+    Ok(())
 }
 
 // Suppress unused-import warning when target features hide the manager

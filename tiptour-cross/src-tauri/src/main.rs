@@ -89,6 +89,31 @@ fn main() {
             }
             overlay::ensure_installed(app.handle())?;
             indicators_window::ensure_installed(app.handle())?;
+            // Center the dock window at the bottom of the primary
+            // monitor's work area. The tauri.conf.json gives the dock
+            // a fixed initial x/y guess that's right for a 1920×1080
+            // primary, but real users have all sizes — position it
+            // dynamically here so it lands flush bottom-center on
+            // every display.
+            if let Some(dock_window) = app.handle().get_webview_window("dock") {
+                if let Ok(Some(primary_monitor)) = dock_window.primary_monitor() {
+                    let monitor_position = primary_monitor.position();
+                    let monitor_size = primary_monitor.size();
+                    let dock_width: u32 = 520;
+                    let dock_height: u32 = 60;
+                    // ~24px above the bottom edge so the dash sits in
+                    // visual breathing room rather than glued to the
+                    // screen edge.
+                    let bottom_margin: u32 = 24;
+                    let new_x = monitor_position.x
+                        + ((monitor_size.width as i32 - dock_width as i32) / 2);
+                    let new_y = monitor_position.y + monitor_size.height as i32
+                        - dock_height as i32
+                        - bottom_margin as i32;
+                    let _ = dock_window
+                        .set_position(tauri::PhysicalPosition::new(new_x, new_y));
+                }
+            }
             // Stash the AppHandle globally so deep callers (the
             // recorder's fire-and-forget screenshot writer, etc.) can
             // emit indicator events without threading a handle through
@@ -218,6 +243,7 @@ fn main() {
             custom_commands::delete_custom_voice_command,
             settings_window::open_settings_window,
             hotkey::reregister_push_to_talk_hotkey,
+            hotkey::reregister_transcribe_hotkey,
             app_discovery::list_discovered_apps,
             app_discovery::rescan_installed_apps,
             app_discovery::set_app_command_enabled,

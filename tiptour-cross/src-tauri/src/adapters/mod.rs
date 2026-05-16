@@ -45,6 +45,7 @@ pub mod office_windows;
 pub mod reminders_macos;
 pub mod safari;
 pub mod slack;
+pub mod soniox;
 pub mod spotify;
 pub mod terminal_macos;
 pub mod vscode;
@@ -182,6 +183,7 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         safari::manifest(),
         browser_cdp::manifest(),
         brain_dump::manifest(),
+        soniox::manifest(),
     ]
 }
 
@@ -299,6 +301,7 @@ pub async fn dispatch_adapter_command(
         "safari" => safari::dispatch(app, &handler, args).await,
         "browser" => browser_cdp::dispatch(app, &handler, args).await,
         "brain-dump" => brain_dump::dispatch(app, &handler, args).await,
+        "soniox" => soniox::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {normalized_slug} (was '{slug}')")),
     }
 }

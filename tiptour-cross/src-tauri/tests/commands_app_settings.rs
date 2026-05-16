@@ -56,6 +56,7 @@ fn app_settings_round_trip_atomic_write_and_reset_all_paths() {
         gemini_voice: "Aoede".to_string(),
         gemini_model: "gemini-x-test-model".to_string(),
         push_to_talk_chord: "Ctrl+Shift+Q".to_string(),
+        transcribe_chord: "Ctrl+Shift+T".to_string(),
         theme: "light".to_string(),
         voice_mode: "quick".to_string(),
         brain_dump_folder: String::new(),

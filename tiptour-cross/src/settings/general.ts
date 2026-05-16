@@ -8,7 +8,10 @@ interface AppSettingsShape {
   geminiVoice: string;
   geminiModel: string;
   pushToTalkChord: string;
+  transcribeChord?: string;
   theme: string;
+  voiceMode?: string;
+  brainDumpFolder?: string;
 }
 
 const GEMINI_VOICE_CHOICES = ["Kore", "Aoede", "Charon", "Puck", "Fenrir"];
@@ -81,7 +84,17 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
         <button class="hotkey-chip" id="general-hotkey-chip">${escapeHtml(
           currentAppSettings.pushToTalkChord,
         )}</button>
-        <span class="row-hint">Click and press a new chord. Default Alt+X.</span>
+        <span class="row-hint">Click and press a new chord. Default Alt+X. Triggers a quick voice command — result lands in the floating tooltip.</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <label>Transcribe hotkey</label>
+      <div>
+        <button class="hotkey-chip" id="general-transcribe-chip">${escapeHtml(
+          currentAppSettings.transcribeChord ?? "Alt+Z",
+        )}</button>
+        <span class="row-hint">Two-key chord that toggles real-time transcription into the focused field. Default Alt+Z. Needs a Soniox API key (Personas → API keys).</span>
       </div>
     </div>
 
@@ -227,7 +240,21 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
     captureHotkeyChord(hotkeyChipButton, async (newChordString: string) => {
       try {
         await invoke("reregister_push_to_talk_hotkey", { chordString: newChordString });
-        flashSavedBanner(`Hotkey set to ${newChordString}.`);
+        flashSavedBanner(`Push-to-talk hotkey set to ${newChordString}.`);
+      } catch (hotkeyError) {
+        flashSavedBanner(`Hotkey failed: ${errorMessageOf(hotkeyError)}`);
+      }
+    });
+  });
+
+  const transcribeChipButton = paneElement.querySelector<HTMLButtonElement>(
+    "#general-transcribe-chip",
+  );
+  transcribeChipButton?.addEventListener("click", () => {
+    captureHotkeyChord(transcribeChipButton, async (newChordString: string) => {
+      try {
+        await invoke("reregister_transcribe_hotkey", { chordString: newChordString });
+        flashSavedBanner(`Transcribe hotkey set to ${newChordString}.`);
       } catch (hotkeyError) {
         flashSavedBanner(`Hotkey failed: ${errorMessageOf(hotkeyError)}`);
       }

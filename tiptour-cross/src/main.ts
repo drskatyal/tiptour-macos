@@ -474,6 +474,25 @@ await listen("push_to_talk_toggled", () => {
   void handleHotkeyToggle();
 });
 
+// Transcribe hotkey (default Alt+Z) — toggles Soniox real-time
+// transcription into whatever has focus. Independent of the
+// push-to-talk path; same listener whether the chord fired from the
+// global registration, the dock button, or a future voice command.
+await listen("transcribe_toggled", async () => {
+  console.info("[panel] transcribe hotkey fired");
+  try {
+    await invoke("toggle_soniox_transcription");
+  } catch (transcribeError) {
+    showError(
+      `Transcription toggle failed: ${
+        transcribeError instanceof Error
+          ? transcribeError.message
+          : String(transcribeError)
+      }`,
+    );
+  }
+});
+
 // Soniox real-time transcription — when the Rust side is in an
 // active session, every mic chunk should also forward to the Soniox
 // pipeline so it can stream tokens out. A separate listener so it

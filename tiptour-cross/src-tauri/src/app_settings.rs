@@ -36,6 +36,12 @@ pub struct AppSettings {
     pub gemini_model: String,
     #[serde(default = "default_chord")]
     pub push_to_talk_chord: String,
+    /// Two-key chord (modifier + key) that toggles Soniox real-time
+    /// transcription into the focused field. Default Alt+Z so users
+    /// land on a hotkey near Alt+X (push-to-talk) but in a different
+    /// finger position.
+    #[serde(default = "default_transcribe_chord")]
+    pub transcribe_chord: String,
     #[serde(default = "default_theme")]
     pub theme: String,
     /// Voice-mode for the push-to-talk hotkey:
@@ -68,6 +74,9 @@ fn default_model() -> String {
 fn default_chord() -> String {
     DEFAULT_PUSH_TO_TALK_CHORD.to_string()
 }
+fn default_transcribe_chord() -> String {
+    "Alt+Z".to_string()
+}
 fn default_theme() -> String {
     DEFAULT_THEME.to_string()
 }
@@ -82,6 +91,7 @@ impl Default for AppSettings {
             gemini_voice: default_voice(),
             gemini_model: default_model(),
             push_to_talk_chord: default_chord(),
+            transcribe_chord: default_transcribe_chord(),
             theme: default_theme(),
             voice_mode: default_voice_mode(),
             brain_dump_folder: String::new(),
