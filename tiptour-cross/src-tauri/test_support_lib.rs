@@ -29,6 +29,9 @@ pub mod cost_meter;
 #[path = "src/crash_recovery.rs"]
 pub mod crash_recovery;
 
+#[path = "src/conversation_history.rs"]
+pub mod conversation_history;
+
 #[path = "src/mode.rs"]
 pub mod mode;
 

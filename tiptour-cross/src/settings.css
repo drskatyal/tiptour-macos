@@ -1522,7 +1522,7 @@ body {
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.sessions-row:hover { background: var(--color-surface-hover); }
+.sessions-row:hover { background: var(--surface-raised-hover); }
 .sessions-row-main { flex: 1; min-width: 0; }
 .sessions-row-title {
   font-size: var(--type-13-size);
@@ -1539,7 +1539,7 @@ body {
 .sessions-row-delete {
   background: transparent;
   border: none;
-  color: var(--color-text);
+  color: var(--text-primary);
   opacity: 0.4;
   cursor: pointer;
   font-size: 18px;
@@ -1554,7 +1554,7 @@ body {
 .sessions-turn {
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--color-surface-elevated);
+  background: var(--surface-3);
 }
 .sessions-turn-user { border-left: 2px solid var(--color-accent); }
 .sessions-turn-model { border-left: 2px solid #4a90e2; }
