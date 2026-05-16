@@ -306,6 +306,15 @@ async function startSession() {
     await session.open();
   } catch (error) {
     console.error("[panel] session.open threw:", error);
+    // GeminiLiveSession already calls onError(message) on its way to
+    // throwing, so the error banner is set. But we ALSO log + show a
+    // visible status to make it obvious that the click was received.
+    const detail = error instanceof Error ? error.message : String(error);
+    showError(
+      `Couldn't open Gemini session: ${detail}. ` +
+        `Verify the API key is valid and that you have network access.`,
+    );
+    setStatus("error");
     session = null;
   }
 }
@@ -384,6 +393,19 @@ hidePanelButton?.addEventListener("click", async () => {
 await listen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey fired");
   void togglePushToTalk();
+});
+
+// If the OS refused to register the global hotkey (most common cause:
+// macOS Accessibility permission not granted, or another app stole the
+// chord), surface it as a panel error banner so users stop pressing
+// Alt+X expecting silence to mean "broken app".
+await listen<string>("hotkey_registration_failed", (event) => {
+  const detail = event.payload ?? "unknown";
+  showError(
+    `Push-to-talk hotkey couldn't register (${detail}). ` +
+      `On macOS, grant Accessibility in System Settings → Privacy. ` +
+      `Or change the chord in Settings → General → Push-to-talk.`,
+  );
 });
 
 const modeSelect = document.getElementById("mode-select") as HTMLSelectElement | null;

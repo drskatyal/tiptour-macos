@@ -313,9 +313,36 @@ mod feature_on {
         // can be 1-2GB; we don't want to OOM the moment a user picks
         // one of those. ZipArchive needs Read+Seek, which File gives
         // us natively — no Cursor<Vec<u8>> in the hot path.
-        let response = ureq::get(MODEL_DOWNLOAD_URL)
-            .call()
-            .map_err(|error| format!("download request failed: {error}"))?;
+        //
+        // Three retries with exponential backoff because
+        // alphacephei.com's CDN occasionally throttles bursts and the
+        // user just sees a download fail message with no clear remedy.
+        let response = {
+            let mut last_error: Option<String> = None;
+            let mut attempt: u32 = 0;
+            loop {
+                attempt += 1;
+                match ureq::get(MODEL_DOWNLOAD_URL).call() {
+                    Ok(response) => break response,
+                    Err(error) => {
+                        last_error = Some(error.to_string());
+                        if attempt >= 3 {
+                            return Err(format!(
+                                "Vosk model download failed after 3 attempts from {MODEL_DOWNLOAD_URL}: \
+                                 {}. Check your internet connection. If your network blocks \
+                                 alphacephei.com, download the model manually and unzip it to \
+                                 your TipTour data folder.",
+                                last_error.unwrap_or_else(|| "no detail".into())
+                            ));
+                        }
+                        // 1.5s -> 4.5s -> 13.5s backoff so a transient
+                        // throttle has time to clear.
+                        let delay_ms = 1_500u64 * 3u64.pow(attempt - 1);
+                        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                    }
+                }
+            }
+        };
         let mut temporary_zip_path = target_directory.clone();
         temporary_zip_path.push(".download.zip");
         let mut temporary_zip_file =

@@ -68,9 +68,22 @@ fn main() {
             // crashes at setup via the `.expect()` in main(), which is
             // a much worse first-run experience than a missing hotkey.
             if let Err(hotkey_install_error) = hotkey::install(app.handle()) {
-                eprintln!(
-                    "[hotkey] global Alt+X registration failed (likely conflicting app): {hotkey_install_error}",
+                let message = format!(
+                    "{hotkey_install_error}"
                 );
+                eprintln!("[hotkey] global hotkey registration failed: {message}");
+                // Emit so the panel can surface a banner — users were
+                // hitting Alt+X expecting it to work and getting silence
+                // because the failure was console-only.
+                let app_handle_for_emit = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                    let _ = tauri::Emitter::emit(
+                        &app_handle_for_emit,
+                        "hotkey_registration_failed",
+                        message,
+                    );
+                });
             }
             overlay::ensure_installed(app.handle())?;
             indicators_window::ensure_installed(app.handle())?;
