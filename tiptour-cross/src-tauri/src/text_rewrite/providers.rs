@@ -369,7 +369,7 @@ impl LlmProvider for OpenAiCompat {
             .into_iter()
             .next()
             .and_then(|c| c.message.content)
-            .ok_or_else(|| format!("openai-compat response missing choices[0].message.content"))?;
+            .ok_or_else(|| "openai-compat response missing choices[0].message.content".to_string())?;
         Ok(content.trim().to_string())
     }
 }
