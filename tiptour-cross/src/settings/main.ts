@@ -80,7 +80,10 @@ async function switchToTab(targetTabName: TabName) {
   } catch (renderError) {
     const errorMessage =
       renderError instanceof Error ? renderError.message : String(renderError);
-    settingsPaneElement.innerHTML = `<div class="flag-banner">Failed to render ${targetTabName}: ${errorMessage}</div>`;
+    // Use a dedicated class for the error fallback so the e2e test can
+    // distinguish a real render failure from the per-tab status/info
+    // banners (which share .flag-banner styling but aren't errors).
+    settingsPaneElement.innerHTML = `<div class="render-error-fallback flag-banner">Failed to render ${targetTabName}: ${errorMessage}</div>`;
   }
 }
 

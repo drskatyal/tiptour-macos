@@ -216,3 +216,22 @@
       0 4px 10px -4px rgba(0, 0, 0, 0.10);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Global utility: enforce the HTML `hidden` attribute.
+ *
+ * Many of our sections (.permissions, .restart-banner, .saved-flows, .api-key,
+ * .onboarding-wizard, etc) set `display: flex` / `display: grid` on the
+ * element. The HTML `hidden` attribute's UA style is `display: none` which
+ * has equal specificity (0,0,1) — so any of our component rules win via
+ * later cascade, leaving the element visible despite `hidden=""`.
+ *
+ * Playwright's e2e suite caught this: hidden permission rows still
+ * intercepted pointer events; hidden onboarding wizard pinned over the
+ * panel; hidden restart banner stayed visible. Forcing `[hidden]` to
+ * `display: none` with `!important` is the standard fix and matches the
+ * spec'd `hidden` semantics.
+ * ------------------------------------------------------------------------ */
+[hidden] {
+  display: none !important;
+}

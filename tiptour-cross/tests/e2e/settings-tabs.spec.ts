@@ -80,10 +80,11 @@ test.describe("settings tabs", () => {
         "data-active",
         "true",
       );
-      // The pane is replaced with `<div class="flag-banner">Failed to
-      // render ...` on a thrown render error. If that ever appears the
-      // tab is broken — fail loud.
-      const fallbackBannerCount = await page.locator(".flag-banner").count();
+      // Match the dedicated `.render-error-fallback` class set by
+      // settings/main.ts in its catch block. The bare `.flag-banner`
+      // class is shared by per-tab status/info banners (hidden or
+      // intentionally-visible), so it's not a reliable error signal.
+      const fallbackBannerCount = await page.locator(".render-error-fallback").count();
       expect(
         fallbackBannerCount,
         `tab ${tabName} fell back to its error banner`,

@@ -18,6 +18,15 @@
   overflow-y: auto;
 }
 
+/* The HTML `hidden` attribute applies `display: none` from UA styles, but
+   our `.onboarding-wizard { display: flex }` rule overrides it via cascade
+   specificity, leaving the wizard pinned over the panel and intercepting
+   clicks (caught by Playwright e2e). Make the hidden state stick by giving
+   the rule equal specificity + a `display: none` win. */
+.onboarding-wizard[hidden] {
+  display: none;
+}
+
 body[data-onboarding-active="true"] > .panel {
   /* Hide normal panel chrome behind the wizard so a slow render of the
      wizard card can't leak the unfinished panel through. */

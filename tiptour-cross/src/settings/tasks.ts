@@ -81,6 +81,10 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
         <input id="task-filter-subagent" type="checkbox" /> With sub-agent only
       </label>
     </div>
+    <div id="kanban-empty-state-host" class="empty-state" hidden style="padding:14px;text-align:center;opacity:0.7;font-size:12px;border:1px dashed rgba(255,255,255,0.12);border-radius:8px;margin-bottom:8px">
+      No tasks yet. Create one from the panel or ask the agent:
+      "remind me to ship the demo this week".
+    </div>
     <div id="kanban-grid" style="display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:12px;align-items:start"></div>
     <div id="task-status-banner" class="flag-banner success" hidden></div>
     <div id="task-drawer" hidden></div>
@@ -124,18 +128,15 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
       return true;
     });
 
-    // Whole-board empty state — surface the nudge above the empty
-    // kanban so a brand-new user knows the agent can create tasks for
-    // them. Filter-driven empties keep the columns visible (the user
-    // is searching, not bare).
-    if (cachedTasks.length === 0) {
-      kanbanGridElement.innerHTML = `
-        <div class="empty-state" style="grid-column:1/-1;padding:32px;text-align:center;opacity:0.7;font-size:12px">
-          No tasks yet. Create one from the panel or ask the agent:
-          "remind me to ship the demo this week".
-        </div>
-      `;
-      return;
+    // Surface the "no tasks yet" nudge ABOVE the kanban (in a separate
+    // pre-grid element so the columns themselves always render). This
+    // matters for both UX (empty columns are inviting drop targets) and
+    // testability (the e2e harness asserts there are always 5 columns).
+    const emptyStateHostElement = paneElement.querySelector<HTMLDivElement>(
+      "#kanban-empty-state-host",
+    );
+    if (emptyStateHostElement) {
+      emptyStateHostElement.hidden = cachedTasks.length !== 0;
     }
 
     kanbanGridElement.innerHTML = COLUMN_DEFINITIONS.map(
