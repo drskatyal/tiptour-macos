@@ -25,8 +25,10 @@ use tauri::AppHandle;
 use crate::keychain;
 
 pub mod apple_music;
+pub mod brain_dump;
 pub mod browser_cdp;
 pub mod calendar_macos;
+pub mod defaults;
 pub mod file_explorer;
 pub mod finder;
 pub mod github;
@@ -179,6 +181,7 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         file_explorer::manifest(),
         safari::manifest(),
         browser_cdp::manifest(),
+        brain_dump::manifest(),
     ]
 }
 
@@ -288,6 +291,22 @@ pub async fn dispatch_adapter_command(
         "file-explorer" => file_explorer::dispatch(app, &handler, args).await,
         "safari" => safari::dispatch(app, &handler, args).await,
         "browser" => browser_cdp::dispatch(app, &handler, args).await,
+        "brain-dump" => brain_dump::dispatch(app, &handler, args).await,
+        // `default:<category>` lets Gemini emit a category-relative
+        // slug (e.g. "default:tasks") and have the orchestrator
+        // resolve to the user's chosen adapter. Means the model
+        // doesn't need to remember which app the user picked.
+        other if other.starts_with("default:") => {
+            let category = other.trim_start_matches("default:");
+            let resolved_slug = defaults::resolve_category_to_adapter(category)?;
+            return Box::pin(dispatch_adapter_command(
+                app,
+                resolved_slug,
+                handler,
+                args,
+            ))
+            .await;
+        }
         _ => Err(format!("Unknown adapter slug: {slug}")),
     }
 }

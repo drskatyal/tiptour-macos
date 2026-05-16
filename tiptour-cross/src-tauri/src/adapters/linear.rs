@@ -56,6 +56,7 @@ async fn graphql(token: &str, query: &str, variables: Value) -> Result<Value, St
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CreateIssueArgs {
     team_key: String,
     title: String,

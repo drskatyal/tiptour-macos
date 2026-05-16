@@ -37,6 +37,7 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenUrlArgs { url: String }
 
 fn open_url(args: Value) -> Result<Value, String> {

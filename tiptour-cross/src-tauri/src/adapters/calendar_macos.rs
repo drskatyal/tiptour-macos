@@ -35,6 +35,7 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CreateEventArgs {
     summary: String,
     /// ISO 8601 start time, e.g. "2026-05-16T14:00:00".

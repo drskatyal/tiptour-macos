@@ -80,6 +80,7 @@ fn http() -> Result<reqwest::Client, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PlayTrackArgs {
     /// Free-form search query — e.g. "Lover by Diljit". The handler
     /// runs a search, picks the top track, and starts it on the

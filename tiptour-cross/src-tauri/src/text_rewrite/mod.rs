@@ -145,7 +145,15 @@ pub async fn rewrite_selection(
         .complete(providers::CompletionRequest {
             api_key: api_key.clone(),
             model: persona.model_id.clone(),
-            system_prompt: persona.system_prompt.clone(),
+            // Prepend ISO-8601 current datetime so the model resolves
+            // relative dates ("tomorrow", "next Friday at 2pm") without
+            // asking the user to clarify. Live test confirmed this is a
+            // real gap when tool calls don't carry user-clock context.
+            system_prompt: format!(
+                "Current date and time: {}.\n\n{}",
+                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%:z"),
+                persona.system_prompt
+            ),
             user_prompt: format!(
                 "{}\n\n---\nSelection:\n{}",
                 request.instruction.trim(),

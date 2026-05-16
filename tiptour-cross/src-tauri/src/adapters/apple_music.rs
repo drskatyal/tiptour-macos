@@ -42,6 +42,7 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PlayTrackArgs {
     /// Track name or "track by artist". We pass straight to
     /// Music.app's search/play; it does substring match on track

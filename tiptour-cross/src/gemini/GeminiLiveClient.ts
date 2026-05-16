@@ -434,7 +434,13 @@ export class GeminiLiveClient {
                         "finder.open_path / reveal_path: {path}\n" +
                         "file-explorer.open_path / reveal_path: {path}\n" +
                         "safari.open_url / new_tab: {url}; .current_url / current_title: {}\n" +
-                        "browser.list_tabs: {}; .open_url: {url, new_tab?}; .current_url / current_title / read_page_text: {tab_match?}; .click_text: {text, tab_match?}; .fill_field: {selector, value, tab_match?}; .execute_js: {expression, tab_match?}",
+                        "browser.list_tabs: {}; .open_url: {url, new_tab?}; .current_url / current_title / read_page_text: {tab_match?}; .click_text: {text, tab_match?}; .fill_field: {selector, value, tab_match?}; .execute_js: {expression, tab_match?}\n" +
+                        "brain-dump.capture_text: {text, tags?, title?}; .capture_screenshot: {caption?, tags?}; .daily_note_append: {text}; .find: {query}; .open_folder: {}\n" +
+                        "\n" +
+                        "CATEGORY ROUTING: when the user mentions an intent without naming a specific app — 'add eggs to my shopping list', 'play something upbeat', 'send Alice an email' — set slug='default:<category>' where category is one of tasks / music / email / calendar / notes / messages. The orchestrator resolves to whichever adapter the user picked during onboarding. Examples:\n" +
+                        "  'remind me to call mom tomorrow' -> control_app(default:tasks, add, {text:'call mom', due_iso:'2026-05-17'})\n" +
+                        "  'play something' -> control_app(default:music, resume, {})\n" +
+                        "  'send Sara a quick note: meeting moved to 3' -> control_app(default:messages, send_message, {...})",
                     },
                   },
                   required: ["slug", "handler"],

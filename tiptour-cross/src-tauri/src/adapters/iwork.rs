@@ -61,6 +61,7 @@ pub async fn dispatch_keynote(_app: AppHandle, handler: &str, args: Value) -> Re
 }
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenArgs {
     path: String,
 }
@@ -95,4 +96,5 @@ fn dispatch_app(app_name: &str, handler: &str, args: Value) -> Result<Value, Str
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Placeholder {}

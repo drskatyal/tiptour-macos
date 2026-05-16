@@ -66,6 +66,7 @@ pub async fn dispatch(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SendMessageArgs {
     /// E.164 phone number including country code, e.g. "+14155551234".
     /// We strip + and any non-digits before handing to WhatsApp because
@@ -76,6 +77,7 @@ struct SendMessageArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenChatArgs {
     phone: String,
 }

@@ -45,6 +45,7 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CreatePageArgs {
     /// Parent page id (UUID with no dashes is fine — Notion accepts both).
     parent_page_id: String,
@@ -96,6 +97,7 @@ async fn create_page(token: &str, args: Value) -> Result<Value, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AppendTextArgs {
     page_id: String,
     text: String,

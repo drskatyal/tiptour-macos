@@ -213,10 +213,13 @@ pub async fn dispatch_outlook_desktop(
 // ---------- shared argument shapes ----------
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PathArgs { path: String }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SaveAsPdfArgs { input_path: String, output_path: String }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ComposeArgs { to: String, subject: String, body: String }
 
 /// PowerShell single-quoted string escape: single-quote becomes

@@ -36,17 +36,20 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OpenNoteArgs {
     vault: String,
     file: String,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CreateNoteArgs {
     vault: String,
     name: String,
     content: String,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AppendDailyArgs {
     vault: String,
     text: String,

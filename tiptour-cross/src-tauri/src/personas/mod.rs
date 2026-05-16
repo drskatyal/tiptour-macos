@@ -58,7 +58,11 @@ fn default_provider() -> String {
     "gemini".to_string()
 }
 fn default_model_id() -> String {
-    "gemini-2.5-flash".to_string()
+    // Flash-lite is the right default for *new* personas: sub-second
+    // tool-calling latency, sufficient quality for short rewrites and
+    // command dispatch. Built-in personas override this with their own
+    // tuned pick (see built_in_seed_personas).
+    "gemini-2.5-flash-lite".to_string()
 }
 fn default_temperature() -> f32 {
     0.4
@@ -99,8 +103,13 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in coding-assistant mode. Help the user write, debug, and review code. Reply concisely with code snippets when relevant. Prefer practical fixes over lectures.".into(),
             voice_trigger_phrases: vec!["coding assistant".into(), "developer mode".into()],
             is_built_in: true,
+            // gemini-2.5-flash with reasoning gives 80% of pro's
+            // code quality at ~5× the speed (~2s vs ~12s). Pro is
+            // only worth it for genuinely hard one-shot reasoning,
+            // and the user can flip it on per-persona if they hit a
+            // hard case.
             model_provider: "gemini".into(),
-            model_id: "gemini-2.5-pro".into(),
+            model_id: "gemini-2.5-flash".into(),
             reasoning_enabled: true,
             temperature: 0.2,
         },
@@ -144,9 +153,34 @@ fn built_in_seed_personas() -> Vec<Persona> {
             voice_trigger_phrases: vec!["teacher".into(), "teacher mode".into(), "show me how".into()],
             is_built_in: true,
             model_provider: "gemini".into(),
-            model_id: "gemini-2.5-flash".into(),
+            // Flash-lite for the teaching loop — small + fast +
+            // good enough for "what's the next button to click".
+            model_id: "gemini-2.5-flash-lite".into(),
             reasoning_enabled: false,
             temperature: 0.4,
+        },
+        Persona {
+            id: "list-keeper".into(),
+            name: "List Keeper".into(),
+            system_prompt:
+                "You are TipTour in list-keeper mode. Help the user manage shopping lists, \
+                 to-do items, reminders, and quick captures. When the user mentions a list \
+                 item (groceries, errands, gift ideas), use control_app to add it to their \
+                 default tasks adapter. Confirm the addition briefly. Resolve relative dates \
+                 ('tomorrow', 'next Friday') against the current ISO date in the system prompt."
+                    .into(),
+            voice_trigger_phrases: vec![
+                "add to my list".into(),
+                "add to shopping".into(),
+                "remind me to".into(),
+                "todo".into(),
+                "list keeper".into(),
+            ],
+            is_built_in: true,
+            model_provider: "gemini".into(),
+            model_id: "gemini-2.5-flash-lite".into(),
+            reasoning_enabled: false,
+            temperature: 0.2,
         },
     ]
 }

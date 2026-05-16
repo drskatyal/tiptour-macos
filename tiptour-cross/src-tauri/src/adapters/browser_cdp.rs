@@ -88,6 +88,7 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 // ---------- tab discovery ----------
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct Tab {
     id: String,
     #[serde(default)]
@@ -205,6 +206,7 @@ async fn cdp_call(ws_url: &str, method: &str, params: Value) -> Result<Value, St
 // ---------- handlers ----------
 
 #[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 struct OpenUrlArgs {
     url: String,
     #[serde(default)]
@@ -237,6 +239,7 @@ async fn open_url(args: Value) -> Result<Value, String> {
 }
 
 #[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 struct TabMatchArgs {
     #[serde(default)]
     tab_match: Option<String>,
@@ -275,6 +278,7 @@ async fn read_page_text(args: Value) -> Result<Value, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ClickTextArgs {
     text: String,
     #[serde(default)]
@@ -320,6 +324,7 @@ async fn click_text(args: Value) -> Result<Value, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FillFieldArgs {
     /// CSS selector for the input. e.g. 'input[name="q"]' or '#search'.
     selector: String,
@@ -362,6 +367,7 @@ async fn fill_field(args: Value) -> Result<Value, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ExecuteJsArgs {
     expression: String,
     #[serde(default)]

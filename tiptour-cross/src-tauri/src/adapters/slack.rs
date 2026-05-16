@@ -41,12 +41,14 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PostMessageArgs {
     /// Channel id (C…) or channel name (#general — Slack resolves).
     channel: String,
     text: String,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PostDmArgs {
     /// User id (U…) — DMs require the user id, not display name.
     user_id: String,

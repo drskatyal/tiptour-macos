@@ -30,11 +30,13 @@ pub async fn dispatch(_app: AppHandle, handler: &str, args: Value) -> Result<Val
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CreateArgs {
     title: String,
     body: String,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AppendArgs {
     title: String,
     body: String,
