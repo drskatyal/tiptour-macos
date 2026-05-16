@@ -54,20 +54,17 @@ fn recognizer_accepts_grammar_round_trip() {
         .expect("bundled model missing — run `npm run fetch:vosk` first");
     let model = vosk::Model::new(model_path.to_string_lossy().as_ref())
         .expect("model load");
-    let grammar = serde_json::json!([
+    let grammar: Vec<&str> = vec![
         "hey tiptour",
         "stop",
         "cancel",
         "pause",
         "play",
         "what time is it",
-    ]);
-    let mut recognizer = vosk::Recognizer::new_with_grammar(
-        &model,
-        16_000.0,
-        &grammar.to_string(),
-    )
-    .expect("recognizer with grammar must construct");
+    ];
+    let mut recognizer =
+        vosk::Recognizer::new_with_grammar(&model, 16_000.0, &grammar)
+            .expect("recognizer with grammar must construct");
     // Feed pure silence — recognizer should report no hypothesis but
     // not panic. This is the most common runtime path (user not
     // speaking) and any crash here would kill the always-on listener
