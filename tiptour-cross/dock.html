@@ -14,38 +14,78 @@
            data-state cycles: dash → toolbar (on hover) → dash (mouseleave) -->
       <div class="dock-dash" aria-hidden="true"></div>
 
+      <!-- Action pill tooltip — floats ABOVE the toolbar when any
+           individual button is hovered. The .dock-button hover sets
+           data-action + data-shortcut on this element via JS so the
+           pill always reflects the focused control. White label +
+           accent-colored shortcut keys, single rounded capsule. -->
+      <div id="dock-action-pill" class="dock-action-pill" hidden>
+        <span class="dock-action-label" id="dock-action-label"></span>
+        <span class="dock-action-shortcut" id="dock-action-shortcut"></span>
+      </div>
+
       <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls">
-        <!-- Focused-app pip: tells the user which app TipTour will
-             target when they say "this" / "here" / "now". Only
-             visible while the toolbar is expanded. Updated on hover
-             so it stays accurate without polling. -->
+        <!-- Focused-app pip: tiny circle on the far left when a real
+             target app is in focus. Just a 2-letter mono badge so it
+             matches the compact aesthetic — full name lives in the
+             tooltip if needed. -->
         <span id="dock-focused-app" class="dock-focused-pip" hidden></span>
-        <button id="dock-quick" class="dock-button dock-primary" title="Start a quick voice command (Alt+X)">
+        <button
+          id="dock-quick"
+          class="dock-button dock-primary"
+          data-action="Ask"
+          data-shortcut="Alt + X"
+          aria-label="Start a quick voice command"
+        >
           <span class="dock-icon" data-icon="mic"></span>
-          <span class="dock-label">Ask</span>
         </button>
-        <button id="dock-transcribe" class="dock-button" title="Transcribe into the focused field (Ctrl+Shift+T)">
+        <button
+          id="dock-transcribe"
+          class="dock-button"
+          data-action="Dictate"
+          data-shortcut="Alt + Z"
+          aria-label="Transcribe into the focused field"
+        >
           <span class="dock-icon" data-icon="caret"></span>
-          <span class="dock-label">Transcribe</span>
         </button>
-        <button id="dock-screenshot" class="dock-button" title="Grab a screenshot and save to brain dump">
+        <button
+          id="dock-screenshot"
+          class="dock-button"
+          data-action="Snap"
+          data-shortcut=""
+          aria-label="Grab a screenshot to brain dump"
+        >
           <span class="dock-icon" data-icon="frame"></span>
-          <span class="dock-label">Snap</span>
         </button>
-        <button id="dock-brain-dump" class="dock-button" title="Capture a thought to brain dump">
+        <button
+          id="dock-brain-dump"
+          class="dock-button"
+          data-action="Capture"
+          data-shortcut=""
+          aria-label="Capture a thought to brain dump"
+        >
           <span class="dock-icon" data-icon="bolt"></span>
-          <span class="dock-label">Capture</span>
         </button>
-        <span class="dock-divider" aria-hidden="true"></span>
-        <button id="dock-open-panel" class="dock-button dock-ghost" title="Open panel">
+        <button
+          id="dock-open-panel"
+          class="dock-button dock-ghost"
+          data-action="Panel"
+          data-shortcut=""
+          aria-label="Open panel"
+        >
           <span class="dock-icon" data-icon="panel"></span>
         </button>
-        <button id="dock-open-settings" class="dock-button dock-ghost" title="Open settings">
+        <button
+          id="dock-open-settings"
+          class="dock-button dock-ghost"
+          data-action="Settings"
+          data-shortcut=""
+          aria-label="Open settings"
+        >
           <span class="dock-icon" data-icon="gear"></span>
         </button>
         <!-- Transient confirmation chip — appears for ~1.6s after any
-             adapter_dispatched event, then auto-fades. Lives at the
-             right edge so it doesn't push other controls around. -->
+             adapter_dispatched event, then auto-fades. -->
         <span id="dock-dispatch-chip" class="dock-dispatch-chip" hidden></span>
       </div>
     </div>

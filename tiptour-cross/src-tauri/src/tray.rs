@@ -95,6 +95,17 @@ fn handle_menu_event(app: &AppHandle, event_id: String) {
                 eprintln!("[tray] open settings failed: {open_error}");
             }
         }
+        "flash_dock" => {
+            // The dock collapses to a 6px capsule at rest. Users who
+            // forget it exists can flash the full toolbar from here.
+            // We also raise + show the dock window in case the user
+            // pushed it behind another fullscreen window.
+            if let Some(dock_window) = app.get_webview_window("dock") {
+                let _ = dock_window.show();
+                let _ = dock_window.set_always_on_top(true);
+            }
+            let _ = app.emit("dock_flash", ());
+        }
         other_id => {
             // Recent-flows submenu items are stamped with id `flow:<name>`.
             if let Some(flow_name) = other_id.strip_prefix("flow:") {
@@ -180,6 +191,13 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         Some(Submenu::with_items(app, "Recent flows", true, &item_refs)?)
     };
 
+    let flash_dock_item = MenuItem::with_id(
+        app,
+        "flash_dock",
+        "Show dock toolbar",
+        true,
+        None::<&str>,
+    )?;
     let open_settings_item = MenuItem::with_id(
         app,
         "open_settings",
@@ -198,6 +216,7 @@ fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     if let Some(ref submenu) = recent_flows_submenu_opt {
         item_refs.push(submenu);
     }
+    item_refs.push(&flash_dock_item);
     item_refs.push(&open_settings_item);
     item_refs.push(&quit_item);
 

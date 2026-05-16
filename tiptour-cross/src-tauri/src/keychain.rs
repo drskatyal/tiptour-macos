@@ -91,31 +91,50 @@ fn write_fallback(file: &FallbackFile) -> Result<(), String> {
     Ok(())
 }
 
-/// Combined read: keychain first, fallback second. Either source's
-/// "present" answer wins; only return None when both are empty.
+/// Combined read: file fallback first (authoritative — see
+/// `write_provider_key`), OS keychain second. The file is the source
+/// of truth because some Windows keyring backends silently drop the
+/// stored value between write and read; if the file has the key, we
+/// trust it. Only when the file has nothing do we ask the OS
+/// keychain (covers the case where a previous build saved only to
+/// the keychain and the user upgraded).
 pub fn read_provider_key(provider_id: &str) -> Result<Option<String>, String> {
     let account = account_for_provider(provider_id);
+    let fallback = read_fallback();
+    if let Some(file_value) = fallback.keys.get(&account) {
+        if !file_value.is_empty() {
+            return Ok(Some(file_value.clone()));
+        }
+    }
     if let Ok(entry) = entry(&account) {
         match entry.get_password() {
-            Ok(value) => return Ok(Some(value)),
-            Err(keyring::Error::NoEntry) => { /* fall through to file */ }
-            Err(_other) => { /* fall through to file too */ }
+            Ok(value) if !value.is_empty() => return Ok(Some(value)),
+            _ => { /* fall through to None */ }
         }
     }
-    let fallback = read_fallback();
-    Ok(fallback.keys.get(&account).cloned())
+    Ok(None)
 }
 
-/// Combined write: try keychain first; if it fails for any reason
-/// (NoEntry-create denied, Secret Service down, user clicked Don't
-/// Allow on the macOS prompt), write to the file fallback instead.
-/// Either way the user's key persists across restarts.
+/// Combined write: write to BOTH the OS keychain AND the file
+/// fallback. The keyring crate has been observed to return Ok() from
+/// `set_password` on some Windows configurations while the value
+/// silently fails to land in Credential Manager — so we make the
+/// file fallback authoritative. The file write is the must-succeed
+/// path; a keychain failure is logged and tolerated.
 fn write_provider_key(account: &str, key: &str) -> Result<(), String> {
+    // Best-effort keychain write so the key is also recoverable from
+    // the OS keychain UI (Keychain Access on macOS, Credential
+    // Manager on Windows). Failures here are non-fatal.
     if let Ok(entry) = entry(account) {
-        if entry.set_password(key).is_ok() {
-            return Ok(());
+        if let Err(keychain_error) = entry.set_password(key) {
+            eprintln!(
+                "[keychain] OS keychain write failed for {account}: {keychain_error}. Falling through to file fallback."
+            );
         }
     }
+    // File fallback is the source of truth — even if the keychain
+    // write succeeded, we still mirror to disk so a single read path
+    // (file) always has the latest value.
     let mut file = read_fallback();
     file.keys.insert(account.to_string(), key.to_string());
     write_fallback(&file)

@@ -50,6 +50,18 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
+            // macOS: become a true menu-bar / accessory app so we don't
+            // show up in the Dock alongside the tray icon. Without this,
+            // the user sees two icons — one in the Dock, one in the
+            // status bar — and the panel window steals focus from
+            // whatever they were doing.
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app
+                    .handle()
+                    .set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
             // Detect whether the previous run shut down cleanly before
             // stamping a fresh boot sentinel. If it didn't, surface a
             // banner the panel listens for.
