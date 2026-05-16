@@ -1,0 +1,8 @@
+This directory is populated by `npm run fetch:vosk` during a real
+`tauri build`. The placeholder ensures the bundler's glob resolves
+even before the model is downloaded; the actual model lands as
+sibling files (am/, conf/, graph/, ivector/, README) after fetch.
+
+If you see only this file inside the .app/.exe's bundled resources,
+you forgot to run fetch:vosk before `tauri build`. The runtime will
+fall back to downloading from alphacephei.com on first opt-in.

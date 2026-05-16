@@ -66,8 +66,65 @@ pub fn stop_listener() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn download_vosk_model_if_needed() -> Result<VoskModelStatus, String> {
+pub fn download_vosk_model_if_needed(app: AppHandle) -> Result<VoskModelStatus, String> {
+    // FAST PATH: check if the bundled model resource is present in
+    // the installed app. When `npm run fetch:vosk` ran before
+    // `tauri build`, the .app/.exe ships with the model under the
+    // platform's resource_dir and the user never sees a download
+    // prompt. Mirror the resource into the user's data dir so the
+    // existing load path keeps working unchanged.
+    if let Some(bundled) = persistence::bundled_vosk_model_directory(&app) {
+        if let Some(target) = persistence::default_vosk_model_directory() {
+            if let Err(error) = mirror_bundled_into_data_dir(&bundled, &target) {
+                eprintln!("[vosk] mirror bundled→data failed: {error}");
+            } else {
+                let mut settings = persistence::load_settings();
+                settings.model_path = Some(target.clone());
+                let _ = persistence::save_settings(&settings);
+                return Ok(VoskModelStatus::Ready);
+            }
+        }
+    }
+    // SLOW PATH: no bundled model (someone built without running
+    // fetch:vosk, or a corrupted install). Fall back to downloading
+    // from upstream.
     download_vosk_model_if_needed_impl()
+}
+
+#[cfg(feature = "vosk")]
+fn mirror_bundled_into_data_dir(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+) -> Result<(), String> {
+    use std::fs;
+    if destination.exists() {
+        // Already mirrored — leave it alone so the user's writes
+        // (if any) survive a relaunch.
+        return Ok(());
+    }
+    fs::create_dir_all(destination).map_err(|e| e.to_string())?;
+    fn copy_tree(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+        for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let from = entry.path();
+            let to = dst.join(entry.file_name());
+            if from.is_dir() {
+                std::fs::create_dir_all(&to).map_err(|e| e.to_string())?;
+                copy_tree(&from, &to)?;
+            } else {
+                std::fs::copy(&from, &to).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+    copy_tree(source, destination)
+}
+#[cfg(not(feature = "vosk"))]
+fn mirror_bundled_into_data_dir(
+    _source: &std::path::Path,
+    _destination: &std::path::Path,
+) -> Result<(), String> {
+    Ok(())
 }
 
 // -- Non-feature build: every entry point returns a clear "not built in"

@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test:e2e": "playwright test",
-    "serve:dist": "http-server dist -p 4173 -s -c-1"
+    "serve:dist": "http-server dist -p 4173 -s -c-1",
+    "fetch:vosk": "node scripts/fetch-vosk-model.mjs",
+    "prebuild:tauri": "npm run fetch:vosk",
+    "bundle:tauri": "npm run fetch:vosk && npm run tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.0",

@@ -121,7 +121,10 @@
     ],
     "category": "Productivity",
     "shortDescription": "Voice companion for your computer.",
-    "longDescription": "TipTour is a tray-resident voice agent that hears, sees, and helps."
+    "longDescription": "TipTour is a tray-resident voice agent that hears, sees, and helps.",
+    "resources": [
+      "resources/vosk-models/small-en-us/**/*"
+    ]
   },
   "plugins": {}
 }

@@ -62,6 +62,41 @@ pub fn default_vosk_model_directory() -> Option<PathBuf> {
     Some(path)
 }
 
+/// Resolve the bundled Vosk model directory.
+///
+/// In a packaged Tauri build (`tauri build`), the bundle pipeline
+/// includes `src-tauri/resources/vosk-models/small-en-us/**` so the
+/// model sits inside the shipped .app/.exe under the platform's
+/// resource_dir. We look there FIRST so most users never trigger
+/// the download path at all — the model just works after install.
+///
+/// During `tauri dev` (where there's no installed bundle), the
+/// resources still resolve via `app.path().resource_dir()` to the
+/// src-tauri/resources/ directory in the repo, so this works in
+/// development too as long as `npm run fetch:vosk` has been run.
+pub fn bundled_vosk_model_directory(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    let resource_dir = app.path().resource_dir().ok()?;
+    let candidate = resource_dir
+        .join("resources")
+        .join("vosk-models")
+        .join("small-en-us");
+    if candidate.exists() && candidate.is_dir() {
+        Some(candidate)
+    } else {
+        // Fallback path for dev builds where resource_dir already
+        // points at src-tauri/.
+        let dev_candidate = resource_dir
+            .join("vosk-models")
+            .join("small-en-us");
+        if dev_candidate.exists() && dev_candidate.is_dir() {
+            Some(dev_candidate)
+        } else {
+            None
+        }
+    }
+}
+
 pub fn load_settings() -> VoskSettings {
     let Some(path) = vosk_settings_file_path() else {
         return VoskSettings::default();
