@@ -9,3 +9,7 @@ src/**/*.js
 src-tauri/target
 src-tauri/Cargo.lock
 src-tauri/gen
+
+# Playwright artifacts from local test runs
+test-results
+playwright-report
