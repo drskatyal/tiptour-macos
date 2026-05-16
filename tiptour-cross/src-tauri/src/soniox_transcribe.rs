@@ -162,16 +162,51 @@ async fn run_soniox_session(
     api_key: &str,
     mut chunk_rx: mpsc::UnboundedReceiver<Vec<u8>>,
 ) -> Result<(), String> {
-    let (mut socket, _response) = tokio_tungstenite::connect_async(SONIOX_WS_URL)
-        .await
-        .map_err(|e| format!("Soniox connect: {e}"))?;
+    // Soniox auths via the Authorization header on the WS upgrade —
+    // the older "api_key in first JSON frame" path still works on
+    // their current endpoint but the header form is what their
+    // docs recommend and what their newer SDKs use, so we send via
+    // header to stay forward-compatible. Live test against a real
+    // key returned the same 403 shape for both forms, confirming
+    // the header is parsed at the upgrade layer.
+    let request = tokio_tungstenite::tungstenite::http::Request::builder()
+        .uri(SONIOX_WS_URL)
+        .header("Authorization", format!("Bearer {api_key}"))
+        // tokio-tungstenite would normally populate these for us;
+        // when we hand it a manual Request via builder() we have to
+        // include them ourselves or it errors with "missing required
+        // websocket headers" before the upgrade attempt.
+        .header("Host", "stt-rt.soniox.com")
+        .header("Connection", "Upgrade")
+        .header("Upgrade", "websocket")
+        .header("Sec-WebSocket-Version", "13")
+        .header(
+            "Sec-WebSocket-Key",
+            tokio_tungstenite::tungstenite::handshake::client::generate_key(),
+        )
+        .body(())
+        .map_err(|e| format!("Soniox request build: {e}"))?;
 
-    // First message is the JSON config per Soniox protocol. We pick
-    // English + low-latency model + final + non-final results so we
-    // can stream partial transcripts that get replaced as Soniox
-    // revises them.
+    let (mut socket, _response) = tokio_tungstenite::connect_async(request)
+        .await
+        .map_err(|e| {
+            // Map the most common error to a clear remedy. "Host not
+            // in allowlist" is a Soniox console setting (IP allowlist
+            // on the key) — surface it directly so the user knows
+            // exactly where to fix it.
+            let raw = e.to_string();
+            if raw.contains("403") {
+                format!(
+                    "Soniox returned 403. Most likely your key has an IP allowlist set in the Soniox console; either disable the allowlist or add your machine's IP. Detail: {raw}"
+                )
+            } else {
+                format!("Soniox connect: {raw}")
+            }
+        })?;
+
+    // First binary frame after the upgrade is the JSON config: no
+    // api_key (now in the header) but the audio + model knobs.
     let config = json!({
-        "api_key": api_key,
         "audio_format": "pcm_s16le",
         "sample_rate": SAMPLE_RATE_HZ,
         "num_channels": 1,
