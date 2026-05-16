@@ -203,8 +203,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
     if (!persona.isBuiltIn) {
       const deleteButton = document.createElement("button");
       deleteButton.textContent = "Delete";
-      deleteButton.className = "danger";
-      deleteButton.style.marginLeft = "6px";
+      deleteButton.className = "danger persona-delete-button";
       deleteButton.addEventListener("click", async () => {
         if (!window.confirm(`Delete persona "${persona.name}"?`)) return;
         try {
@@ -224,10 +223,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
 
     // Provider + model + reasoning grid.
     const modelGrid = document.createElement("div");
-    modelGrid.style.display = "grid";
-    modelGrid.style.gridTemplateColumns = "1fr 1fr auto auto";
-    modelGrid.style.gap = "8px";
-    modelGrid.style.marginBottom = "8px";
+    modelGrid.className = "persona-model-grid";
 
     const providerSelect = document.createElement("select");
     for (const provider of providers) {
@@ -258,11 +254,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
     refreshModelDatalist(persona.modelProvider);
 
     const reasoningLabel = document.createElement("label");
-    reasoningLabel.style.display = "flex";
-    reasoningLabel.style.alignItems = "center";
-    reasoningLabel.style.gap = "6px";
-    reasoningLabel.style.color = "var(--text-secondary)";
-    reasoningLabel.style.fontSize = "12px";
+    reasoningLabel.className = "persona-reasoning-label";
     const reasoningInput = document.createElement("input");
     reasoningInput.type = "checkbox";
     reasoningInput.checked = persona.reasoningEnabled;
@@ -274,7 +266,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
       const provider = providers.find((p) => p.id === providerId);
       const supports = provider?.supportsReasoning ?? false;
       reasoningInput.disabled = !supports;
-      reasoningLabel.style.opacity = supports ? "1" : "0.5";
+      reasoningLabel.classList.toggle("disabled", !supports);
       reasoningLabel.title = supports
         ? "Enable thinking / extended reasoning for this model"
         : "This provider doesn't expose a reasoning toggle";
@@ -287,7 +279,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
     tempInput.max = "2";
     tempInput.step = "0.1";
     tempInput.value = String(persona.temperature);
-    tempInput.style.width = "76px";
+    tempInput.className = "persona-temp-input";
     tempInput.title = "Sampling temperature (0 = deterministic, 1 = creative)";
 
     providerSelect.addEventListener("change", () => {
@@ -308,20 +300,17 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
     const promptTextarea = document.createElement("textarea");
     promptTextarea.value = persona.systemPrompt;
     promptTextarea.rows = 4;
-    promptTextarea.style.width = "100%";
-    promptTextarea.style.fontFamily = "var(--font-mono)";
-    promptTextarea.style.fontSize = "12px";
+    promptTextarea.className = "persona-prompt-textarea";
 
     const triggersInput = document.createElement("input");
     triggersInput.type = "text";
     triggersInput.value = persona.voiceTriggerPhrases.join(", ");
     triggersInput.placeholder = "voice trigger phrases (comma-separated)";
-    triggersInput.style.width = "100%";
-    triggersInput.style.marginTop = "6px";
+    triggersInput.className = "persona-triggers-input";
 
     const saveEditsButton = document.createElement("button");
     saveEditsButton.textContent = "Save edits";
-    saveEditsButton.style.marginTop = "6px";
+    saveEditsButton.className = "persona-save-edits-button";
     saveEditsButton.addEventListener("click", async () => {
       const updated: PersonaShape = {
         id: persona.id,

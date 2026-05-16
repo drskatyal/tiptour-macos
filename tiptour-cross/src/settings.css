@@ -1437,3 +1437,42 @@ body {
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
+
+/* Personas tab: persona row internals (model+temperature grid +
+   prompt textarea + triggers input + save button + per-row delete). */
+.persona-model-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.persona-reasoning-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--type-12-size);
+  transition: opacity var(--motion-fast) var(--motion-easing);
+}
+.persona-reasoning-label.disabled {
+  opacity: 0.5;
+}
+.persona-temp-input {
+  width: 76px;
+}
+.persona-prompt-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  resize: vertical;
+}
+.persona-triggers-input {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+.persona-save-edits-button {
+  margin-top: var(--space-2);
+}
+.persona-delete-button {
+  margin-left: var(--space-1);
+}
