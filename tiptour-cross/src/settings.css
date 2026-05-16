@@ -1476,3 +1476,23 @@ body {
 .persona-delete-button {
   margin-left: var(--space-1);
 }
+
+.adapters-empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  background: var(--surface-1);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+.adapters-empty-state strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--type-15-size);
+  margin-bottom: var(--space-2);
+}
+.adapters-empty-state p {
+  margin: 0;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+}

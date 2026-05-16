@@ -82,6 +82,20 @@ export async function renderAdaptersTab(paneElement: HTMLElement): Promise<void>
     }, 1600);
   }
 
+  if (compatible.length === 0) {
+    categoriesContainer.innerHTML = `
+      <div class="adapters-empty-state">
+        <strong>No adapters available on this platform.</strong>
+        <p>
+          Adapters ship with the binary and target macOS, Windows, or Linux.
+          If you're seeing this on a supported OS, the binary may have shipped
+          without any bundled adapters — file a bug.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
   // Group adapters by category so the user scans music / messaging /
   // dev separately rather than reading a flat list.
   const byCategory = new Map<string, AdapterListing[]>();
