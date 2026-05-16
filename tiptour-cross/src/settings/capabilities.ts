@@ -63,9 +63,12 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
   async function refreshCapabilitiesList(): Promise<void> {
     let indexSummaries: CapabilityIndexSummary[] = [];
     try {
-      indexSummaries = await invoke<CapabilityIndexSummary[]>(
-        "list_capability_index_summaries",
-      );
+      // Coerce null to empty list so a no-op handler doesn't crash
+      // the .map() below.
+      indexSummaries =
+        (await invoke<CapabilityIndexSummary[] | null>(
+          "list_capability_index_summaries",
+        )) ?? [];
     } catch (listError) {
       flashBanner(`List failed: ${errorMessageOf(listError)}`);
       return;
