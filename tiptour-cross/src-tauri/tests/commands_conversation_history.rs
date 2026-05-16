@@ -4,6 +4,16 @@
 // The env-var redirect mutates process-wide state, so tests in this
 // file must NOT run in parallel. A single static mutex serializes
 // every test entry point.
+//
+// Windows: the `dirs` crate resolves `data_local_dir()` via the
+// `SHGetKnownFolderPath` Win32 API, which ignores the `LOCALAPPDATA`
+// env var we set below. That means on Windows these tests would
+// write into the real user profile and pollute / be polluted by
+// other runs, so the whole file is gated off on that platform.
+// The conversation_history module itself is OS-independent — the
+// Linux + macOS runs cover its behaviour.
+
+#![cfg(not(target_os = "windows"))]
 
 use std::sync::Mutex;
 
