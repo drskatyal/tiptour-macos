@@ -8,6 +8,7 @@ interface AppSettingsShape {
   geminiVoice: string;
   geminiModel: string;
   pushToTalkChord: string;
+  theme: string;
 }
 
 const GEMINI_VOICE_CHOICES = ["Kore", "Aoede", "Charon", "Puck", "Fenrir"];
@@ -79,6 +80,18 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
     </div>
 
     <div class="settings-row">
+      <label for="general-theme">Theme</label>
+      <div>
+        <select id="general-theme">
+          <option value="auto">Auto (match system)</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+        <span class="row-hint">Applied immediately across all windows.</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
       <label for="general-mode">Operating mode</label>
       <div>
         <select id="general-mode">
@@ -112,6 +125,7 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
   const modelSelectElement = paneElement.querySelector<HTMLSelectElement>("#general-model")!;
   const hotkeyChipButton = paneElement.querySelector<HTMLButtonElement>("#general-hotkey-chip")!;
   const modeSelectElement = paneElement.querySelector<HTMLSelectElement>("#general-mode")!;
+  const themeSelectElement = paneElement.querySelector<HTMLSelectElement>("#general-theme")!;
   const listenerToggleElement = paneElement.querySelector<HTMLInputElement>(
     "#general-listener-toggle",
   )!;
@@ -128,6 +142,9 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
     GEMINI_MODEL_CHOICES.find((choice) => choice.value === currentAppSettings.geminiModel)?.value ??
     GEMINI_MODEL_CHOICES[0].value;
   modeSelectElement.value = currentOperatingMode;
+  themeSelectElement.value = ["auto", "dark", "light"].includes(currentAppSettings.theme)
+    ? currentAppSettings.theme
+    : "auto";
   listenerToggleElement.checked = currentListenerEnabled;
   recordingToggleElement.checked = currentRecordingEnabled;
 
@@ -154,9 +171,10 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
       geminiVoice: voiceSelectElement.value,
       geminiModel: modelSelectElement.value,
       pushToTalkChord: hotkeyChipButton.textContent?.trim() || "Alt+X",
+      theme: themeSelectElement.value,
     };
     try {
-      await invoke("set_app_settings", { settings: updatedSettings });
+      await invoke("set_app_settings_with_broadcast", { settings: updatedSettings });
       flashSavedBanner("Saved.");
     } catch (settingsError) {
       flashSavedBanner(`Save failed: ${errorMessageOf(settingsError)}`);
@@ -165,6 +183,7 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
 
   voiceSelectElement.addEventListener("change", () => void persistAppSettingsFromUi());
   modelSelectElement.addEventListener("change", () => void persistAppSettingsFromUi());
+  themeSelectElement.addEventListener("change", () => void persistAppSettingsFromUi());
 
   modeSelectElement.addEventListener("change", async () => {
     try {

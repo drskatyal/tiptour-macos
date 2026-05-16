@@ -143,7 +143,7 @@ fn main() {
             vosk_listener::stop_listener,
             vosk_listener::download_vosk_model_if_needed,
             app_settings::get_app_settings,
-            app_settings::set_app_settings,
+            app_settings::set_app_settings_with_broadcast,
             app_settings::reset_all_settings,
             app_metadata::get_app_metadata,
             app_metadata::open_data_folder_in_os_file_browser,

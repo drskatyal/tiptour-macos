@@ -10,6 +10,9 @@
 import { listen } from "@tauri-apps/api/event";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { installThemeBridge } from "./theme";
+
+void installThemeBridge();
 
 // Streaming markdown render: parse the accumulated transcript on every
 // chunk and run the result through DOMPurify before assigning to

@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { GeminiLiveSession, SessionStatus } from "./gemini/GeminiLiveSession";
 import { showOnboardingIfNeeded } from "./onboarding";
+import { installThemeBridge } from "./theme";
+
+void installThemeBridge();
 
 const statusDot = document.querySelector<HTMLElement>(".dot")!;
 const statusLabel = document.getElementById("status-label")!;
@@ -266,6 +269,7 @@ interface PanelAppSettings {
   geminiVoice: string;
   geminiModel: string;
   pushToTalkChord: string;
+  theme: string;
 }
 
 async function startSession() {

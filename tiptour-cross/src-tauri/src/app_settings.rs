@@ -10,6 +10,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 const ROOT_DIRECTORY_NAME: &str = "TipTour";
 const SETTINGS_FILE_NAME: &str = "settings.json";
@@ -20,6 +21,9 @@ const CURRENT_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_GEMINI_VOICE: &str = "Kore";
 const DEFAULT_GEMINI_MODEL: &str = "gemini-3.1-flash-live-preview";
 const DEFAULT_PUSH_TO_TALK_CHORD: &str = "Alt+X";
+// Theme defaults to "auto" so a fresh install honors the user's OS
+// appearance until they explicitly pick a side.
+const DEFAULT_THEME: &str = "auto";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,6 +36,8 @@ pub struct AppSettings {
     pub gemini_model: String,
     #[serde(default = "default_chord")]
     pub push_to_talk_chord: String,
+    #[serde(default = "default_theme")]
+    pub theme: String,
 }
 
 fn default_schema_version() -> u32 {
@@ -46,6 +52,9 @@ fn default_model() -> String {
 fn default_chord() -> String {
     DEFAULT_PUSH_TO_TALK_CHORD.to_string()
 }
+fn default_theme() -> String {
+    DEFAULT_THEME.to_string()
+}
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -54,6 +63,7 @@ impl Default for AppSettings {
             gemini_voice: default_voice(),
             gemini_model: default_model(),
             push_to_talk_chord: default_chord(),
+            theme: default_theme(),
         }
     }
 }
@@ -94,9 +104,22 @@ pub fn get_app_settings() -> Result<AppSettings, String> {
     Ok(load_app_settings_from_disk())
 }
 
-#[tauri::command]
+/// Non-command direct setter the integration tests call — no
+/// AppHandle dependency. The Tauri command below wraps this and
+/// additionally broadcasts `theme_changed` so every webview can
+/// reapply the active theme attribute without polling.
 pub fn set_app_settings(settings: AppSettings) -> Result<(), String> {
     save_app_settings_to_disk(&settings)
+}
+
+#[tauri::command]
+pub fn set_app_settings_with_broadcast(
+    settings: AppSettings,
+    app: AppHandle,
+) -> Result<(), String> {
+    save_app_settings_to_disk(&settings)?;
+    let _ = app.emit("theme_changed", settings.theme.clone());
+    Ok(())
 }
 
 /// Wipe every settings file we know about. Called from the "Reset all

@@ -12,6 +12,9 @@ import { renderIndicatorsTab } from "./indicators";
 import { renderMemoryTab } from "./memory";
 import { renderTasksTab } from "./tasks";
 import { renderPersonasTab } from "./personas";
+import { installThemeBridge } from "../theme";
+
+void installThemeBridge();
 
 type TabName =
   | "general"
