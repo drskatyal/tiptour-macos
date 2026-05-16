@@ -70,3 +70,36 @@ pub fn clear_provider_api_key(provider_id: String) -> Result<(), String> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The keyring crate uses a per-process in-memory mock on Linux CI
+    // (where there's no Secret Service running) so these tests
+    // exercise the routing logic without touching real OS credentials.
+    // The mock is keyed by (service, account) and persists for the
+    // duration of the process — each test below uses a unique
+    // provider id to avoid cross-test contamination.
+
+    #[test]
+    fn account_for_gemini_uses_legacy_key() {
+        // Existing settings UI calls get_api_key (no provider arg)
+        // which must continue resolving to the same keychain entry
+        // the user already populated under previous builds.
+        assert_eq!(account_for_provider("gemini"), GEMINI_ACCOUNT);
+        assert_eq!(account_for_provider("Gemini"), GEMINI_ACCOUNT);
+    }
+
+    #[test]
+    fn account_for_non_gemini_provider_is_namespaced() {
+        // Distinct providers get distinct keychain accounts so
+        // saving an OpenAI key doesn't overwrite the Gemini key.
+        assert_eq!(account_for_provider("openai"), "openai-api-key");
+        assert_eq!(account_for_provider("Cerebras"), "cerebras-api-key");
+        assert_ne!(
+            account_for_provider("openai"),
+            account_for_provider("anthropic")
+        );
+    }
+}
+

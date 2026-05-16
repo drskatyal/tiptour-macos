@@ -224,14 +224,28 @@ pub async fn rewrite_selection_into_drafting_window(
 
 /// Paste-from-drafting helper. The drafting window's "Replace
 /// selection" button calls this after putting the rich payload on
-/// the clipboard. We synthesize Cmd/Ctrl+V to the OS so whatever
-/// app is currently focused (Word, Docs, Mail, etc.) receives the
-/// paste. We do NOT try to refocus the original source app because
-/// any window switch the user does between rewrite and click is
-/// intentional — they're picking a different paste target.
+/// the clipboard.
+///
+/// The catch: when the user clicks the button, the drafting window
+/// itself has focus — so a naive Cmd+V would paste into the
+/// editor. We hide the drafting window first so the OS's normal
+/// "focus the previously-focused window" handler kicks in, then
+/// wait a short settle interval, then fire Cmd+V. The drafting
+/// window comes back when the user re-opens it via the panel or
+/// the next rewrite.
 #[tauri::command]
-pub fn paste_from_drafting_window() -> Result<(), String> {
+pub fn paste_from_drafting_window(app: AppHandle) -> Result<(), String> {
     use crate::executor::cross_platform_input;
+
+    if let Some(window) = app.get_webview_window("drafting") {
+        // Hide rather than close so the next rewrite can re-show
+        // the same window with its draft contents preserved.
+        let _ = window.hide();
+    }
+    // Window-server settle. The OS needs ~150ms to flip focus back
+    // to the previously-active app; firing Cmd+V too early lands
+    // the paste in whatever Tauri's parent window happens to be.
+    std::thread::sleep(std::time::Duration::from_millis(180));
     let paste_keys = ["Cmd", "V"];
     cross_platform_input::keyboard_shortcut(&paste_keys)
 }

@@ -211,7 +211,7 @@ body {
   letter-spacing: -0.005em;
 }
 .drafting-editor:empty::after {
-  content: "Select text anywhere, then ask Gemini to rewrite, summarize, or translate.";
+  content: "Select text anywhere, then ask TipTour to rewrite, summarize, or translate.";
   display: block;
   text-align: center;
   margin-top: var(--space-2);
