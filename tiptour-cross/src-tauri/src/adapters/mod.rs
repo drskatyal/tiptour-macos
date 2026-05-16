@@ -257,13 +257,20 @@ pub async fn dispatch_adapter_command(
     handler: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    let normalized_slug = normalize_slug(&slug);
+    // category indirection check happens BEFORE the enabled gate
+    // because the resolved slug is the one that needs to be enabled.
+    if let Some(category) = normalized_slug.strip_prefix("default:") {
+        let resolved = defaults::resolve_category_to_adapter(category)?;
+        return Box::pin(dispatch_adapter_command(app, resolved, handler, args)).await;
+    }
     let enabled = enabled_slugs();
-    if !enabled.contains(&slug) {
+    if !enabled.contains(&normalized_slug) {
         return Err(format!(
-            "Adapter '{slug}' is disabled. Enable it in Settings → Connected apps."
+            "Adapter '{normalized_slug}' is disabled. Enable it in Settings → Connected apps."
         ));
     }
-    match slug.as_str() {
+    match normalized_slug.as_str() {
         "spotify" => spotify::dispatch(app, &handler, args).await,
         "apple-music" => apple_music::dispatch(app, &handler, args).await,
         "whatsapp" => whatsapp::dispatch(app, &handler, args).await,
@@ -292,22 +299,53 @@ pub async fn dispatch_adapter_command(
         "safari" => safari::dispatch(app, &handler, args).await,
         "browser" => browser_cdp::dispatch(app, &handler, args).await,
         "brain-dump" => brain_dump::dispatch(app, &handler, args).await,
-        // `default:<category>` lets Gemini emit a category-relative
-        // slug (e.g. "default:tasks") and have the orchestrator
-        // resolve to the user's chosen adapter. Means the model
-        // doesn't need to remember which app the user picked.
-        other if other.starts_with("default:") => {
-            let category = other.trim_start_matches("default:");
-            let resolved_slug = defaults::resolve_category_to_adapter(category)?;
-            return Box::pin(dispatch_adapter_command(
-                app,
-                resolved_slug,
-                handler,
-                args,
-            ))
-            .await;
-        }
-        _ => Err(format!("Unknown adapter slug: {slug}")),
+        _ => Err(format!("Unknown adapter slug: {normalized_slug} (was '{slug}')")),
+    }
+}
+
+/// Normalize a slug that Gemini may have decorated with sub-paths
+/// like "brain-dump:notes" or "reminders-macos.add". Strip everything
+/// after the first `:` (unless the slug is `default:<category>`) or
+/// `.` so the match arms below stay simple. Logs the cleanup so we
+/// can spot model misbehavior in dev.
+fn normalize_slug(raw: &str) -> String {
+    if let Some(rest) = raw.strip_prefix("default:") {
+        // For default:<category>, split off any further decorators
+        // ("default:tasks.add" -> "default:tasks").
+        let category = rest.split([':', '.']).next().unwrap_or("");
+        return format!("default:{category}");
+    }
+    let cleaned = raw.split([':', '.']).next().unwrap_or("").to_string();
+    if cleaned != raw {
+        eprintln!("[adapters] normalized slug '{raw}' -> '{cleaned}' (Gemini included extra suffix)");
+    }
+    cleaned
+}
+
+#[cfg(test)]
+mod normalize_tests {
+    use super::normalize_slug;
+    #[test]
+    fn strips_dot_suffix() {
+        assert_eq!(normalize_slug("reminders-macos.add"), "reminders-macos");
+    }
+    #[test]
+    fn strips_colon_suffix() {
+        assert_eq!(normalize_slug("brain-dump:notes"), "brain-dump");
+    }
+    #[test]
+    fn preserves_default_category() {
+        assert_eq!(normalize_slug("default:tasks"), "default:tasks");
+    }
+    #[test]
+    fn strips_default_category_suffix() {
+        assert_eq!(normalize_slug("default:tasks.add"), "default:tasks");
+        assert_eq!(normalize_slug("default:tasks:overflow"), "default:tasks");
+    }
+    #[test]
+    fn pass_through_clean_slug() {
+        assert_eq!(normalize_slug("spotify"), "spotify");
+        assert_eq!(normalize_slug("brain-dump"), "brain-dump");
     }
 }
 
