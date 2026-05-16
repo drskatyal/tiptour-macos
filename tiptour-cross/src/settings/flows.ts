@@ -13,7 +13,14 @@ interface FlowSummary {
 export async function renderFlowsTab(paneElement: HTMLElement): Promise<void> {
   paneElement.innerHTML = `
     <h2>Saved Flows</h2>
-    <p class="lede">Voice-triggered multi-step routines. Trigger aliases broaden recall.</p>
+    <p class="lede">
+      A saved flow is a multi-step routine you've demonstrated once — open
+      Slack, click #standup, type yesterday's wins — that TipTour can replay
+      on voice command later. Each flow has trigger phrases ("run my
+      morning routine") that the wake-word listener matches against, and
+      can be re-recorded any time. Import a flow file shared by a
+      teammate, or hit Record from the panel to start a new one.
+    </p>
     <div class="button-stack">
       <button id="flows-import" class="primary">Import flow…</button>
     </div>

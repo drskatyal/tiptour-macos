@@ -18,8 +18,12 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
   paneElement.innerHTML = `
     <h2>Capabilities</h2>
     <p class="lede">
-      Apps TipTour has explored. Re-explore after major app updates so the tool registry
-      stays accurate.
+      Capabilities are the action surface TipTour has mapped for each app it
+      knows — the buttons and menus on screen, the AppleScript / UI Automation
+      commands available, and the keyboard shortcuts it can drive. The
+      registry is built by exploring apps the first time you use them and
+      refreshed when the app updates. Re-explore from here if a recent app
+      update broke a flow you'd recorded.
     </p>
 
     <div class="flag-banner" style="background:rgba(248,113,113,0.08); border-color:rgba(248,113,113,0.3); color:#ffd0d0">

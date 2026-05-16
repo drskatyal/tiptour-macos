@@ -40,15 +40,22 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
 
   paneElement.innerHTML = `
     <h2>Voice Commands</h2>
-    <p class="lede">Phrases the always-on local listener accepts after the wake word.</p>
+    <p class="lede">
+      When always-on listening is enabled on the General tab, TipTour's local
+      Vosk model runs on-device and matches what you say after the wake word
+      ("hey tiptour") against this command list. Built-in commands cover the
+      core voice surface; add custom ones below for app-specific shortcuts
+      ("open the pull-request inbox", "queue today's standup notes").
+    </p>
 
     <h3>Built-in (read-only)</h3>
+    <p class="section-helper">Shipped with the app and always live. These can't be removed.</p>
     <ul class="list-rows" id="commands-builtin"></ul>
 
     <h3>Auto-detected app commands</h3>
     <p class="lede" id="discovered-apps-status">Scanning installed applications…</p>
-    <div class="row-actions" style="margin-bottom:8px">
-      <input type="search" id="discovered-apps-search" placeholder="Filter by name or alias" style="flex:1" />
+    <div class="filter-bar">
+      <input type="search" id="discovered-apps-search" class="filter-bar-input" placeholder="Filter by name or alias" />
       <button id="discovered-apps-rescan">Re-scan installed apps</button>
     </div>
     <ul class="list-rows" id="discovered-apps-list"></ul>

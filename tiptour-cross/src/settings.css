@@ -1024,3 +1024,75 @@ body {
 .adapter-help-link:hover {
   text-decoration: underline;
 }
+
+/* ============================================================================
+ * Shared layout primitives used across tabs. Replaces dozens of inline
+ * style="..." attrs that previously broke the visual rhythm and made it
+ * hard to scan a tab.
+ * ========================================================================== */
+
+/* `<p class="section-helper">` — sits under an h3 to set up the rows below
+   with a one-line explanation. Smaller + softer than .lede so it reads as
+   subtitle, not lede. */
+.section-helper {
+  margin: -2px 0 var(--space-3) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  max-width: 56ch;
+}
+
+/* `<div class="filter-bar">` — search + actions row above a list. */
+.filter-bar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin: var(--space-3) 0 var(--space-3) 0;
+}
+.filter-bar-input {
+  flex: 1 1 auto;
+  min-width: 200px;
+}
+.filter-bar-checkbox-label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+}
+
+/* About tab metadata dl + dd — refine indentation + alignment so the dl
+   looks like a real macOS info panel instead of raw HTML. */
+.about-meta dl {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.about-meta dt {
+  color: var(--text-tertiary);
+  font-size: var(--type-13-size);
+}
+.about-meta dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* button-stack rows already exist; just refine vertical rhythm so they
+   sit consistently after their section header. */
+.button-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-3) 0;
+}

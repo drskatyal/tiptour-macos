@@ -73,11 +73,18 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
 
   paneElement.innerHTML = `
     <h2>Tasks</h2>
-    <p class="lede">A kanban for things the agent's working on. Drag cards between columns. Tasks can be dispatched to a parallel sub-agent.</p>
-    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <p class="lede">
+      A kanban for work TipTour is doing on your behalf. Each card represents
+      one task — research a vendor, draft a status update, summarise a doc —
+      and can be dispatched to a parallel sub-agent that runs in the
+      background while you keep talking to the main session. Drag cards
+      between columns as the work progresses; the agent updates state on
+      its own when it finishes.
+    </p>
+    <div class="filter-bar">
       <button id="task-new" class="primary">New task</button>
-      <input id="task-filter-tag" type="search" placeholder="Filter by tag…" style="padding:6px 10px;border-radius:6px;border:1px solid var(--color-border)" />
-      <label style="display:flex;gap:4px;align-items:center;font-size:12px">
+      <input id="task-filter-tag" type="search" class="filter-bar-input" placeholder="Filter by tag…" />
+      <label class="filter-bar-checkbox-label">
         <input id="task-filter-subagent" type="checkbox" /> With sub-agent only
       </label>
     </div>

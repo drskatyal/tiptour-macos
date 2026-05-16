@@ -147,7 +147,14 @@ export async function renderIndicatorsTab(paneElement: HTMLElement): Promise<voi
 
   paneElement.innerHTML = `
     <h2>Indicators</h2>
-    <p class="lede">Side-of-screen pill strip surfaces noteworthy events as they happen. Changes save immediately.</p>
+    <p class="lede">
+      A slim strip of dismissable pills sits at the edge of your primary
+      display and surfaces noteworthy events as they happen — a workflow
+      step finished, a screenshot was captured, an app was launched.
+      Hover any pill to expand it; click to dismiss. Use the controls
+      below to choose the edge, density, auto-dismiss timeout, and which
+      event types deserve a pill. Every change saves immediately.
+    </p>
 
     <div class="settings-row">
       <label for="indicators-position">Position</label>

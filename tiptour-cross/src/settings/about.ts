@@ -15,8 +15,15 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
 
   paneElement.innerHTML = `
     <h2>About</h2>
-    <p class="lede">TipTour cross-platform build.</p>
+    <p class="lede">
+      TipTour is a voice-first computer companion. It listens with the
+      push-to-talk hotkey, watches your screen when you ask it to, and drives
+      the apps you already use through built-in adapters. This tab surfaces
+      the current build, lets you export a diagnostic bundle if something
+      misbehaves, and offers a clean-slate reset.
+    </p>
 
+    <h3>Build</h3>
     <section class="about-meta">
       <dl>
         <dt>Version</dt><dd>${escapeHtml(metadata.version)}</dd>
@@ -29,6 +36,12 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
     </section>
 
     <h3>Actions</h3>
+    <p class="section-helper">
+      Open the data folder to inspect logs, settings, recordings, and the
+      adapters-enabled list on disk. Export a bug report when you hit an
+      issue worth filing — it bundles the last few sessions' logs, no
+      credentials, into a single zip.
+    </p>
     <div class="button-stack">
       <button id="about-open-data-folder">Open data folder</button>
       <button id="about-export-bug-report">Export bug report</button>

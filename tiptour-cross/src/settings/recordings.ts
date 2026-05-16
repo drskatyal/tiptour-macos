@@ -14,7 +14,13 @@ interface DemonstrationSummary {
 export async function renderRecordingsTab(paneElement: HTMLElement): Promise<void> {
   paneElement.innerHTML = `
     <h2>Recordings</h2>
-    <p class="lede">Only your opt-in demonstrations appear here. Passive traces stay private.</p>
+    <p class="lede">
+      When you opt in to input recording on the General tab, TipTour stores
+      keystrokes, clicks, and the timing of demonstrations you save as
+      flows. Only your explicit recordings show up here — passive day-to-day
+      activity is never written to disk. Recordings stay on your machine,
+      are named by you, and can be deleted any time below.
+    </p>
     <ul id="recordings-list" class="list-rows"></ul>
     <div id="recordings-status-banner" class="flag-banner success" hidden></div>
   `;

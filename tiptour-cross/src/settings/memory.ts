@@ -32,9 +32,16 @@ function formatRelativeTimestamp(unixSeconds: number | null): string {
 export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
   paneElement.innerHTML = `
     <h2>Memory</h2>
-    <p class="lede">Persistent facts the agent remembers across sessions. Recalled by semantic search.</p>
-    <div class="button-stack" style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-      <input id="memory-search" type="search" placeholder="Filter memories…" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--color-border)" />
+    <p class="lede">
+      Memories are facts you tell TipTour explicitly — "my GitHub handle is X",
+      "Sara's email is …", "I prefer Cerebras for quick rewrites" — that the
+      agent recalls in future sessions via semantic search. Unlike chat
+      history, memories outlive sessions and surface across personas. Add
+      one below or just tell TipTour mid-conversation ("remember that I
+      deploy on Fridays only"); both routes land in the same store.
+    </p>
+    <div class="filter-bar">
+      <input id="memory-search" type="search" class="filter-bar-input" placeholder="Filter memories…" />
       <button id="memory-add" class="primary">Add memory</button>
     </div>
     <div id="memory-table-wrap"></div>

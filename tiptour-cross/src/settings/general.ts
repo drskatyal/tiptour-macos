@@ -32,7 +32,13 @@ export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> 
 
   paneElement.innerHTML = `
     <h2>General</h2>
-    <p class="lede">Core voice + automation behavior. Changes save immediately.</p>
+    <p class="lede">
+      Core voice and automation behaviour. These knobs control which
+      Gemini voice you hear, which model handles your sessions, what
+      hotkey opens the live channel, and whether TipTour clicks for
+      you (Autopilot) or simply points at the next target (Teaching).
+      Every change saves immediately — there's no Apply button.
+    </p>
 
     <div class="settings-row">
       <label for="general-api-key">Gemini API key</label>
