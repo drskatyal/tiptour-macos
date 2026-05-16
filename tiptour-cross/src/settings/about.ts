@@ -120,8 +120,14 @@ export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
   });
 }
 
-function escapeHtml(rawString: string): string {
-  return rawString
+function escapeHtml(rawString: string | null | undefined): string {
+  // Treat null/undefined as empty string. Without this guard a missing
+  // field (e.g. an older `get_app_metadata` impl that doesn't return
+  // `gitCommit`, or a test mock that omits any AppMetadata field)
+  // crashes the entire About tab with "Cannot read properties of
+  // undefined (reading 'replace')".
+  if (rawString === null || rawString === undefined) return "";
+  return String(rawString)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
