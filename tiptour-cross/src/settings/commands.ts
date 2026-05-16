@@ -157,7 +157,7 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
 
   async function loadDiscoveredApps(): Promise<void> {
     try {
-      currentDiscoveredApps = await invoke<DiscoveredApp[]>("list_discovered_apps");
+      currentDiscoveredApps = ((await invoke<DiscoveredApp[]>("list_discovered_apps")) ?? [] as DiscoveredApp[]);
     } catch (loadError) {
       discoveredAppsStatusElement.textContent = `Discovery failed: ${errorMessageOf(loadError)}`;
       currentDiscoveredApps = [];
@@ -173,7 +173,7 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
     discoveredAppsRescanButtonElement.disabled = true;
     discoveredAppsStatusElement.textContent = "Re-scanning…";
     try {
-      currentDiscoveredApps = await invoke<DiscoveredApp[]>("rescan_installed_apps");
+      currentDiscoveredApps = ((await invoke<DiscoveredApp[]>("rescan_installed_apps")) ?? [] as DiscoveredApp[]);
       renderDiscoveredApps(discoveredAppsSearchElement.value);
       flashBanner("Re-scan complete.");
     } catch (rescanError) {

@@ -25,9 +25,9 @@ interface ProviderCatalogEntry {
 }
 
 export async function renderPersonasTab(paneElement: HTMLElement): Promise<void> {
-  const allPersonas = await invoke<PersonaShape[]>("list_personas");
+  const allPersonas = ((await invoke<PersonaShape[]>("list_personas")) ?? [] as PersonaShape[]);
   const activePersona = await invoke<PersonaShape>("get_active_persona");
-  const providers = await invoke<ProviderCatalogEntry[]>("list_providers");
+  const providers = ((await invoke<ProviderCatalogEntry[]>("list_providers")) ?? [] as ProviderCatalogEntry[]);
   const activePersonaId = activePersona.id;
 
   paneElement.innerHTML = `

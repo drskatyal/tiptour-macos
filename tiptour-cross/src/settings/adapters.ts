@@ -51,7 +51,7 @@ const hostPlatform = isMacOsPlatform
     : "linux";
 
 export async function renderAdaptersTab(paneElement: HTMLElement): Promise<void> {
-  const all = await invoke<AdapterListing[]>("list_adapters");
+  const all = ((await invoke<AdapterListing[]>("list_adapters")) ?? [] as AdapterListing[]);
   // Filter to adapters that support this OS so the user doesn't see
   // greyed-out rows for unreachable integrations.
   const compatible = all.filter((adapter) =>

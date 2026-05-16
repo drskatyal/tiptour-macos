@@ -147,7 +147,7 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
 
   async function refresh(): Promise<void> {
     try {
-      cachedRecords = await invoke<MemoryRecord[]>("list_memories", { tagFilter: null });
+      cachedRecords = ((await invoke<MemoryRecord[]>("list_memories", { tagFilter: null })) ?? [] as MemoryRecord[]);
       applyFilterAndRender();
     } catch (listError) {
       flashBanner(`List memories failed: ${errorMessageOf(listError)}`);

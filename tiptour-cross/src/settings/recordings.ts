@@ -41,7 +41,10 @@ export async function renderRecordingsTab(paneElement: HTMLElement): Promise<voi
   async function refreshRecordingsList(): Promise<void> {
     let demonstrations: DemonstrationSummary[] = [];
     try {
-      demonstrations = await invoke<DemonstrationSummary[]>("list_demonstrations");
+      // Coerce null/undefined to empty list so a no-op handler in
+      // dev/mock environments doesn't trip the .length lookup below.
+      demonstrations =
+        (await invoke<DemonstrationSummary[] | null>("list_demonstrations")) ?? [];
     } catch (listError) {
       flashBanner(`List failed: ${errorMessageOf(listError)}`);
       return;

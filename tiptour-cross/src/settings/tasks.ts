@@ -117,8 +117,8 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
 
   async function refresh(): Promise<void> {
     try {
-      cachedTasks = await invoke<Task[]>("list_tasks", { statusFilter: null, tagFilter: null });
-      const subagents = await invoke<Subagent[]>("list_subagents");
+      cachedTasks = ((await invoke<Task[]>("list_tasks", { statusFilter: null, tagFilter: null })) ?? [] as Task[]);
+      const subagents = ((await invoke<Subagent[]>("list_subagents")) ?? [] as Subagent[]);
       cachedSubagentsById = new Map(subagents.map((s) => [s.id, s]));
       renderColumns();
     } catch (listError) {

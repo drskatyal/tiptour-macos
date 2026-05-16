@@ -45,7 +45,7 @@ export async function renderFlowsTab(paneElement: HTMLElement): Promise<void> {
   async function refreshFlowsList(): Promise<void> {
     let flows: FlowSummary[] = [];
     try {
-      flows = await invoke<FlowSummary[]>("list_flows");
+      flows = ((await invoke<FlowSummary[]>("list_flows")) ?? [] as FlowSummary[]);
     } catch (listError) {
       flashBanner(`List flows failed: ${errorMessageOf(listError)}`);
       return;
