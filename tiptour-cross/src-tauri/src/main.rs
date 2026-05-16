@@ -88,9 +88,13 @@ fn main() {
             // results available before the user says the wake word.
             app_discovery::kickoff_background_scan(app.handle());
 
-            // Panel starts hidden; tray click reveals it.
+            // Show the panel on first launch so the user actually sees
+            // something when the app boots — otherwise the tray icon is
+            // the only visible artifact and first-run feels broken. The
+            // tray click still toggles visibility after this.
             if let Some(window) = app.get_webview_window("panel") {
-                let _ = window.hide();
+                let _ = window.show();
+                let _ = window.set_focus();
             }
             Ok(())
         })

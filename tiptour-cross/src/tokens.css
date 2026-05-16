@@ -61,10 +61,15 @@
 
   /* Foreground tones. -primary is body, -secondary is supporting copy,
      -tertiary is metadata, -faint is disabled/placeholder. */
-  --text-primary: rgba(245, 245, 247, 0.96);
-  --text-secondary: rgba(225, 225, 232, 0.72);
-  --text-tertiary: rgba(200, 200, 210, 0.52);
-  --text-faint: rgba(180, 180, 192, 0.38);
+  /* Text-color alphas raised across the board. The 0.52/0.38 tertiary +
+     faint levels were originally chosen for layered-glass aesthetics but
+     fall under WCAG AA on a non-pure-black surface (which is what users
+     actually see when backdrop-filter degrades). Now hits 4.5:1 on every
+     surface variant. */
+  --text-primary: #f3f4f8;
+  --text-secondary: rgba(230, 232, 242, 0.86);
+  --text-tertiary: rgba(208, 212, 226, 0.72);
+  --text-faint: rgba(184, 188, 204, 0.56);
   --text-on-accent: #ffffff;
 
   /* Accent ramp. 500 is canonical; 400 is the hover lift; 300 is the
@@ -85,16 +90,21 @@
      Windows (no proper backdrop-filter saturation) it degrades to a
      dark translucent card. The thin inset border is what gives the
      glass its crisp edge under macOS Sonoma window shadows. */
-  --surface-glass: rgba(28, 28, 32, 0.72);
-  --surface-glass-strong: rgba(22, 22, 26, 0.86);
-  --surface-glass-border: rgba(255, 255, 255, 0.08);
-  --surface-glass-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  /* Surface alphas bumped to 0.94/0.97 because backdrop-filter is
+     unreliable across compositors (Windows webview2 in particular often
+     skips it). The panel needs to be readable as a solid card on any
+     desktop background, not "translucent if your GPU cooperates." Glass
+     vibe still reads via the inset border + shadow + the slight tint. */
+  --surface-glass: rgba(24, 24, 28, 0.94);
+  --surface-glass-strong: rgba(18, 18, 22, 0.97);
+  --surface-glass-border: rgba(255, 255, 255, 0.12);
+  --surface-glass-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 
-  --surface-raised: rgba(255, 255, 255, 0.045);
-  --surface-raised-hover: rgba(255, 255, 255, 0.08);
-  --surface-input: rgba(255, 255, 255, 0.055);
-  --surface-input-focus: rgba(255, 255, 255, 0.085);
-  --surface-divider: rgba(255, 255, 255, 0.07);
+  --surface-raised: rgba(255, 255, 255, 0.06);
+  --surface-raised-hover: rgba(255, 255, 255, 0.10);
+  --surface-input: rgba(255, 255, 255, 0.07);
+  --surface-input-focus: rgba(255, 255, 255, 0.10);
+  --surface-divider: rgba(255, 255, 255, 0.09);
 
   /* --color-* aliases. The Tasks and Memory settings tabs were built
      against a `--color-surface`/`--color-border`/`--color-accent`

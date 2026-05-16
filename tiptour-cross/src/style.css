@@ -12,6 +12,21 @@ body {
   user-select: none;
   -webkit-user-select: none;
   color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* The panel webview is transparent so the .panel card can render its
+   own rounded corners + shadow. Make sure the card actually fills the
+   viewport — otherwise the bottom/edges of the window show through as
+   a transparent strip (which is what the first-run report described). */
+body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  box-sizing: border-box;
+}
+.panel {
+  flex: 1 1 auto;
 }
 
 /*
