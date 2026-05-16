@@ -29,7 +29,22 @@ static IS_SESSION_ACTIVE: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_tray_menu(app)?;
 
+    // Load the bundled tray icon. Without an explicit .icon() call the
+    // builder ships a blank tray slot — which is exactly what the user
+    // saw on first run ("the icon in the status bar is just blank").
+    // We try the dedicated tray glyph first (monochrome, small), fall
+    // back to the app icon, and only then give up. On macOS the tray
+    // PNG is also marked as template so it auto-inverts in dark menu
+    // bars.
+    let tray_icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default_window_icon".into()))?;
+
     let _tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
+        .icon(tray_icon)
+        .icon_as_template(true)
+        .tooltip("TipTour")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| handle_menu_event(app, event.id.as_ref().to_string()))

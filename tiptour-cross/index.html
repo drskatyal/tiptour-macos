@@ -15,9 +15,14 @@
          active. -->
     <div id="onboarding-wizard" class="onboarding-wizard" hidden></div>
     <main class="panel">
-      <header class="panel-header">
-        <span class="dot" data-status="idle"></span>
-        <span class="status-label" id="status-label">Idle</span>
+      <!-- The whole header is a Tauri drag region so the user can
+           grab anywhere on the top strip to move the borderless
+           window. The settings button + status label opt out via
+           interactive elements bubbling through, so clicking them
+           still works. -->
+      <header class="panel-header" data-tauri-drag-region>
+        <span class="dot" data-status="idle" data-tauri-drag-region></span>
+        <span class="status-label" id="status-label" data-tauri-drag-region>Idle</span>
         <button
           id="open-settings-button"
           class="panel-settings-button"

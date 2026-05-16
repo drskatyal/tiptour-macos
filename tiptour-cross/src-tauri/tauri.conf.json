@@ -20,12 +20,17 @@
         "height": 540,
         "resizable": false,
         "decorations": false,
-        "transparent": false,
+        "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "focus": true,
         "visible": true,
-        "shadow": true
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["sidebar", "mica", "acrylic"],
+          "state": "active",
+          "radius": 18
+        }
       },
       {
         "label": "overlay",
