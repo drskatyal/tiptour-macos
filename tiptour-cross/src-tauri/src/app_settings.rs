@@ -38,6 +38,22 @@ pub struct AppSettings {
     pub push_to_talk_chord: String,
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Voice-mode for the push-to-talk hotkey:
+    ///   "quick" — one-shot REST call to flash-lite with audio +
+    ///             tools; result lands in the floating command
+    ///             tooltip. No TTS. Cheap.
+    ///   "live"  — open a streaming Gemini Live WebSocket session
+    ///             with TTS reply for real conversation.
+    /// Default: "quick" because typical hotkey use is one command
+    /// per press, not a dialogue.
+    #[serde(default = "default_voice_mode")]
+    pub voice_mode: String,
+    /// Path the brain-dump adapter writes captures to. Empty = use
+    /// the default `~/Documents/TipTour Brain Dumps/`. Point at an
+    /// Obsidian vault root to make captures part of an Obsidian
+    /// vault (graph + daily-notes work natively).
+    #[serde(default)]
+    pub brain_dump_folder: String,
 }
 
 fn default_schema_version() -> u32 {
@@ -55,6 +71,9 @@ fn default_chord() -> String {
 fn default_theme() -> String {
     DEFAULT_THEME.to_string()
 }
+fn default_voice_mode() -> String {
+    "quick".to_string()
+}
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -64,6 +83,8 @@ impl Default for AppSettings {
             gemini_model: default_model(),
             push_to_talk_chord: default_chord(),
             theme: default_theme(),
+            voice_mode: default_voice_mode(),
+            brain_dump_folder: String::new(),
         }
     }
 }

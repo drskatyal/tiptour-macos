@@ -390,9 +390,88 @@ hidePanelButton?.addEventListener("click", async () => {
   }
 });
 
+// ---------------------------------------------------------------------
+// Push-to-talk hotkey routing
+// ---------------------------------------------------------------------
+// Two voice modes share the hotkey:
+//   quick (default) — one-shot REST round-trip to gemini-2.5-flash-lite
+//                     with audio + tools, result lands in the floating
+//                     command tooltip. No TTS. ~3-7s per command.
+//                     Cheap and zero-state.
+//   live           — open a streaming WebSocket Gemini Live session
+//                     with TTS reply for real conversation. Costs more
+//                     and stays open until the user stops it.
+//
+// Mode is read from app_settings.voiceMode and defaults to "quick"
+// because the typical hotkey use case is a single command, not a
+// dialogue.
+
+type QuickCaptureState = "idle" | "armed";
+let quickCaptureState: QuickCaptureState = "idle";
+let quickMicChunkUnlisten: (() => void) | null = null;
+
+async function beginQuickCaptureLoop(): Promise<void> {
+  quickCaptureState = "armed";
+  await invoke("begin_quick_voice_capture");
+  await invoke("start_mic_capture");
+  // Each mic chunk arrives as a number[] (PCM16 bytes). Forward
+  // into the Rust quick-capture buffer until the user re-presses
+  // the hotkey to end the capture.
+  quickMicChunkUnlisten = await listen<number[]>("mic_chunk", (event) => {
+    if (quickCaptureState !== "armed") return;
+    void invoke("append_quick_voice_chunk", { pcmBytes: event.payload });
+  });
+}
+
+async function endQuickCaptureLoop(): Promise<void> {
+  quickCaptureState = "idle";
+  try {
+    await invoke("stop_mic_capture");
+  } catch (stopError) {
+    console.warn("[panel] stop_mic_capture failed:", stopError);
+  }
+  if (quickMicChunkUnlisten) {
+    quickMicChunkUnlisten();
+    quickMicChunkUnlisten = null;
+  }
+  try {
+    await invoke("end_quick_voice_capture_and_dispatch");
+  } catch (dispatchError) {
+    showError(
+      `Quick command failed: ${
+        dispatchError instanceof Error ? dispatchError.message : String(dispatchError)
+      }`,
+    );
+  }
+}
+
+async function handleHotkeyToggle(): Promise<void> {
+  // Read mode every press so a settings flip applies immediately —
+  // no relaunch required.
+  let voiceMode = "quick";
+  try {
+    const s = await invoke<{ voiceMode?: string }>("get_app_settings");
+    if (s?.voiceMode === "live" || s?.voiceMode === "quick") voiceMode = s.voiceMode;
+  } catch (modeError) {
+    console.warn("[panel] get_app_settings failed, defaulting to quick:", modeError);
+  }
+
+  if (voiceMode === "quick") {
+    if (quickCaptureState === "armed") {
+      await endQuickCaptureLoop();
+    } else {
+      await beginQuickCaptureLoop();
+    }
+    return;
+  }
+
+  // Live mode — existing path
+  await togglePushToTalk();
+}
+
 await listen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey fired");
-  void togglePushToTalk();
+  void handleHotkeyToggle();
 });
 
 // If the OS refused to register the global hotkey (most common cause:

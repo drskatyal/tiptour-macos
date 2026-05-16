@@ -4,6 +4,7 @@
 mod adapters;
 mod agent_memory;
 mod app_discovery;
+mod audio_query;
 mod app_metadata;
 mod app_settings;
 mod audio;
@@ -126,6 +127,9 @@ fn main() {
             adapters::defaults::list_default_categories,
             adapters::defaults::set_default_adapter,
             adapters::defaults::get_default_adapter,
+            audio_query::begin_quick_voice_capture,
+            audio_query::append_quick_voice_chunk,
+            audio_query::end_quick_voice_capture_and_dispatch,
             text_rewrite::list_providers,
             text_rewrite::rewrite_selection,
             text_rewrite::open_drafting_window_with_text,

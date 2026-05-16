@@ -88,6 +88,24 @@
         "acceptFirstMouse": false
       },
       {
+        "label": "command-tooltip",
+        "url": "command-tooltip.html",
+        "title": "TipTour Command",
+        "width": 400,
+        "height": 160,
+        "x": 1500,
+        "y": 880,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
+      },
+      {
         "label": "drafting",
         "url": "drafting.html",
         "title": "TipTour Draft",

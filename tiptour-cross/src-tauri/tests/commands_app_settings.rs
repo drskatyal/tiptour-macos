@@ -57,6 +57,8 @@ fn app_settings_round_trip_atomic_write_and_reset_all_paths() {
         gemini_model: "gemini-x-test-model".to_string(),
         push_to_talk_chord: "Ctrl+Shift+Q".to_string(),
         theme: "light".to_string(),
+        voice_mode: "quick".to_string(),
+        brain_dump_folder: String::new(),
     };
     set_app_settings(outgoing.clone()).expect("set_app_settings must succeed");
     let read_back = get_app_settings().expect("get_app_settings must succeed");
