@@ -11,7 +11,20 @@ interface AppMetadata {
 }
 
 export async function renderAboutTab(paneElement: HTMLElement): Promise<void> {
-  const metadata = await invoke<AppMetadata>("get_app_metadata");
+  // Defensively coerce — get_app_metadata occasionally returns null
+  // in mock/dev environments and the original code threw a
+  // TypeError on metadata.version, leaving the tab visibly broken.
+  // Falling back to a placeholder shape lets the tab still render
+  // its actions (export bug report, reset, quit) even if metadata
+  // is unavailable.
+  const metadata =
+    (await invoke<AppMetadata | null>("get_app_metadata")) ?? {
+      version: "unknown",
+      targetOs: "unknown",
+      targetArch: "unknown",
+      buildDate: "unknown",
+      gitCommit: null,
+    };
 
   paneElement.innerHTML = `
     <h2>About</h2>
