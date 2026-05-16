@@ -67,12 +67,14 @@
      actually see when backdrop-filter degrades). Now hits 4.5:1 on every
      surface variant. */
   /* Text colors copied from the Swift DesignSystem (#ECEEED / #ADB5B2 /
-     #6B736F) so the Tauri build reads as the same product as the
-     macOS Swift app, not a parallel-universe fork. */
+     #6B736F) with one deviation: tertiary is brightened from #6B736F
+     (3.6:1 — fails WCAG AA) to #8a9590 (~4.7:1 — passes AA at body
+     sizes) because hint/metadata rows were rendering as unreadable
+     gray-on-gray on the dark surfaces. */
   --text-primary: #ECEEED;
   --text-secondary: #ADB5B2;
-  --text-tertiary: #6B736F;
-  --text-faint: rgba(108, 115, 111, 0.62);
+  --text-tertiary: #8a9590;
+  --text-faint: rgba(138, 149, 144, 0.62);
   --text-on-accent: #ffffff;
 
   /* Accent — Tailwind Blue 600 / 700 / 400, matching DS.Colors.accent

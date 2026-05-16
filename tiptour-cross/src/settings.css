@@ -9,7 +9,16 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--surface-base);
+  /* Liquid-glass backdrop. A deep tinted gradient gives the
+     translucent cards above something to refract; without this the
+     "glass" reads as a flat dark fill. The blue/violet hint matches
+     macOS Tahoe's default wallpaper-bleed look. */
+  background:
+    radial-gradient(120% 80% at 10% -10%, rgba(37, 99, 235, 0.22), transparent 55%),
+    radial-gradient(100% 80% at 100% 110%, rgba(124, 58, 237, 0.18), transparent 55%),
+    radial-gradient(80% 80% at 50% 50%, rgba(15, 23, 42, 0.6), transparent 70%),
+    var(--surface-base);
+  background-attachment: fixed;
   color: var(--text-primary);
   height: 100vh;
   font-family: var(--font-sans);
@@ -35,8 +44,18 @@ body {
  * region so the window remains movable. (Buttons re-enable nodrag.)
  */
 .settings-nav {
-  background: var(--surface-1);
-  border-right: 1px solid var(--border-subtle);
+  /* Liquid-glass sidebar — translucent dark fill over the tinted body
+     backdrop, with a real backdrop-filter blur so the gradient bleeds
+     through and the rail reads as native macOS vibrancy material. A
+     specular highlight at the top edge (inset hairline + top-only
+     gradient) gives the glass its lit appearance. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 30%),
+    rgba(20, 22, 24, 0.55);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
   padding: 48px var(--space-3) var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
@@ -220,9 +239,18 @@ body {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  /* Liquid-glass card. Translucent fill + blur means the body tint
+     refracts through, the way macOS Tahoe System Settings cards
+     do. The 0.04 white hairline at the top of each card is the
+     specular highlight that sells the lit-from-above glass look. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .settings-row:first-of-type,
 .settings-pane h3 + .settings-row,
@@ -399,14 +427,25 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  /* Same liquid-glass treatment as .settings-row so list cards
+     refract the body tint instead of reading as solid dark plates. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
-  transition: background var(--motion-fast) var(--motion-easing), border-color var(--motion-fast) var(--motion-easing);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background var(--motion-fast) var(--motion-easing),
+              border-color var(--motion-fast) var(--motion-easing),
+              transform var(--motion-fast) var(--motion-easing);
 }
 .list-row:hover:not(.disabled) {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
+    rgba(40, 46, 54, 0.62);
+  border-color: rgba(255, 255, 255, 0.10);
 }
 .list-row.disabled {
   opacity: 0.6;
