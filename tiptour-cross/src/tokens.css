@@ -15,18 +15,25 @@
  *                 per-step typography metrics so tracking can be
  *                 tightened at display sizes the way SF does it
  */
+/* Inter variable font — same SF Pro feel on every OS, with proper
+   optical sizing across our type scale. Fetched once from Google
+   Fonts; subset to weights we actually use to keep the payload
+   tiny. The body still falls back to -apple-system / system-ui
+   if the fetch fails so the panel remains readable offline. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
 :root {
   color-scheme: dark;
 
-  /* Typography — SF Pro on Apple, Inter as Windows fallback, then
-     system-ui. We use the system fluid font stack rather than
-     hard-naming "SF Pro Display/Text" so we can opt into the OS's
-     own optical sizing where it exists. */
+  /* Typography. Inter Variable as primary (Google Fonts), -apple-
+     system as the immediate fallback so macOS users get SF Pro
+     natively, then the system stack. JetBrains Mono for code with
+     ligatures on. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-    "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono:
-    ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Code", monospace;
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Code", monospace;
 
   /* Type scale — tracking tightens as the size grows, matching SF Pro's
      own optical-size hint table. Line-heights bias slightly looser at
@@ -148,17 +155,46 @@
   --radius-lg: 18px;
   --radius-pill: 999px;
 
-  /* Composed shadows: tighter top edge + wider bottom edge, the way
-     macOS Sonoma renders window shadows. The "elevated" stack is for
-     the floating panel; "raised" is for in-pane cards if we add any. */
+  /* Apple-style 5-layer shadow stacks. The trick to a "premium" feel
+     is many small soft shadows at different blur radii, not one big
+     shadow. Each layer adds depth at a different distance from the
+     surface. */
   --shadow-elevated:
-    0 1px 1px rgba(0, 0, 0, 0.22),
-    0 12px 28px -6px rgba(0, 0, 0, 0.55),
-    0 24px 60px -12px rgba(0, 0, 0, 0.45);
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 8px 16px -4px rgba(0, 0, 0, 0.30),
+    0 20px 40px -8px rgba(0, 0, 0, 0.40),
+    0 40px 80px -16px rgba(0, 0, 0, 0.35);
   --shadow-raised:
-    0 1px 2px rgba(0, 0, 0, 0.18),
-    0 6px 16px -4px rgba(0, 0, 0, 0.35);
-  --shadow-focus-ring: 0 0 0 2px rgba(0, 0, 0, 0.7), 0 0 0 4px var(--accent-400);
+    0 0.5px 1px rgba(0, 0, 0, 0.18),
+    0 1.5px 3px rgba(0, 0, 0, 0.12),
+    0 4px 10px -2px rgba(0, 0, 0, 0.20),
+    0 10px 20px -6px rgba(0, 0, 0, 0.18);
+  --shadow-hover:
+    0 0.5px 1px rgba(0, 0, 0, 0.22),
+    0 2px 4px -1px rgba(0, 0, 0, 0.18),
+    0 6px 14px -3px rgba(0, 0, 0, 0.28),
+    0 14px 28px -8px rgba(0, 0, 0, 0.22);
+  --shadow-button:
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10);
+  --shadow-button-primary:
+    0 0.5px 1px rgba(0, 0, 0, 0.40),
+    0 2px 6px -1px rgba(37, 99, 235, 0.45),
+    0 8px 20px -4px rgba(37, 99, 235, 0.35),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+  --shadow-focus-ring:
+    0 0 0 2px var(--surface-base),
+    0 0 0 4px var(--accent-400),
+    0 0 12px -2px rgba(96, 165, 250, 0.6);
+  /* The specular highlight that runs along the top of every glass
+     surface. Reuse this rather than inlining the same 0.05/0.08
+     hairline gradient in twelve places. */
+  --gradient-specular-top:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 35%);
+  --gradient-specular-top-strong:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 40%);
 
   /* Motion. One canonical easing curve (a softened standard ease-out)
      applied to every transition; durations vary by intent. */

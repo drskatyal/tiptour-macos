@@ -115,27 +115,44 @@ body {
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: var(--radius-pill);
   background: var(--text-faint);
   flex: 0 0 auto;
-  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.20),
+    0 0 0 0 rgba(255, 255, 255, 0);
   transition:
     background var(--motion-medium) var(--motion-easing),
     box-shadow var(--motion-medium) var(--motion-easing);
 }
 .dot[data-status="listening"] {
-  background: var(--warm-500);
-  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+  background: radial-gradient(circle at 30% 30%, #6ee7b7, #34d399 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px rgba(52, 211, 153, 0.18),
+    0 0 12px 2px rgba(52, 211, 153, 0.35);
+  animation: dot-breath 1.8s var(--motion-easing) infinite;
 }
 .dot[data-status="speaking"] {
-  background: var(--accent-400);
-  box-shadow: 0 0 0 3px var(--accent-300);
+  background: radial-gradient(circle at 30% 30%, #93c5fd, var(--accent-400) 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px var(--accent-300),
+    0 0 12px 2px rgba(96, 165, 250, 0.45);
+  animation: dot-breath 1.2s var(--motion-easing) infinite;
 }
 .dot[data-status="error"] {
-  background: var(--danger-500);
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
+  background: radial-gradient(circle at 30% 30%, #fca5a5, var(--danger-500) 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px rgba(229, 72, 77, 0.20),
+    0 0 12px 2px rgba(229, 72, 77, 0.35);
+}
+@keyframes dot-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
 }
 
 /* ----- Shared form element baseline ----- */
@@ -316,32 +333,59 @@ body {
   padding: 10px var(--space-4);
   font-weight: 500;
   font-size: var(--type-13-size);
+  letter-spacing: 0.005em;
   /* Both buttons share the same min-height so the Start/Stop swap
      doesn't shift the section below by one pixel. */
-  min-height: 34px;
+  min-height: 36px;
 }
-/* Primary CTA — Blue 600 → Blue 700 on hover, matching DSPrimaryButtonStyle. */
+/* Primary CTA — magnetic hover (1.02 scale), accent-glow shadow, layered
+   inner highlight. Press scales down 0.97 with a tighter shadow so the
+   button physically responds. */
 .actions button.primary {
-  background: var(--accent-500);
+  background: linear-gradient(180deg, #2f6dee 0%, var(--accent-500) 60%);
   color: var(--text-on-accent);
-  box-shadow: 0 4px 10px -4px rgba(37, 99, 235, 0.45);
+  font-weight: 600;
+  box-shadow: var(--shadow-button-primary);
+  transform: translateY(0);
 }
 .actions button.primary:hover:not(:disabled) {
-  background: var(--accent-600);
-  box-shadow: 0 6px 14px -4px rgba(37, 99, 235, 0.55);
+  background: linear-gradient(180deg, #2c63db 0%, var(--accent-600) 60%);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.40),
+    0 4px 10px -2px rgba(37, 99, 235, 0.55),
+    0 14px 28px -6px rgba(37, 99, 235, 0.40),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22);
 }
 .actions button.primary:active:not(:disabled) {
-  background: #2c5fe0;
+  background: var(--accent-600);
+  transform: scale(0.97);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 1px 3px rgba(37, 99, 235, 0.30),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10);
 }
-/* Secondary — surface2 → surface3 on hover, matching DSSecondaryButtonStyle. */
+/* Secondary — frosted glass card. surface-2 fill + specular top + soft
+   shadow. Hover lifts and brightens; press scales down. */
 .actions button.secondary {
-  background: var(--surface-2);
+  background:
+    var(--gradient-specular-top),
+    var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-button);
 }
 .actions button.secondary:hover:not(:disabled) {
-  background: var(--surface-3);
+  background:
+    var(--gradient-specular-top-strong),
+    var(--surface-3);
   border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+.actions button.secondary:active:not(:disabled) {
+  transform: scale(0.97);
+  background: var(--surface-3);
 }
 
 /* ----- Hotkey hint ----- */

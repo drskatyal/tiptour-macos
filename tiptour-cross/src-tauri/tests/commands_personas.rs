@@ -47,6 +47,10 @@ fn personas_seed_and_round_trip_and_voice_match() {
         system_prompt: "Be a test.".into(),
         voice_trigger_phrases: vec!["test custom".into()],
         is_built_in: false,
+        model_provider: "gemini".into(),
+        model_id: "gemini-2.5-flash".into(),
+        reasoning_enabled: false,
+        temperature: 0.4,
     };
     upsert_custom_persona(custom.clone()).expect("upsert custom must succeed");
     let after_upsert = list_personas().expect("list after upsert");
