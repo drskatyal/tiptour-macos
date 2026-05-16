@@ -474,6 +474,24 @@ await listen("push_to_talk_toggled", () => {
   void handleHotkeyToggle();
 });
 
+// Soniox real-time transcription — when the Rust side is in an
+// active session, every mic chunk should also forward to the Soniox
+// pipeline so it can stream tokens out. A separate listener so it
+// runs independently of quick-voice and live-session paths.
+let sonioxState: "idle" | "transcribing" = "idle";
+await listen<string>("soniox_state", (event) => {
+  if (event.payload === "transcribing") {
+    sonioxState = "transcribing";
+  } else {
+    sonioxState = "idle";
+  }
+});
+await listen<number[]>("mic_chunk", (event) => {
+  if (sonioxState === "transcribing") {
+    void invoke("append_soniox_audio_chunk", { pcmBytes: event.payload });
+  }
+});
+
 // If the OS refused to register the global hotkey (most common cause:
 // macOS Accessibility permission not granted, or another app stole the
 // chord), surface it as a panel error banner so users stop pressing
