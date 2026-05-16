@@ -9,13 +9,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background:
-    radial-gradient(
-      120% 100% at 50% -10%,
-      rgba(85, 96, 226, 0.12),
-      rgba(0, 0, 0, 0) 55%
-    ),
-    linear-gradient(180deg, #1a1a1f 0%, #131316 100%);
+  background: var(--surface-base);
   color: var(--text-primary);
   height: 100vh;
   font-family: var(--font-sans);
@@ -41,8 +35,8 @@ body {
  * region so the window remains movable. (Buttons re-enable nodrag.)
  */
 .settings-nav {
-  background: rgba(0, 0, 0, 0.34);
-  border-right: 1px solid var(--surface-divider);
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-subtle);
   padding: 48px var(--space-3) var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
@@ -102,10 +96,9 @@ body {
   box-shadow: var(--shadow-focus-ring);
 }
 .settings-tab[data-active="true"] {
-  background: linear-gradient(180deg, rgba(108, 121, 238, 0.32), rgba(85, 96, 226, 0.24));
-  color: #ffffff;
+  background: rgba(37, 99, 235, 0.18);
+  color: var(--accent-400);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /*
@@ -174,8 +167,8 @@ body {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-raised);
-  border: 1px solid var(--surface-glass-border);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-bottom-width: 0;
 }
 .settings-row:first-of-type,
@@ -244,18 +237,23 @@ body {
   box-shadow: 0 0 0 3px var(--accent-300);
 }
 
+/* Buttons in the settings pane mirror DSSecondaryButtonStyle by
+   default — solid surface2 fill, capsule shape, surface3 on hover.
+   .primary mirrors DSPrimaryButtonStyle (Blue 600 → 700) and .danger
+   mirrors DSDestructiveButtonStyle. */
 .settings-pane button {
-  background: var(--surface-raised-hover);
+  background: var(--surface-2);
   color: var(--text-primary);
-  border: 1px solid var(--surface-glass-border);
-  padding: 6px var(--space-3);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  padding: 7px var(--space-4);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   font: inherit;
   font-size: var(--type-13-size);
   line-height: var(--type-13-line);
+  font-weight: 500;
   /* Save -> Saved swaps need a min-width to avoid jitter. */
-  min-width: 72px;
+  min-width: 78px;
   transition:
     background var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing),
@@ -263,10 +261,12 @@ body {
     box-shadow var(--motion-fast) var(--motion-easing);
 }
 .settings-pane button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.13);
+  background: var(--surface-3);
+  border-color: var(--border-strong);
 }
 .settings-pane button:active:not(:disabled) {
-  transform: scale(0.985);
+  background: var(--surface-4);
+  transform: scale(0.97);
 }
 .settings-pane button:focus-visible {
   outline: none;
@@ -281,20 +281,28 @@ body {
   background: var(--accent-500);
   border-color: transparent;
   color: var(--text-on-accent);
+  box-shadow: 0 4px 10px -4px rgba(37, 99, 235, 0.45);
 }
 .settings-pane button.primary:hover:not(:disabled) {
-  background: var(--accent-400);
+  background: var(--accent-600);
+  box-shadow: 0 6px 14px -4px rgba(37, 99, 235, 0.55);
 }
 .settings-pane button.primary:active:not(:disabled) {
-  background: var(--accent-600);
+  background: #2c5fe0;
 }
 .settings-pane button.danger {
-  background: rgba(248, 113, 113, 0.15);
-  border-color: rgba(248, 113, 113, 0.4);
-  color: #ffd0d0;
+  background: rgba(229, 72, 77, 0.10);
+  border-color: rgba(229, 72, 77, 0.30);
+  color: var(--danger-text);
 }
 .settings-pane button.danger:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.22);
+  background: rgba(229, 72, 77, 0.30);
+  border-color: rgba(229, 72, 77, 0.40);
+  color: #ffffff;
+}
+.settings-pane button.danger:active:not(:disabled) {
+  background: rgba(229, 72, 77, 0.40);
+  color: #ffffff;
 }
 
 .hotkey-chip {
@@ -337,14 +345,15 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3);
-  background: var(--surface-raised);
-  border: 1px solid var(--surface-glass-border);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  transition: background var(--motion-fast) var(--motion-easing);
+  transition: background var(--motion-fast) var(--motion-easing), border-color var(--motion-fast) var(--motion-easing);
 }
 .list-row:hover:not(.disabled) {
-  background: var(--surface-raised-hover);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
 }
 .list-row.disabled {
   opacity: 0.6;

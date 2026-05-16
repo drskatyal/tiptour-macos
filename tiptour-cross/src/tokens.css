@@ -66,45 +66,54 @@
      fall under WCAG AA on a non-pure-black surface (which is what users
      actually see when backdrop-filter degrades). Now hits 4.5:1 on every
      surface variant. */
-  --text-primary: #f3f4f8;
-  --text-secondary: rgba(230, 232, 242, 0.86);
-  --text-tertiary: rgba(208, 212, 226, 0.72);
-  --text-faint: rgba(184, 188, 204, 0.56);
+  /* Text colors copied from the Swift DesignSystem (#ECEEED / #ADB5B2 /
+     #6B736F) so the Tauri build reads as the same product as the
+     macOS Swift app, not a parallel-universe fork. */
+  --text-primary: #ECEEED;
+  --text-secondary: #ADB5B2;
+  --text-tertiary: #6B736F;
+  --text-faint: rgba(108, 115, 111, 0.62);
   --text-on-accent: #ffffff;
 
-  /* Accent ramp. 500 is canonical; 400 is the hover lift; 300 is the
-     translucent focus halo. Warm + danger tints stay separate so they
-     don't drift when the accent changes. */
-  --accent-300: rgba(122, 138, 255, 0.32);
-  --accent-400: #6c79ee;
-  --accent-500: #5560e2;
-  --accent-600: #434dc7;
+  /* Accent — Tailwind Blue 600 / 700 / 400, matching DS.Colors.accent
+     and DS.Colors.accentHover from the Swift build. The translucent
+     focus halo uses Blue 500 @ 32%. */
+  --accent-300: rgba(59, 130, 246, 0.32);
+  --accent-400: #60a5fa;
+  --accent-500: #2563eb;
+  --accent-600: #1d4ed8;
 
-  --warm-500: #4ade80;
-  --warning-500: #f5c451;
-  --danger-500: #f87171;
+  --warm-500: #34d399;
+  --warning-500: #ffb224;
+  --danger-500: #e5484d;
+  --danger-hover: #f2555a;
+  --danger-text: #ff6369;
 
-  /* Layered glass surfaces. The "fill" is a single-layer flat color
-     that *also* gets a `backdrop-filter` blur applied at the .surface
-     class level — so on macOS the result is real vibrancy, while on
-     Windows (no proper backdrop-filter saturation) it degrades to a
-     dark translucent card. The thin inset border is what gives the
-     glass its crisp edge under macOS Sonoma window shadows. */
-  /* Surface alphas bumped to 0.94/0.97 because backdrop-filter is
-     unreliable across compositors (Windows webview2 in particular often
-     skips it). The panel needs to be readable as a solid card on any
-     desktop background, not "translucent if your GPU cooperates." Glass
-     vibe still reads via the inset border + shadow + the slight tint. */
-  --surface-glass: rgba(24, 24, 28, 0.94);
-  --surface-glass-strong: rgba(18, 18, 22, 0.97);
-  --surface-glass-border: rgba(255, 255, 255, 0.12);
-  --surface-glass-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  /* Layered solid surfaces — NOT translucent glass. The reference
+     macOS build uses opaque surface1..4 fills (#171918 → #2E3130)
+     and lets elevation come from lightness, not transparency. This
+     reads consistently on any compositor (mac vibrancy is a nice-to-
+     have but the design holds without it). */
+  --surface-base: #101211;
+  --surface-1: #171918;
+  --surface-2: #202221;
+  --surface-3: #272A29;
+  --surface-4: #2E3130;
 
-  --surface-raised: rgba(255, 255, 255, 0.06);
-  --surface-raised-hover: rgba(255, 255, 255, 0.10);
-  --surface-input: rgba(255, 255, 255, 0.07);
-  --surface-input-focus: rgba(255, 255, 255, 0.10);
-  --surface-divider: rgba(255, 255, 255, 0.09);
+  --border-subtle: #373B39;
+  --border-strong: #444947;
+
+  /* Legacy glass aliases — kept so existing rules keep compiling, but
+     they now resolve to solid surfaces. */
+  --surface-glass: var(--surface-1);
+  --surface-glass-strong: var(--surface-base);
+  --surface-glass-border: var(--border-subtle);
+  --surface-glass-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --surface-raised: var(--surface-2);
+  --surface-raised-hover: var(--surface-3);
+  --surface-input: var(--surface-2);
+  --surface-input-focus: var(--surface-3);
+  --surface-divider: var(--border-subtle);
 
   /* --color-* aliases. The Tasks and Memory settings tabs were built
      against a `--color-surface`/`--color-border`/`--color-accent`
