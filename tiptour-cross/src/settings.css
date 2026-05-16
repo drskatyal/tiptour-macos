@@ -1142,6 +1142,15 @@ body {
   cursor: pointer;
   font-size: var(--type-13-size);
   color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing);
+}
+.toggle:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 .toggle input[type="checkbox"] {
   margin: 0;

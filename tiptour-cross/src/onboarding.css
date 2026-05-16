@@ -152,9 +152,29 @@ body[data-onboarding-active="true"] > .onboarding-wizard {
   opacity: 0.55;
 }
 
+/* Granted pill in the permissions step. SVG-based check so it
+   renders identically on every platform (the raw ✓ codepoint had
+   hugely inconsistent metrics across system fonts). The pseudo-
+   element is a 14x14 green disc with a white checkmark embedded
+   in the SVG itself. */
 .onboarding-permission-row .granted-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--warm-500);
   font-weight: 600;
+  font-size: var(--type-12-size);
+}
+.onboarding-permission-row .granted-check::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%2334d399'/><path d='M4.5 8l2.5 2.5 4.5-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.45));
 }
 
 .onboarding-actions {

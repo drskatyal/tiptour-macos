@@ -313,7 +313,7 @@ function paintPermissionsStep(
         <span>
           ${
             hasAccessibility
-              ? '<span class="granted-check">Granted ✓</span>'
+              ? '<span class="granted-check">Granted</span>'
               : '<button class="primary" id="onboarding-grant-accessibility">Grant</button>'
           }
         </span>
@@ -323,7 +323,7 @@ function paintPermissionsStep(
         <span>
           ${
             hasScreenRecording
-              ? '<span class="granted-check">Granted ✓</span>'
+              ? '<span class="granted-check">Granted</span>'
               : '<button class="primary" id="onboarding-grant-screen-recording">Grant</button>'
           }
         </span>
