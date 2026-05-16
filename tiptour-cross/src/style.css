@@ -95,12 +95,11 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .panel-settings-button {
-  margin-left: auto;
   background: transparent;
-  border: 1px solid var(--surface-glass-border);
-  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
   border-radius: var(--radius-sm);
-  padding: 2px var(--space-2);
+  padding: 0;
   cursor: pointer;
   font: inherit;
   font-size: var(--type-15-size);
@@ -112,11 +111,20 @@ body::-webkit-scrollbar-thumb:hover {
   justify-content: center;
   transition:
     background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
     transform var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing);
 }
+/* Push the first header button (gear) to the far right so dot +
+   status-label sit at the left edge. The close button (X) follows
+   via the row's gap, so the two header buttons cluster together. */
+.panel-header > .panel-settings-button:first-of-type {
+  margin-left: auto;
+}
 .panel-settings-button:hover {
-  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
 }
 .panel-settings-button:active {
   transform: scale(0.985);
