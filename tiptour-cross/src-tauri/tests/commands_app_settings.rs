@@ -24,15 +24,20 @@ fn redirect_data_local_dir_to_tempdir() -> tempfile::TempDir {
     tempdir
 }
 
-// macOS's `dirs::data_local_dir()` uses Cocoa's
-// `NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory)`
-// which ignores `$HOME` / `$XDG_DATA_HOME` overrides — the env-var
-// redirect we use here is a Linux/Windows-only escape hatch. On
-// macOS the test would write to the runner's real
-// `~/Library/Application Support/TipTour/`, contaminating the dev
-// machine and then asserting against an unrelated tempdir. Skip on
-// macOS until production exposes an injectable settings-dir path.
-#[cfg_attr(target_os = "macos", ignore = "dirs::data_local_dir on macOS ignores $HOME/$XDG override")]
+// `dirs::data_local_dir()` reads platform-native folder APIs on macOS
+// (`NSSearchPathForDirectoriesInDomains`) and Windows
+// (`SHGetKnownFolderPath`), neither of which honour `$HOME` /
+// `$LOCALAPPDATA` / `$XDG_DATA_HOME` env-var overrides. On those
+// platforms the test would write to the runner's real
+// `~/Library/Application Support/TipTour/` or `%LOCALAPPDATA%\TipTour\`
+// and then assert against an unrelated tempdir. Only Linux's `dirs`
+// crate path actually reads `$XDG_DATA_HOME`, so we only run this
+// test there. The production code path is correct on every platform;
+// only the test-isolation pattern is mac/win-incompatible.
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "dirs::data_local_dir on non-Linux ignores HOME/LOCALAPPDATA/XDG override"
+)]
 #[test]
 fn app_settings_round_trip_atomic_write_and_reset_all_paths() {
     // ---- defaults when no file exists ----
