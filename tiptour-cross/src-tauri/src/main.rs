@@ -11,6 +11,7 @@ mod capabilities;
 mod cost_meter;
 mod crash_recovery;
 mod custom_commands;
+mod dictation;
 mod executor;
 mod gemini_live_client;
 mod grounding;
@@ -33,6 +34,7 @@ mod screen;
 mod settings_window;
 mod subagents;
 mod tasks;
+mod text_rewrite;
 mod tool_dispatch;
 mod tray;
 mod vosk_listener;
@@ -101,6 +103,20 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             keychain::get_api_key,
             keychain::set_api_key,
+            keychain::get_provider_api_key,
+            keychain::set_provider_api_key,
+            keychain::clear_provider_api_key,
+            text_rewrite::list_providers,
+            text_rewrite::rewrite_selection,
+            text_rewrite::open_drafting_window_with_text,
+            text_rewrite::rewrite_selection_into_drafting_window,
+            text_rewrite::paste_from_drafting_window,
+            text_rewrite::clipboard_rich::put_clipboard_rich,
+            dictation::start_dictation,
+            dictation::stop_dictation,
+            dictation::get_dictation_state,
+            dictation::type_dictation_chunk,
+            dictation::capture_selection_via_clipboard,
             audio::start_mic_capture,
             audio::stop_mic_capture,
             audio::play_audio_chunk,

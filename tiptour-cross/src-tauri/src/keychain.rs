@@ -1,18 +1,34 @@
-// OS-native secret storage for the Gemini API key.
+// OS-native secret storage for LLM provider API keys.
 // macOS Keychain on Mac, Credential Manager on Windows, via the `keyring` crate.
+//
+// Each provider gets its own keychain entry keyed by the lowercase
+// provider id ("gemini", "grok", "groq", "cerebras", "together",
+// "fireworks", "anthropic", "openai"). The legacy single-key API
+// (`get_api_key` / `set_api_key`) now aliases the gemini entry so
+// existing settings UI keeps working without migration.
 
 use keyring::Entry;
 
 const SERVICE: &str = "com.tiptour.cross";
-const ACCOUNT: &str = "gemini-api-key";
+const GEMINI_ACCOUNT: &str = "gemini-api-key";
 
-fn entry() -> Result<Entry, String> {
-    Entry::new(SERVICE, ACCOUNT).map_err(|error| error.to_string())
+fn entry(account: &str) -> Result<Entry, String> {
+    Entry::new(SERVICE, account).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-pub fn get_api_key() -> Result<Option<String>, String> {
-    let entry = entry()?;
+fn account_for_provider(provider_id: &str) -> String {
+    if provider_id.eq_ignore_ascii_case("gemini") {
+        GEMINI_ACCOUNT.to_string()
+    } else {
+        format!("{}-api-key", provider_id.to_ascii_lowercase())
+    }
+}
+
+/// Internal reader used by `text_rewrite`. Returns `None` if no entry
+/// exists for the provider, propagates any other keyring failure.
+pub fn read_provider_key(provider_id: &str) -> Result<Option<String>, String> {
+    let account = account_for_provider(provider_id);
+    let entry = entry(&account)?;
     match entry.get_password() {
         Ok(value) => Ok(Some(value)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -21,7 +37,36 @@ pub fn get_api_key() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+pub fn get_api_key() -> Result<Option<String>, String> {
+    read_provider_key("gemini")
+}
+
+#[tauri::command]
 pub fn set_api_key(key: String) -> Result<(), String> {
-    let entry = entry()?;
+    let entry = entry(GEMINI_ACCOUNT)?;
     entry.set_password(&key).map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+pub fn get_provider_api_key(provider_id: String) -> Result<Option<String>, String> {
+    read_provider_key(&provider_id)
+}
+
+#[tauri::command]
+pub fn set_provider_api_key(provider_id: String, key: String) -> Result<(), String> {
+    let account = account_for_provider(&provider_id);
+    let entry = entry(&account)?;
+    entry.set_password(&key).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn clear_provider_api_key(provider_id: String) -> Result<(), String> {
+    let account = account_for_provider(&provider_id);
+    let entry = entry(&account)?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+

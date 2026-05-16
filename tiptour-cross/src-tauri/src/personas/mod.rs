@@ -30,6 +30,38 @@ pub struct Persona {
     /// for these and disallow Delete.
     #[serde(default)]
     pub is_built_in: bool,
+
+    /// LLM provider this persona dispatches text-rewrite tool calls
+    /// to. Default is Gemini so existing personas keep working with
+    /// the user's existing Gemini key. Other providers require their
+    /// own API key configured in the keychain (see `text_rewrite`).
+    #[serde(default = "default_provider")]
+    pub model_provider: String,
+    /// Model id within the chosen provider, e.g. "gemini-2.5-pro",
+    /// "grok-4-fast-reasoning", "llama-3.3-70b-versatile",
+    /// "llama3.1-8b" (Cerebras), "claude-opus-4-7". Validated lazily
+    /// at request time so we don't have to ship a catalog here.
+    #[serde(default = "default_model_id")]
+    pub model_id: String,
+    /// For models that expose a reasoning toggle (Grok 4 fast variants,
+    /// Gemini 2.5 Pro thinking mode). When false the request omits the
+    /// thinking budget so latency stays low for short rewrites.
+    #[serde(default)]
+    pub reasoning_enabled: bool,
+    /// Sampling temperature. Stored per-persona so the "Quick Helper"
+    /// can stay deterministic while "Writing Coach" gets more variety.
+    #[serde(default = "default_temperature")]
+    pub temperature: f32,
+}
+
+fn default_provider() -> String {
+    "gemini".to_string()
+}
+fn default_model_id() -> String {
+    "gemini-2.5-flash".to_string()
+}
+fn default_temperature() -> f32 {
+    0.4
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +85,13 @@ impl Default for PersonasFile {
 }
 
 fn built_in_seed_personas() -> Vec<Persona> {
+    // Pre-seed each persona with a sensible model pick:
+    //   - Coding -> Gemini 2.5 Pro with reasoning on (best at code)
+    //   - Writing Coach -> Cerebras Llama 70B (fast prose rewrites)
+    //   - Meeting Assistant -> Groq Llama-3.3 (fast summaries)
+    //   - Quick Helper -> Cerebras 8B (sub-second latency)
+    //   - Teacher -> Gemini Flash (visual + text)
+    // The user can change any of these in the Personas settings tab.
     vec![
         Persona {
             id: "coding-assistant".into(),
@@ -60,6 +99,10 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in coding-assistant mode. Help the user write, debug, and review code. Reply concisely with code snippets when relevant. Prefer practical fixes over lectures.".into(),
             voice_trigger_phrases: vec!["coding assistant".into(), "developer mode".into()],
             is_built_in: true,
+            model_provider: "gemini".into(),
+            model_id: "gemini-2.5-pro".into(),
+            reasoning_enabled: true,
+            temperature: 0.2,
         },
         Persona {
             id: "writing-coach".into(),
@@ -67,6 +110,10 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in writing-coach mode. Help the user write, edit, and improve prose. Suggest tighter phrasing. When the user highlights text, propose specific replacements.".into(),
             voice_trigger_phrases: vec!["writing coach".into(), "writing mode".into()],
             is_built_in: true,
+            model_provider: "cerebras".into(),
+            model_id: "llama-3.3-70b".into(),
+            reasoning_enabled: false,
+            temperature: 0.5,
         },
         Persona {
             id: "meeting-assistant".into(),
@@ -74,6 +121,10 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in meeting-assistant mode. Take notes, summarize, and pull out action items. Be brief and structured.".into(),
             voice_trigger_phrases: vec!["meeting assistant".into(), "meeting mode".into()],
             is_built_in: true,
+            model_provider: "groq".into(),
+            model_id: "llama-3.3-70b-versatile".into(),
+            reasoning_enabled: false,
+            temperature: 0.3,
         },
         Persona {
             id: "quick-helper".into(),
@@ -81,6 +132,10 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in quick-helper mode. Answer fast, in one or two sentences. No preamble.".into(),
             voice_trigger_phrases: vec!["quick helper".into(), "quick mode".into()],
             is_built_in: true,
+            model_provider: "cerebras".into(),
+            model_id: "llama3.1-8b".into(),
+            reasoning_enabled: false,
+            temperature: 0.3,
         },
         Persona {
             id: "teacher".into(),
@@ -88,6 +143,10 @@ fn built_in_seed_personas() -> Vec<Persona> {
             system_prompt: "You are TipTour in teacher mode. Walk the user through unfamiliar tools step by step. Point at the next thing to click; don't take over the keyboard.".into(),
             voice_trigger_phrases: vec!["teacher".into(), "teacher mode".into(), "show me how".into()],
             is_built_in: true,
+            model_provider: "gemini".into(),
+            model_id: "gemini-2.5-flash".into(),
+            reasoning_enabled: false,
+            temperature: 0.4,
         },
     ]
 }

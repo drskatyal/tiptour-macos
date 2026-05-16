@@ -86,6 +86,22 @@
         "visible": false,
         "shadow": false,
         "acceptFirstMouse": false
+      },
+      {
+        "label": "drafting",
+        "url": "drafting.html",
+        "title": "TipTour Draft",
+        "width": 720,
+        "height": 720,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "focus": true,
+        "visible": false,
+        "shadow": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {

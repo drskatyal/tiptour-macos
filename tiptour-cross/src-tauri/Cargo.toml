@@ -55,6 +55,16 @@ vosk = { version = "0.3", optional = true }
 ureq = { version = "2", optional = true }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 plist = "1"
+# HTTP client for the multi-provider LLM module (text_rewrite). Uses
+# rustls so we don't pull a second TLS stack alongside the
+# tokio-tungstenite native-tls dep. JSON feature gives us the
+# request/response serde bridge for free.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+# Markdown -> HTML conversion for the rich-text clipboard payload
+# the rewrite tool writes back into Word / Docs / Mail. Tiny, pure
+# Rust, no extra C deps.
+pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+async-trait = "0.1"
 # Optional vector-DB + on-device embedder for agent memory. These are
 # heavy native deps (LanceDB pulls Arrow + tokio runtime extras;
 # fastembed downloads an ONNX model on first use). They are gated

@@ -18,6 +18,7 @@ export default defineConfig({
         overlay: resolve(__dirname, "overlay.html"),
         settings: resolve(__dirname, "settings.html"),
         indicators: resolve(__dirname, "indicators.html"),
+        drafting: resolve(__dirname, "drafting.html"),
       },
     },
   },
