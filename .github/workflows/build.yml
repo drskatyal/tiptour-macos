@@ -123,24 +123,53 @@ jobs:
         run: cargo check --features vosk --message-format=short || echo "vosk feature build skipped (libvosk likely missing)"
 
       - name: Rust tests
-        # Build-and-run the full integration-test suite on every leg
-        # so the platform-conditional code (e.g. mac/win-only types
-        # under cfg(target_os = ...)) is exercised on its own OS.
-        # `--workspace` keeps us future-proof if we add additional
-        # crates; today there's just the one. `--no-fail-fast` lets
-        # us see *all* failing tests, not just the first.
+        id: rust-tests
+        # Build-and-run the full integration-test suite on every leg so
+        # the platform-conditional code (e.g. mac/win-only types under
+        # cfg(target_os = ...)) is exercised on its own OS. tee the
+        # full output to a file so the artifact upload + job summary
+        # can surface the actual panic on failure — without this the
+        # only visible signal is "exit code 101".
         working-directory: tiptour-cross/src-tauri
-        run: cargo test --workspace --no-fail-fast
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo test --workspace --no-fail-fast --color never 2>&1 | tee cargo-test.log
 
-      - name: Upload Rust test artifacts on failure
-        if: failure()
+      - name: Surface cargo test panics to the job summary on failure
+        if: steps.rust-tests.outcome == 'failure'
+        working-directory: tiptour-cross/src-tauri
+        shell: bash
+        run: |
+          {
+            echo "## cargo test failed on ${{ matrix.os }}"
+            echo ""
+            echo "Last 200 lines of test output:"
+            echo ""
+            echo '```'
+            tail -n 200 cargo-test.log || echo "(no cargo-test.log)"
+            echo '```'
+            echo ""
+            echo "Every FAILED test:"
+            echo ""
+            echo '```'
+            grep -E "^test .* FAILED|^---- .* stdout ----|panicked at|thread .* panicked" cargo-test.log || echo "(no FAILED markers found)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rust test stdout on failure
+        if: steps.rust-tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: rust-test-stdout-${{ matrix.os }}
-          path: |
-            tiptour-cross/src-tauri/target/debug/deps/*.log
-          if-no-files-found: ignore
+          path: tiptour-cross/src-tauri/cargo-test.log
+          if-no-files-found: warn
           retention-days: 7
+
+      - name: Fail the job if cargo test failed
+        if: steps.rust-tests.outcome == 'failure'
+        run: exit 1
 
       - name: Tauri build (release, default features)
         # Full release build only on tag pushes so PRs stay fast.
