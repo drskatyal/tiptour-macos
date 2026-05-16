@@ -36,59 +36,93 @@ body {
   cursor: pointer;
 }
 
-/* Collapsed dash — the only visible thing at rest. */
+/* Collapsed dash — the only visible thing at rest.
+ *
+ * Aesthetic: a thin Liquid-Glass "tab" that reads as a deliberate
+ * affordance, not a UI artifact. Inner specular highlight at the top,
+ * darker base, soft falloff shadow below for grounding. The dash is
+ * intentionally compact (5px tall) so it stays unobtrusive when the
+ * user isn't reaching for it. */
 .dock-dash {
-  width: 56px;
-  height: 5px;
+  width: 64px;
+  height: 6px;
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06)),
-    rgba(20, 22, 26, 0.62);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 60%, rgba(0, 0, 0, 0.08)),
+    rgba(20, 22, 26, 0.55);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.10),
-    0 1px 2px rgba(0, 0, 0, 0.30),
-    0 6px 14px -2px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.20),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 8px 18px -4px rgba(0, 0, 0, 0.32),
+    0 16px 32px -8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   transition:
     width var(--motion-medium) var(--motion-easing),
-    opacity var(--motion-medium) var(--motion-easing),
+    opacity var(--motion-fast) var(--motion-easing),
     transform var(--motion-medium) var(--motion-easing);
+  /* Tiny idle breath so the dash never reads as "frozen UI". */
+  animation: dock-dash-idle 4s ease-in-out infinite;
+}
+@keyframes dock-dash-idle {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.92; }
+  50%      { transform: translateY(-0.5px) scale(1.02); opacity: 1; }
 }
 
 .dock-root:hover .dock-dash,
 [data-state="toolbar"] .dock-dash {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(8px) scale(0.95);
   pointer-events: none;
 }
 
 /* Expanded toolbar — appears on hover, sits in the same visual slot
-   as the dash. Glass card with each button as a pill. */
+ * as the dash. Glass capsule with each control as a pill.
+ *
+ * Aesthetic decisions:
+ *   - 22px corner radius (deeply round) to match macOS Tahoe's Stage
+ *     Manager dock
+ *   - Multi-layer shadow stack: tight 1px contact + medium spread +
+ *     wide diffuse + horizontal-spread on the bottom edge for the
+ *     "lifted glass" effect
+ *   - Top specular highlight gradient that fades within 35% so the
+ *     rest of the card reads as clean glass, not a button
+ *   - 0.5px hairline border above + below for the lit-edge effect
+ *   - Spring easing on the in-transition (cubic-bezier with overshoot)
+ *     so the toolbar feels physical, not slid */
 .dock-toolbar {
   position: absolute;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  border-radius: 18px;
+  border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 50%),
-    rgba(20, 22, 26, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+    /* layer 1 — top specular highlight */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 35%),
+    /* layer 2 — subtle accent breath from the dock's home position */
+    radial-gradient(120% 80% at 50% -30%, rgba(96, 165, 250, 0.08), transparent 60%),
+    /* layer 3 — base material */
+    rgba(20, 22, 26, 0.74);
+  /* Hairline border + bottom shadow line for the lifted-glass look. */
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-    0 0.5px 1px rgba(0, 0, 0, 0.34),
-    0 12px 32px -6px rgba(0, 0, 0, 0.45),
-    0 28px 64px -16px rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.30),
+    0 0.5px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.36),
+    0 12px 28px -6px rgba(0, 0, 0, 0.45),
+    0 28px 64px -16px rgba(0, 0, 0, 0.40);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px) saturate(180%) contrast(108%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%) contrast(108%);
   opacity: 0;
-  transform: translateY(4px) scale(0.96);
+  transform: translateY(8px) scale(0.92);
   pointer-events: none;
   transition:
-    opacity var(--motion-medium) var(--motion-easing),
-    transform var(--motion-medium) var(--motion-easing);
+    opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center bottom;
 }
 
 .dock-root:hover .dock-toolbar,
@@ -98,61 +132,111 @@ body {
   pointer-events: auto;
 }
 
+/* Pill buttons inside the dock. Multi-layer shadows + transforms so
+ * each press has real weight. The hover lifts the button 1px AND
+ * brightens AND adds a glow — three reinforcing cues that this is
+ * an interactive surface. */
 .dock-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 50%),
+    rgba(50, 54, 62, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
-  color: var(--text-secondary);
+  color: rgba(245, 246, 250, 0.78);
   cursor: pointer;
   font: inherit;
   font-size: var(--type-12-size);
   font-weight: 500;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.20),
+    0 1px 1.5px rgba(0, 0, 0, 0.25);
   transition:
-    background var(--motion-fast) var(--motion-easing),
-    color var(--motion-fast) var(--motion-easing),
-    transform var(--motion-fast) var(--motion-easing),
-    box-shadow var(--motion-fast) var(--motion-easing);
-  box-shadow: var(--shadow-button);
+    background 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .dock-button:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-hover);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 50%),
+    rgba(70, 76, 86, 0.72);
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.025);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.20),
+    0 2px 3px rgba(0, 0, 0, 0.22),
+    0 8px 16px -4px rgba(0, 0, 0, 0.28);
 }
 .dock-button:active {
   transform: scale(0.96);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10),
+    inset 0 1px 2px rgba(0, 0, 0, 0.18),
+    0 1px 1px rgba(0, 0, 0, 0.20);
 }
 
+/* Primary CTA — the "Ask" button. Accent-blue gradient with an
+ * inner highlight + outer blue glow that intensifies on hover. */
 .dock-primary {
-  background: linear-gradient(180deg, #2f6dee, var(--accent-500) 60%);
-  border-color: transparent;
-  color: var(--text-on-accent);
-  box-shadow: var(--shadow-button-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 35%),
+    linear-gradient(180deg, #3678ff 0%, #2563eb 100%);
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 4px 12px -2px rgba(37, 99, 235, 0.52),
+    0 8px 24px -8px rgba(37, 99, 235, 0.40);
 }
 .dock-primary:hover {
-  background: linear-gradient(180deg, #2c63db, var(--accent-600) 60%);
-  color: var(--text-on-accent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 35%),
+    linear-gradient(180deg, #4587ff 0%, #1d4ed8 100%);
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.04);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.30),
+    0 2px 4px rgba(0, 0, 0, 0.32),
+    0 6px 18px -2px rgba(37, 99, 235, 0.68),
+    0 14px 36px -10px rgba(37, 99, 235, 0.55);
 }
 
+/* Ghost icon-only buttons for panel + settings — sit at the end of
+ * the toolbar as quiet accessory controls. */
 .dock-ghost {
   background: transparent;
   border-color: transparent;
+  padding: 7px 9px;
+  color: rgba(245, 246, 250, 0.55);
+  box-shadow: none;
 }
 .dock-ghost:hover {
-  background: var(--surface-2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 50%),
+    rgba(60, 64, 72, 0.55);
+  color: #ffffff;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.20);
 }
 
 .dock-divider {
   width: 1px;
-  height: 18px;
-  background: var(--border-subtle);
-  margin: 0 4px;
+  height: 20px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.16) 30%, rgba(255, 255, 255, 0.16) 70%, transparent);
+  margin: 0 3px;
 }
 
 .dock-label {
