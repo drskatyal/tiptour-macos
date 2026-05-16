@@ -191,6 +191,10 @@ body {
   -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 2 3v5c0 3.6 2.6 6.4 6 7 3.4-.6 6-3.4 6-7V3L8 1Zm-1 9.4-2.7-2.7 1.4-1.4L7 7.6l3.3-3.3 1.4 1.4L7 10.4Z'/></svg>");
   mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 2 3v5c0 3.6 2.6 6.4 6 7 3.4-.6 6-3.4 6-7V3L8 1Zm-1 9.4-2.7-2.7 1.4-1.4L7 7.6l3.3-3.3 1.4 1.4L7 10.4Z'/></svg>");
 }
+.settings-tab[data-tab="adapters"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 1a2 2 0 0 0-2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H5Zm0 2h6v3H5V3Zm0 7h6v3H5v-3Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 1a2 2 0 0 0-2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H5Zm0 2h6v3H5V3Zm0 7h6v3H5v-3Z'/></svg>");
+}
 .settings-tab[data-tab="about"]::after {
   -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-1 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm-1 3h2v5h1v1H6v-1h1V9H6V8Z'/></svg>");
   mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-1 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm-1 3h2v5h1v1H6v-1h1V9H6V8Z'/></svg>");
@@ -909,4 +913,114 @@ body {
   color: var(--text-secondary);
   font-size: var(--type-12-size);
   line-height: var(--type-12-line);
+}
+
+/* ============================================================================
+ * Connected apps tab — adapter rows. Each adapter renders as a card
+ * with a header (name + toggle), description, capability chips, and
+ * an install section that appears when the adapter isn't authorized.
+ * ========================================================================== */
+.adapters-category {
+  margin-bottom: var(--space-7);
+}
+.adapter-row {
+  background:
+    var(--gradient-specular-top),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.adapter-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.adapter-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.adapter-row-name strong {
+  font-size: var(--type-17-size);
+  line-height: var(--type-17-line);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.adapter-badge {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+.adapter-badge.installed {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.30);
+}
+.adapter-toggle {
+  display: inline-flex;
+}
+.adapter-row-description {
+  margin: 0 0 var(--space-3) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13-size);
+  line-height: var(--type-15-line);
+}
+.adapter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+.adapter-chip {
+  font-size: var(--type-11-size);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+.adapter-install {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+}
+.adapter-install-input-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+.adapter-install-input-row label {
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.adapter-setup-notes {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  line-height: var(--type-13-line);
+  max-width: 60ch;
+}
+.adapter-help-link {
+  display: inline-block;
+  margin-top: var(--space-2);
+  color: var(--accent-400);
+  font-size: var(--type-12-size);
+  text-decoration: none;
+}
+.adapter-help-link:hover {
+  text-decoration: underline;
 }

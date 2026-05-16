@@ -1,6 +1,7 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod adapters;
 mod agent_memory;
 mod app_discovery;
 mod app_metadata;
@@ -106,6 +107,9 @@ fn main() {
             keychain::get_provider_api_key,
             keychain::set_provider_api_key,
             keychain::clear_provider_api_key,
+            adapters::list_adapters,
+            adapters::set_adapter_enabled,
+            adapters::dispatch_adapter_command,
             text_rewrite::list_providers,
             text_rewrite::rewrite_selection,
             text_rewrite::open_drafting_window_with_text,

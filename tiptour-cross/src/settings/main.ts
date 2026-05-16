@@ -12,6 +12,7 @@ import { renderIndicatorsTab } from "./indicators";
 import { renderMemoryTab } from "./memory";
 import { renderTasksTab } from "./tasks";
 import { renderPersonasTab } from "./personas";
+import { renderAdaptersTab } from "./adapters";
 import { installThemeBridge } from "../theme";
 
 void installThemeBridge();
@@ -26,6 +27,7 @@ type TabName =
   | "memory"
   | "tasks"
   | "personas"
+  | "adapters"
   | "permissions"
   | "about";
 
@@ -39,6 +41,7 @@ const tabRenderers: Record<TabName, (paneElement: HTMLElement) => Promise<void>>
   memory: renderMemoryTab,
   tasks: renderTasksTab,
   personas: renderPersonasTab,
+  adapters: renderAdaptersTab,
   permissions: renderPermissionsTab,
   about: renderAboutTab,
 };
