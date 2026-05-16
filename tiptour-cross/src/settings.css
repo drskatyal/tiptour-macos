@@ -66,29 +66,75 @@ body {
   app-region: no-drag;
 }
 
+/*
+ * Sidebar tabs. macOS Sequoia uses an iconed sidebar with a
+ * blue-tinted pill behind the active row. Each tab gets a leading
+ * SF-style glyph via ::before so the rail reads as a real native
+ * sidebar instead of a list of words.
+ */
 .settings-tab {
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   text-align: left;
-  padding: 7px var(--space-3);
+  padding: 7px var(--space-3) 7px 36px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
   font-size: var(--type-13-size);
   line-height: var(--type-13-line);
   letter-spacing: var(--type-13-track);
+  font-weight: 500;
+  position: relative;
   transition:
     background var(--motion-fast) var(--motion-easing),
     color var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing);
 }
+.settings-tab::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 18px;
+  transition: background var(--motion-fast) var(--motion-easing),
+              color var(--motion-fast) var(--motion-easing);
+}
+.settings-tab[data-tab="general"]::before     { content: "⚙"; }
+.settings-tab[data-tab="commands"]::before    { content: "✦"; }
+.settings-tab[data-tab="flows"]::before       { content: "⟲"; }
+.settings-tab[data-tab="recordings"]::before  { content: "●"; color: var(--danger-500); }
+.settings-tab[data-tab="capabilities"]::before{ content: "◇"; }
+.settings-tab[data-tab="indicators"]::before  { content: "▮"; }
+.settings-tab[data-tab="memory"]::before      { content: "❋"; }
+.settings-tab[data-tab="tasks"]::before       { content: "▤"; }
+.settings-tab[data-tab="personas"]::before    { content: "☻"; }
+.settings-tab[data-tab="permissions"]::before { content: "✓"; }
+.settings-tab[data-tab="about"]::before       { content: "ⓘ"; }
+
 .settings-tab:hover {
-  background: var(--surface-raised);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.settings-tab:hover::before {
+  background: var(--surface-4);
+  color: var(--text-primary);
 }
 .settings-tab:active {
-  background: var(--surface-raised-hover);
+  background: var(--surface-3);
 }
 .settings-tab:focus-visible {
   outline: none;
@@ -96,9 +142,15 @@ body {
   box-shadow: var(--shadow-focus-ring);
 }
 .settings-tab[data-active="true"] {
-  background: rgba(37, 99, 235, 0.18);
-  color: var(--accent-400);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.18));
+  color: #ffffff;
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.30);
+}
+.settings-tab[data-active="true"]::before {
+  background: var(--accent-500);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.6);
 }
 
 /*
@@ -128,18 +180,18 @@ body {
 }
 
 .settings-pane h2 {
-  margin: 0 0 var(--space-1) 0;
+  margin: 0 0 var(--space-2) 0;
   font-size: var(--type-28-size);
   line-height: var(--type-28-line);
   letter-spacing: var(--type-28-track);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
 }
 .settings-pane h3 {
-  margin: var(--space-6) 0 var(--space-3) 0;
-  font-size: var(--type-15-size);
-  line-height: var(--type-15-line);
-  letter-spacing: var(--type-15-track);
+  margin: var(--space-7) 0 var(--space-3) 0;
+  font-size: var(--type-17-size);
+  line-height: var(--type-17-line);
+  letter-spacing: var(--type-17-track);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -149,6 +201,7 @@ body {
   font-size: var(--type-15-size);
   line-height: var(--type-15-line);
   letter-spacing: var(--type-15-track);
+  max-width: 56ch;
 }
 
 /*
@@ -598,6 +651,135 @@ body {
 }
 .indicators-type-toggle-description {
   color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+}
+
+/* ============================================================================
+ * macOS-style toggle switch — applied to every checkbox in the settings
+ * pane (and indicators per-type rows). Visually swaps the native UA
+ * checkbox for a pill-shaped track + circular knob that slides on
+ * :checked, matching macOS Sequoia's native NSSwitch.
+ * ========================================================================== */
+.settings-pane input[type="checkbox"],
+.indicators-type-toggle-row input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  outline: none;
+  transition: background var(--motion-medium) var(--motion-easing),
+              border-color var(--motion-medium) var(--motion-easing);
+}
+.settings-pane input[type="checkbox"]::after,
+.indicators-type-toggle-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform var(--motion-medium) var(--motion-easing);
+}
+.settings-pane input[type="checkbox"]:checked,
+.indicators-type-toggle-row input[type="checkbox"]:checked {
+  background: var(--accent-500);
+  border-color: transparent;
+}
+.settings-pane input[type="checkbox"]:checked::after,
+.indicators-type-toggle-row input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+.settings-pane input[type="checkbox"]:focus-visible,
+.indicators-type-toggle-row input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+.settings-pane input[type="checkbox"]:disabled,
+.indicators-type-toggle-row input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Selects — drop the default OS chevron + paint our own so the control
+ * matches the native macOS popup-button look.
+ * ========================================================================== */
+.settings-pane select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.settings-pane select:hover:not(:disabled) {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-primary) 50%),
+    linear-gradient(135deg, var(--text-primary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ============================================================================
+ * Indicators per-type rows — promote them from naked labels to proper
+ * rows that share the same surface-1 card treatment as .settings-row.
+ * ========================================================================== */
+.indicators-type-toggle-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.indicators-type-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+}
+.indicators-type-toggle-row + .indicators-type-toggle-row {
+  border-top: 1px solid var(--surface-divider);
+}
+.indicators-type-toggle-row:hover {
+  background: var(--surface-2);
+}
+.indicators-type-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.indicators-type-toggle-label {
+  color: var(--text-primary);
+  font-size: var(--type-13-size);
+  font-weight: 500;
+}
+.indicators-type-toggle-description {
+  color: var(--text-secondary);
   font-size: var(--type-12-size);
   line-height: var(--type-12-line);
 }

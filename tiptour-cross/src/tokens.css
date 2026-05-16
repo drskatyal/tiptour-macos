@@ -139,11 +139,11 @@
   --space-7: 32px;
   --space-8: 40px;
 
-  /* Corner radii. -sm for inputs/buttons, -md for cards, -lg for the
-     floating panel, -pill for status chips. */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* Corner radii. macOS Sequoia / Tahoe leans on generous radii:
+     buttons sit at 8px, cards at 12px, large panels at 16-18px. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
   --radius-pill: 999px;
 
   /* Composed shadows: tighter top edge + wider bottom edge, the way

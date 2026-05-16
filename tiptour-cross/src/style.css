@@ -746,3 +746,65 @@ body {
   display: flex;
   justify-content: flex-end;
 }
+
+/* ============================================================================
+ * macOS-style toggle switch for every checkbox inside the panel —
+ * matches the Settings dashboard treatment so the recording-opt-in
+ * and always-on-listening rows read as native NSSwitch controls.
+ * ========================================================================== */
+.panel input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  outline: none;
+  transition: background var(--motion-medium) var(--motion-easing),
+              border-color var(--motion-medium) var(--motion-easing);
+}
+.panel input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform var(--motion-medium) var(--motion-easing);
+}
+.panel input[type="checkbox"]:checked {
+  background: var(--accent-500);
+  border-color: transparent;
+}
+.panel input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+.panel input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+
+/* Selects in the panel — drop UA chevron + paint our own. */
+.panel select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
