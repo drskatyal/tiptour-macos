@@ -188,6 +188,23 @@ impl WakeWordDispatcher {
             return;
         }
 
+        // Local "help" / "what can you do" / "capabilities" — fully
+        // offline, no Gemini session opened. Surface the canned response
+        // through the existing overlay bubble for 8s.
+        if normalized == "help"
+            || normalized == "what can you do"
+            || normalized == "capabilities"
+        {
+            let help_text = build_help_response_text();
+            crate::overlay::show_response(&self.app_handle, help_text, false, None);
+            let app_handle_for_hide = self.app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+                crate::overlay::hide_response(&app_handle_for_hide);
+            });
+            return;
+        }
+
         // "switch to <persona>" / "become <persona>" → flip active
         // persona without going through Gemini. The panel listens for
         // `persona_switched` and restarts any open session so the new
@@ -278,6 +295,39 @@ impl WakeWordDispatcher {
             });
         }
     }
+}
+
+/// Build the canned "what can TipTour do" answer. Pulled from live
+/// state — active persona, current operating mode, hotkey, and counts
+/// — so the user always gets a truthful snapshot, not a stale string.
+fn build_help_response_text() -> String {
+    let active_persona_name = crate::personas::get_active_persona()
+        .map(|persona| persona.name)
+        .unwrap_or_else(|_| "default".to_string());
+    let mode_label = match crate::mode::current_operating_mode() {
+        crate::mode::OperatingMode::Autopilot => "Autopilot",
+        crate::mode::OperatingMode::Teaching => "Teaching",
+    };
+    let saved_flow_count = crate::multiflow::list_flows()
+        .map(|flows| flows.len())
+        .unwrap_or(0);
+    let discovered_app_count = crate::app_discovery::enabled_apps_for_grammar().len();
+    let hotkey_label = if cfg!(target_os = "macos") {
+        "Option+X"
+    } else {
+        "Alt+X"
+    };
+    format!(
+        "TipTour can: hold a voice conversation with screen vision; \
+         click, type, and scroll for you in Autopilot, or point in Teaching; \
+         replay saved cross-app flows by voice; \
+         remember facts across sessions; \
+         spawn parallel sub-agents and track them on a kanban board. \
+         \nActive persona: {active_persona_name}. Mode: {mode_label}. \
+         Hotkey: {hotkey_label}. \
+         {saved_flow_count} saved flows. {discovered_app_count} discovered apps. \
+         Say \"switch to <persona>\", \"do <flow>\", or \"open <app>\" to act locally."
+    )
 }
 
 fn text_contains_wake_word(recognized_text: &str) -> bool {

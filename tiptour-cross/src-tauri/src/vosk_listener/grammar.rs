@@ -56,6 +56,11 @@ pub fn build_command_grammar_with_app_aliases_and_personas(
         "stop".to_string(),
         "cancel".to_string(),
         "pause".to_string(),
+        // System "help" — answered locally by the dispatcher; never
+        // opens a Gemini session.
+        "help".to_string(),
+        "what can you do".to_string(),
+        "capabilities".to_string(),
     ];
 
     // Collect every voice-target string (canonical + aliases) and wrap
