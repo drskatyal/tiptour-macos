@@ -54,6 +54,13 @@ pub struct AppSettings {
     /// per press, not a dialogue.
     #[serde(default = "default_voice_mode")]
     pub voice_mode: String,
+    /// Hotkey trigger style:
+    ///   "toggle" — press to start, press again to stop
+    ///   "hold"   — press & hold to record, release to send
+    /// Default: "toggle" so users on a Mac trackpad-and-keyboard
+    /// setup don't have to keep a finger down.
+    #[serde(default = "default_hotkey_behavior")]
+    pub hotkey_behavior: String,
     /// Path the brain-dump adapter writes captures to. Empty = use
     /// the default `~/Documents/TipTour Brain Dumps/`. Point at an
     /// Obsidian vault root to make captures part of an Obsidian
@@ -81,7 +88,14 @@ fn default_theme() -> String {
     DEFAULT_THEME.to_string()
 }
 fn default_voice_mode() -> String {
-    "quick".to_string()
+    // Default to Live so the user gets the full bidirectional voice
+    // experience (STT + TTS + screen vision) out of the box. Quick
+    // mode is text-reply-only and tends to read as "broken" the first
+    // time you try it.
+    "live".to_string()
+}
+fn default_hotkey_behavior() -> String {
+    "toggle".to_string()
 }
 
 impl Default for AppSettings {
@@ -94,6 +108,7 @@ impl Default for AppSettings {
             transcribe_chord: default_transcribe_chord(),
             theme: default_theme(),
             voice_mode: default_voice_mode(),
+            hotkey_behavior: default_hotkey_behavior(),
             brain_dump_folder: String::new(),
         }
     }
@@ -151,6 +166,41 @@ pub fn set_app_settings_with_broadcast(
     save_app_settings_to_disk(&settings)?;
     let _ = app.emit("theme_changed", settings.theme.clone());
     Ok(())
+}
+
+/// Light-touch single-field setter for the panel UI. Avoids forcing
+/// the panel to round-trip every shape of `AppSettings` just to
+/// change one value (e.g. switching voice mode mid-session).
+/// Whitelisted fields only — unknown names return an error rather
+/// than silently no-op'ing, which would make UI feedback misleading.
+#[tauri::command]
+pub fn set_app_setting_field(field: String, value: String) -> Result<(), String> {
+    let mut current = load_app_settings_from_disk();
+    match field.as_str() {
+        "voice_mode" => {
+            if value != "live" && value != "quick" {
+                return Err(format!("invalid voice_mode '{value}'"));
+            }
+            current.voice_mode = value;
+        }
+        "hotkey_behavior" => {
+            if value != "toggle" && value != "hold" {
+                return Err(format!("invalid hotkey_behavior '{value}'"));
+            }
+            current.hotkey_behavior = value;
+        }
+        "gemini_model" => {
+            current.gemini_model = value;
+        }
+        "gemini_voice" => {
+            current.gemini_voice = value;
+        }
+        "theme" => {
+            current.theme = value;
+        }
+        other => return Err(format!("unknown field '{other}'")),
+    }
+    save_app_settings_to_disk(&current)
 }
 
 /// Wipe every settings file we know about. Called from the "Reset all

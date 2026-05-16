@@ -95,6 +95,22 @@
         </select>
       </section>
 
+      <section class="mode-toggle">
+        <label for="voice-mode-select">Voice</label>
+        <select id="voice-mode-select">
+          <option value="live">Live — bidirectional voice (STT + TTS)</option>
+          <option value="quick">Quick — single command, text reply</option>
+        </select>
+      </section>
+
+      <section class="mode-toggle">
+        <label for="hotkey-behavior-select">Hotkey</label>
+        <select id="hotkey-behavior-select">
+          <option value="toggle">Tap to toggle (press once to start, again to stop)</option>
+          <option value="hold">Hold to record (press &amp; hold to record, release to send)</option>
+        </select>
+      </section>
+
       <section class="actions">
         <button id="start-listening" class="primary">Start listening</button>
         <button id="stop-listening" class="secondary" hidden>Stop</button>

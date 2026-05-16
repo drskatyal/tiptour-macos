@@ -6,6 +6,45 @@ import { installThemeBridge } from "./theme";
 
 void installThemeBridge();
 
+// Fail-loud panel: when ANY uncaught error or unhandled promise
+// rejection slips through, slap a red banner across the panel so
+// the user sees it instead of staring at a frozen UI. This is the
+// single most important reliability change for the panel — silent
+// JS errors here were the root of "Start listening does nothing".
+function renderFatalErrorOverlay(message: string): void {
+  let overlay = document.getElementById("panel-fatal-error-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "panel-fatal-error-overlay";
+    overlay.style.cssText = [
+      "position:fixed",
+      "top:0",
+      "left:0",
+      "right:0",
+      "z-index:2147483647",
+      "padding:10px 14px",
+      "background:#7a1c1c",
+      "color:#fff",
+      "font:12px/1.4 ui-monospace,monospace",
+      "white-space:pre-wrap",
+      "border-bottom:1px solid #ff8a8a",
+      "max-height:40vh",
+      "overflow:auto",
+    ].join(";");
+    document.body.appendChild(overlay);
+  }
+  overlay.textContent =
+    `Panel error — please screenshot this and share:\n${message}\n\n` +
+    (overlay.textContent ?? "");
+}
+window.addEventListener("error", (event) => {
+  renderFatalErrorOverlay(`${event.message} @ ${event.filename}:${event.lineno}`);
+});
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason);
+  renderFatalErrorOverlay(`Unhandled promise rejection: ${reason}`);
+});
+
 const statusDot = document.querySelector<HTMLElement>(".dot")!;
 const statusLabel = document.getElementById("status-label")!;
 const apiKeyInput = document.getElementById("api-key-input") as HTMLInputElement;
@@ -448,12 +487,12 @@ async function endQuickCaptureLoop(): Promise<void> {
 async function handleHotkeyToggle(): Promise<void> {
   // Read mode every press so a settings flip applies immediately —
   // no relaunch required.
-  let voiceMode = "quick";
+  let voiceMode = "live";
   try {
     const s = await invoke<{ voiceMode?: string }>("get_app_settings");
     if (s?.voiceMode === "live" || s?.voiceMode === "quick") voiceMode = s.voiceMode;
   } catch (modeError) {
-    console.warn("[panel] get_app_settings failed, defaulting to quick:", modeError);
+    console.warn("[panel] get_app_settings failed, defaulting to live:", modeError);
   }
 
   if (voiceMode === "quick") {
@@ -469,9 +508,116 @@ async function handleHotkeyToggle(): Promise<void> {
   await togglePushToTalk();
 }
 
+// Quick/Live mode + hotkey behavior selectors in the panel. Sync
+// straight back to settings.json so the change applies live without
+// a settings-window roundtrip. Read on boot to reflect what's
+// already persisted.
+const voiceModeSelect = document.getElementById(
+  "voice-mode-select",
+) as HTMLSelectElement | null;
+const hotkeyBehaviorSelect = document.getElementById(
+  "hotkey-behavior-select",
+) as HTMLSelectElement | null;
+
+interface VoiceAndHotkeySettings {
+  voiceMode?: string;
+  hotkeyBehavior?: string;
+}
+
+async function loadVoiceAndHotkeyPanelControls(): Promise<void> {
+  try {
+    const s = await invoke<VoiceAndHotkeySettings>("get_app_settings");
+    if (voiceModeSelect && (s?.voiceMode === "live" || s?.voiceMode === "quick")) {
+      voiceModeSelect.value = s.voiceMode;
+    }
+    if (
+      hotkeyBehaviorSelect &&
+      (s?.hotkeyBehavior === "toggle" || s?.hotkeyBehavior === "hold")
+    ) {
+      hotkeyBehaviorSelect.value = s.hotkeyBehavior;
+    }
+  } catch (loadError) {
+    console.warn("[panel] could not load voice/hotkey settings:", loadError);
+  }
+}
+
+voiceModeSelect?.addEventListener("change", async () => {
+  try {
+    await invoke("set_app_setting_field", {
+      field: "voice_mode",
+      value: voiceModeSelect.value,
+    });
+  } catch (saveError) {
+    showError(
+      "Could not save voice mode: " +
+        (saveError instanceof Error ? saveError.message : String(saveError)),
+    );
+  }
+});
+
+hotkeyBehaviorSelect?.addEventListener("change", async () => {
+  try {
+    await invoke("set_app_setting_field", {
+      field: "hotkey_behavior",
+      value: hotkeyBehaviorSelect.value,
+    });
+  } catch (saveError) {
+    showError(
+      "Could not save hotkey behavior: " +
+        (saveError instanceof Error ? saveError.message : String(saveError)),
+    );
+  }
+});
+
+// When the user picks "Hold to record" we ignore press-toggle and
+// only act on the press→release transition (begin on press, stop +
+// dispatch on release). Default "toggle" semantics ignore release
+// entirely so a long hold reads as a single press.
+let lastHotkeyBehavior: "toggle" | "hold" = "toggle";
+async function refreshLastHotkeyBehavior(): Promise<void> {
+  try {
+    const s = await invoke<{ hotkeyBehavior?: string }>("get_app_settings");
+    lastHotkeyBehavior = s?.hotkeyBehavior === "hold" ? "hold" : "toggle";
+  } catch (_err) {
+    lastHotkeyBehavior = "toggle";
+  }
+}
+void refreshLastHotkeyBehavior();
+// Re-read on every focus so a settings flip applies live without
+// having to restart the app.
+window.addEventListener("focus", () => void refreshLastHotkeyBehavior());
+
 await listen("push_to_talk_toggled", () => {
-  console.info("[panel] hotkey fired");
-  void handleHotkeyToggle();
+  console.info("[panel] hotkey press");
+  // Refresh once per press so a settings flip is picked up on the
+  // very next hotkey use, not the one after that.
+  void refreshLastHotkeyBehavior().then(() => {
+    if (lastHotkeyBehavior === "hold") {
+      // Hold-to-record: start capture on press; release will end it.
+      if (quickCaptureState === "idle") {
+        void beginQuickCaptureLoop().catch((startError) => {
+          showError(
+            "Could not start capture: " +
+              (startError instanceof Error ? startError.message : String(startError)),
+          );
+        });
+      }
+    } else {
+      void handleHotkeyToggle();
+    }
+  });
+});
+
+await listen("push_to_talk_released", () => {
+  console.info("[panel] hotkey release");
+  if (lastHotkeyBehavior === "hold" && quickCaptureState === "armed") {
+    void endQuickCaptureLoop().catch((endError) => {
+      showError(
+        "Could not end capture: " +
+          (endError instanceof Error ? endError.message : String(endError)),
+      );
+    });
+  }
 });
 
 // Transcribe hotkey (default Alt+Z) — toggles Soniox real-time
@@ -1097,6 +1243,7 @@ await listen("previous_session_crashed", () => {
 async function bootNormalPanelState(): Promise<void> {
   await loadStoredApiKey();
   await loadOperatingMode();
+  await loadVoiceAndHotkeyPanelControls();
   await refreshPermissions();
   await refreshSavedFlowsList();
   await loadRecordingOptInInitialState();

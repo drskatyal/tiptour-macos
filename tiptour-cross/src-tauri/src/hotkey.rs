@@ -37,11 +37,27 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
 
 fn register_chord(app: &AppHandle, chord: Shortcut, event_name: &'static str) -> tauri::Result<()> {
     let app_handle = app.clone();
+    // Press/release events get emitted separately so the panel can
+    // choose between toggle semantics (act on press only) and
+    // hold-to-record semantics (start on press, stop on release).
+    // Event names: `<event_name>` for press, `<event_name>_released`
+    // for release.
+    let press_event = event_name;
+    let release_event: &'static str = match event_name {
+        "push_to_talk_toggled" => "push_to_talk_released",
+        "transcribe_toggled" => "transcribe_released",
+        _ => event_name,
+    };
 
     app.global_shortcut()
         .on_shortcut(chord, move |_app, _sc, event| {
-            if event.state == ShortcutState::Pressed {
-                let _ = app_handle.emit(event_name, ());
+            match event.state {
+                ShortcutState::Pressed => {
+                    let _ = app_handle.emit(press_event, ());
+                }
+                ShortcutState::Released => {
+                    let _ = app_handle.emit(release_event, ());
+                }
             }
         })
         .map_err(|error| tauri::Error::Anyhow(anyhow::anyhow!(error.to_string())))?;

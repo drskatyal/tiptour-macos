@@ -15,7 +15,19 @@ body {
      through — but tinted enough that on platforms where the OS
      effect fails to apply (Linux dev, older Windows) we still get a
      readable dark card instead of a transparent rectangle. */
-  background: rgba(20, 24, 30, 0.72);
+  /* Liquid glass body — translucent tint + true backdrop blur with
+     saturate boost so colors behind the panel come through as
+     vivid frosted highlights instead of a grey wash. On macOS this
+     stacks with NSWindow vibrancy; on Windows it stacks with Mica;
+     on Linux it stands alone but still reads as glass. */
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 40%,
+      rgba(0, 0, 0, 0.04)       100%),
+    rgba(18, 20, 26, 0.55);
+  backdrop-filter: blur(40px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.05);
   user-select: none;
   -webkit-user-select: none;
   color: var(--text-primary);
@@ -24,6 +36,10 @@ body {
   flex-direction: column;
   box-sizing: border-box;
   border-radius: 18px;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.18),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   /* Allow vertical scroll when content stack outgrows the panel
      window (permissions banner + saved flows + transcript can run
      long). overflow:hidden was clipping content silently. */

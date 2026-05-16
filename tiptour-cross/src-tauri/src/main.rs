@@ -114,18 +114,50 @@ fn main() {
                     let monitor_position = primary_monitor.position();
                     let monitor_size = primary_monitor.size();
                     let dock_width: u32 = 520;
-                    let dock_height: u32 = 60;
-                    // ~24px above the bottom edge so the dash sits in
-                    // visual breathing room rather than glued to the
-                    // screen edge.
-                    let bottom_margin: u32 = 24;
+                    let dock_height: u32 = 120;
+                    // Sit ~7% above the bottom edge so the dock floats
+                    // in the visual lower-middle rather than glued to
+                    // the screen edge. On a 1080p display this lands
+                    // around y=930; on a 1440p display around y=1310.
+                    let bottom_margin = (monitor_size.height as f32 * 0.07) as i32;
                     let new_x = monitor_position.x
                         + ((monitor_size.width as i32 - dock_width as i32) / 2);
                     let new_y = monitor_position.y + monitor_size.height as i32
                         - dock_height as i32
-                        - bottom_margin as i32;
+                        - bottom_margin;
                     let _ = dock_window
                         .set_position(tauri::PhysicalPosition::new(new_x, new_y));
+                    // Make the dock taller so the action-pill tooltip
+                    // that floats above the chip cluster has room to
+                    // render — the previous 60px height was clipping
+                    // the tooltip to a sliver.
+                    let _ = dock_window.set_size(tauri::PhysicalSize::new(
+                        dock_width, dock_height,
+                    ));
+                }
+            }
+
+            // Position the panel near the top-right of the primary
+            // monitor so users always see it when the app launches.
+            // Without this Tauri picks a default that's often offscreen
+            // on multi-monitor setups, which has been the root of
+            // "I launched the app and nothing happened" reports.
+            if let Some(panel_window) = app.handle().get_webview_window("panel") {
+                if let Ok(Some(primary_monitor)) = panel_window.primary_monitor() {
+                    let monitor_position = primary_monitor.position();
+                    let monitor_size = primary_monitor.size();
+                    let panel_width: u32 = 380;
+                    let panel_height: u32 = 600;
+                    // 24px from the right edge, 80px from the top so it
+                    // doesn't collide with the menu bar / taskbar.
+                    let new_x = monitor_position.x + monitor_size.width as i32
+                        - panel_width as i32
+                        - 24;
+                    let new_y = monitor_position.y + 80;
+                    let _ = panel_window
+                        .set_position(tauri::PhysicalPosition::new(new_x, new_y));
+                    let _ = panel_window.show();
+                    let _ = panel_window.set_focus();
                 }
             }
             // Stash the AppHandle globally so deep callers (the
@@ -249,6 +281,7 @@ fn main() {
             vosk_listener::download_vosk_model_if_needed,
             app_settings::get_app_settings,
             app_settings::set_app_settings_with_broadcast,
+            app_settings::set_app_setting_field,
             app_settings::reset_all_settings,
             app_metadata::get_app_metadata,
             app_metadata::open_data_folder_in_os_file_browser,
