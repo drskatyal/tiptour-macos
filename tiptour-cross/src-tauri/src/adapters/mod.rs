@@ -20,7 +20,7 @@
 // have the file picked up live without rebuilding the binary.
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 use crate::keychain;
 
@@ -268,11 +268,26 @@ pub async fn dispatch_adapter_command(
     }
     let enabled = enabled_slugs();
     if !enabled.contains(&normalized_slug) {
-        return Err(format!(
+        let message = format!(
             "Adapter '{normalized_slug}' is disabled. Enable it in Settings → Connected apps."
-        ));
+        );
+        // Surface the gate failure to any listening dock so the
+        // confirmation chip shows the disabled-adapter remedy.
+        let _ = app.emit(
+            "adapter_dispatched",
+            serde_json::json!({
+                "slug": normalized_slug,
+                "handler": handler,
+                "ok": false,
+                "message": message,
+            }),
+        );
+        return Err(message);
     }
-    match normalized_slug.as_str() {
+    let app_for_event = app.clone();
+    let slug_for_event = normalized_slug.clone();
+    let handler_for_event = handler.clone();
+    let result = match normalized_slug.as_str() {
         "spotify" => spotify::dispatch(app, &handler, args).await,
         "apple-music" => apple_music::dispatch(app, &handler, args).await,
         "whatsapp" => whatsapp::dispatch(app, &handler, args).await,
@@ -303,7 +318,26 @@ pub async fn dispatch_adapter_command(
         "brain-dump" => brain_dump::dispatch(app, &handler, args).await,
         "soniox" => soniox::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {normalized_slug} (was '{slug}')")),
-    }
+    };
+
+    // Fire-and-forget event so the dock can show a brief
+    // confirmation chip without each adapter wiring its own emit.
+    let ok = result.is_ok();
+    let message = match &result {
+        Ok(_) => format!("{slug_for_event} · {handler_for_event}"),
+        Err(error) => error.clone(),
+    };
+    let _ = app_for_event.emit(
+        "adapter_dispatched",
+        serde_json::json!({
+            "slug": slug_for_event,
+            "handler": handler_for_event,
+            "ok": ok,
+            "message": message,
+        }),
+    );
+
+    result
 }
 
 /// Normalize a slug that Gemini may have decorated with sub-paths

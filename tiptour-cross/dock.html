@@ -15,6 +15,11 @@
       <div class="dock-dash" aria-hidden="true"></div>
 
       <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls">
+        <!-- Focused-app pip: tells the user which app TipTour will
+             target when they say "this" / "here" / "now". Only
+             visible while the toolbar is expanded. Updated on hover
+             so it stays accurate without polling. -->
+        <span id="dock-focused-app" class="dock-focused-pip" hidden></span>
         <button id="dock-quick" class="dock-button dock-primary" title="Start a quick voice command (Alt+X)">
           <span class="dock-icon" data-icon="mic"></span>
           <span class="dock-label">Ask</span>
@@ -38,6 +43,10 @@
         <button id="dock-open-settings" class="dock-button dock-ghost" title="Open settings">
           <span class="dock-icon" data-icon="gear"></span>
         </button>
+        <!-- Transient confirmation chip — appears for ~1.6s after any
+             adapter_dispatched event, then auto-fades. Lives at the
+             right edge so it doesn't push other controls around. -->
+        <span id="dock-dispatch-chip" class="dock-dispatch-chip" hidden></span>
       </div>
     </div>
     <script type="module" src="/src/dock/main.ts"></script>

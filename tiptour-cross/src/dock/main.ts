@@ -77,6 +77,53 @@ bind("dock-open-settings", async () => {
   }
 });
 
+// Focused-app pip: refreshed on every hover-expand so the user
+// sees which app TipTour will implicitly target when they say
+// "this" / "here". Cheap enough to read on demand (~30ms via
+// osascript on Mac, sub-ms via GetForegroundWindow on Windows).
+const focusedPipElement = document.getElementById("dock-focused-app");
+async function refreshFocusedAppPip(): Promise<void> {
+  if (!focusedPipElement) return;
+  try {
+    const appName = await invoke<string | null>("get_frontmost_app_name");
+    if (appName && appName.length > 0 && appName !== "TipTour") {
+      focusedPipElement.textContent = `Targeting · ${appName}`;
+      focusedPipElement.hidden = false;
+    } else {
+      // Hide rather than show "TipTour" — when the dock itself is
+      // frontmost the pip is meaningless.
+      focusedPipElement.hidden = true;
+    }
+  } catch {
+    focusedPipElement.hidden = true;
+  }
+}
+rootElement.addEventListener("mouseenter", () => {
+  void refreshFocusedAppPip();
+});
+
+// Transient confirmation chip: shows after each adapter dispatch,
+// fades after ~1.6s. Lives in the toolbar's right edge so it
+// doesn't push other controls.
+const dispatchChipElement = document.getElementById("dock-dispatch-chip");
+let dispatchChipTimeoutId: number | null = null;
+await listen<{ slug: string; handler: string; ok: boolean; message: string }>(
+  "adapter_dispatched",
+  (event) => {
+    if (!dispatchChipElement) return;
+    const payload = event.payload;
+    dispatchChipElement.dataset.ok = payload.ok ? "true" : "false";
+    dispatchChipElement.textContent = payload.ok
+      ? `✓ ${payload.slug} · ${payload.handler}`
+      : `⚠ ${payload.message.slice(0, 60)}`;
+    dispatchChipElement.hidden = false;
+    if (dispatchChipTimeoutId) clearTimeout(dispatchChipTimeoutId);
+    dispatchChipTimeoutId = window.setTimeout(() => {
+      if (dispatchChipElement) dispatchChipElement.hidden = true;
+    }, 1800);
+  },
+);
+
 // Reflect the session/transcribe state via data-active so the dash
 // glows blue when something's running. Rust pushes events for both.
 await listen<string>("quick_voice_state", (event) => {

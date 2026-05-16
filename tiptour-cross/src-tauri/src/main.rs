@@ -167,6 +167,7 @@ fn main() {
             text_rewrite::rewrite_selection_into_drafting_window,
             text_rewrite::paste_from_drafting_window,
             text_rewrite::clipboard_rich::put_clipboard_rich,
+            dictation::get_frontmost_app_name,
             dictation::start_dictation,
             dictation::stop_dictation,
             dictation::get_dictation_state,

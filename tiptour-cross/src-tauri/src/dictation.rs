@@ -58,7 +58,7 @@ pub struct DictationState {
 /// the OS-native "frontmost process" identifier via the lightest
 /// API per platform.
 #[cfg(target_os = "macos")]
-fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
+pub fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
     use std::process::Command;
     // `osascript` is available on every Mac and won't require
     // accessibility permissions for "frontmost process" — only the
@@ -78,7 +78,7 @@ fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
     }
 }
 #[cfg(target_os = "windows")]
-fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
+pub fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
     // Lightweight Win32 call — GetForegroundWindow then
     // GetWindowThreadProcessId. Both are no-permission APIs.
     use windows::Win32::Foundation::HWND;
@@ -97,7 +97,7 @@ fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
     }
 }
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
+pub fn snapshot_frontmost_app() -> (Option<i32>, Option<String>) {
     (None, None)
 }
 
@@ -149,6 +149,16 @@ fn now_unix_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+/// Frontmost-app summary for the dock's focused-app pip. Returns
+/// just the human-readable name (the pid stays internal). None on
+/// platforms where we can't sniff frontmost (or when the snapshot
+/// failed transiently — caller should hide the pip in that case).
+#[tauri::command]
+pub fn get_frontmost_app_name() -> Option<String> {
+    let (_pid, name) = snapshot_frontmost_app();
+    name
 }
 
 #[tauri::command]

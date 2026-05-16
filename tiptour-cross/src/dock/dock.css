@@ -324,3 +324,68 @@ body {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.55; }
 }
+
+/* ===========================================================================
+ * Focused-app pip
+ * Shows on the left of the toolbar while expanded. Tells the user which app
+ * TipTour will implicitly target ("this" / "here" / "now" in spoken
+ * commands). Quiet typography — secondary label, no border, breathable
+ * padding. Pushed slightly right so it visually separates from the buttons.
+ * ======================================================================== */
+.dock-focused-pip {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.04em;
+  color: rgba(245, 246, 250, 0.42);
+  padding: 0 8px 0 4px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Inherit the same in-animation as other toolbar children. */
+}
+
+/* ===========================================================================
+ * Transient confirmation chip
+ * Appears at the right edge of the toolbar after every adapter dispatch.
+ * Auto-fades after ~1.8s. Same glass treatment as the dock buttons but
+ * smaller + lower contrast so it reads as "log entry" not "control".
+ * ======================================================================== */
+.dock-dispatch-chip {
+  font-size: var(--type-11-size);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 50%),
+    rgba(30, 33, 40, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(245, 246, 250, 0.72);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.05);
+  animation: dock-chip-pop-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: 2px;
+}
+.dock-dispatch-chip[data-ok="true"] {
+  color: rgba(110, 231, 183, 0.92);
+  border-color: rgba(52, 211, 153, 0.22);
+  box-shadow:
+    inset 0 0.5px 0 rgba(110, 231, 183, 0.12),
+    0 0 0 1px rgba(52, 211, 153, 0.10),
+    0 0 12px -2px rgba(52, 211, 153, 0.22);
+}
+.dock-dispatch-chip[data-ok="false"] {
+  color: rgba(252, 165, 165, 0.95);
+  border-color: rgba(229, 72, 77, 0.30);
+  box-shadow:
+    inset 0 0.5px 0 rgba(252, 165, 165, 0.10),
+    0 0 0 1px rgba(229, 72, 77, 0.14),
+    0 0 12px -2px rgba(229, 72, 77, 0.28);
+}
+@keyframes dock-chip-pop-in {
+  0%   { opacity: 0; transform: translateX(4px) scale(0.94); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
