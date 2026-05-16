@@ -13,6 +13,8 @@ import { renderMemoryTab } from "./memory";
 import { renderTasksTab } from "./tasks";
 import { renderPersonasTab } from "./personas";
 import { renderAdaptersTab } from "./adapters";
+import { renderSessionsTab } from "./sessions";
+import { renderDiagnosticsTab } from "./diagnostics";
 import { installThemeBridge } from "../theme";
 
 void installThemeBridge();
@@ -28,6 +30,8 @@ type TabName =
   | "tasks"
   | "personas"
   | "adapters"
+  | "sessions"
+  | "diagnostics"
   | "permissions"
   | "about";
 
@@ -42,6 +46,8 @@ const tabRenderers: Record<TabName, (paneElement: HTMLElement) => Promise<void>>
   tasks: renderTasksTab,
   personas: renderPersonasTab,
   adapters: renderAdaptersTab,
+  sessions: renderSessionsTab,
+  diagnostics: renderDiagnosticsTab,
   permissions: renderPermissionsTab,
   about: renderAboutTab,
 };

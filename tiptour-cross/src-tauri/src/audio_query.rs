@@ -167,6 +167,12 @@ pub async fn end_quick_voice_capture_and_dispatch(
     let value: Value = response.json().await.map_err(|e| format!("parse: {e}"))?;
     let input_tokens = value.pointer("/usageMetadata/promptTokenCount").and_then(|v| v.as_u64()).map(|n| n as u32);
     let output_tokens = value.pointer("/usageMetadata/candidatesTokenCount").and_then(|v| v.as_u64()).map(|n| n as u32);
+    // Aggregate into the cost meter so the panel can show a live
+    // $-spent gauge. Silent on failure — cost tracking is a "nice to
+    // have" surface; never let it block a voice command.
+    if let (Some(i), Some(o)) = (input_tokens, output_tokens) {
+        let _ = crate::cost_meter::record_usage(i as u64, o as u64);
+    }
 
     // Look for a function call first, fall back to text reply.
     let parts = value.pointer("/candidates/0/content/parts");
@@ -244,26 +250,41 @@ fn summarize_adapter_result(slug: &str, handler: &str, result: &Value) -> String
     format!("{slug} • {handler} ok")
 }
 
+/// Build the `control_app` tool declaration with ONLY the user's
+/// enabled adapters listed. Pulls ~3000 tokens of static description
+/// down to whatever the active subset needs (typically 400-800).
+/// Big cost win on every dispatch.
 fn adapter_dispatch_tool_declaration() -> Value {
+    let enabled = adapters::enabled_adapter_slugs_with_capability_hints();
+    let slug_list = enabled
+        .iter()
+        .map(|(slug, _)| slug.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let handler_hints = enabled
+        .iter()
+        .map(|(_, hint)| hint.as_str())
+        .filter(|h| !h.is_empty())
+        .collect::<Vec<_>>()
+        .join(" | ");
+    let category_hint = if enabled.is_empty() {
+        String::new()
+    } else {
+        ". OR category-relative slugs that resolve to user defaults: \
+         default:tasks, default:music, default:email, default:calendar, \
+         default:notes, default:messages.".into()
+    };
+    let description = format!(
+        "Drive an installed adapter to take an action on the user's machine. \
+         Use this for any imperative — 'play X', 'add to list', 'send message', \
+         'remind me', 'save thought', 'screenshot'. Available slugs: {slug_list}\
+         {category_hint} CRITICAL: args field names must match the handler's \
+         expected shape; the deserializer rejects unknown fields. Common shapes: \
+         {handler_hints}"
+    );
     json!({
         "name": "control_app",
-        "description":
-            "Drive an installed adapter to take an action on the user's machine. \
-             Use this for any imperative — 'play X', 'add to list', 'send message', 'remind me', \
-             'open file', 'save thought', 'screenshot'. The runtime dispatches to the correct \
-             adapter and shows a one-line confirmation. Slugs you can use: \
-             spotify, apple-music, whatsapp, mail-macos, messages-macos, slack, \
-             calendar-macos, reminders-macos, notes-macos, notion, linear, obsidian, \
-             ms-to-do, pages, numbers, keynote, word, excel, powerpoint, outlook-desktop, \
-             github, vscode, terminal-macos, finder, file-explorer, safari, browser, brain-dump. \
-             OR use category-relative slugs that resolve to the user's default app: \
-             default:tasks, default:music, default:email, default:calendar, default:notes, \
-             default:messages. CRITICAL: args field names must match the handler's expected \
-             shape exactly; the deserializer rejects unknown fields. \
-             Common handler shapes: spotify.play_track:{query}, \
-             whatsapp.send_message:{phone,text}, github.create_issue:{repo,title,body?}, \
-             brain-dump.capture_text:{text}, brain-dump.capture_screenshot:{caption?}, \
-             reminders-macos.add:{text,due_iso?}, calendar-macos.create_event:{summary,start_iso}.",
+        "description": description,
         "parameters": {
             "type": "object",
             "properties": {

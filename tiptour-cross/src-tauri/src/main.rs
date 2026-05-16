@@ -11,7 +11,9 @@ mod app_settings;
 mod audio;
 mod bug_report;
 mod capabilities;
+mod conversation_history;
 mod cost_meter;
+mod diagnostics;
 mod crash_recovery;
 mod custom_commands;
 mod dictation;
@@ -149,6 +151,7 @@ fn main() {
             keychain::clear_provider_api_key,
             adapters::list_adapters,
             adapters::set_adapter_enabled,
+            adapters::get_enabled_adapter_hints,
             adapters::dispatch_adapter_command,
             adapters::defaults::list_default_categories,
             adapters::defaults::set_default_adapter,
@@ -258,6 +261,12 @@ fn main() {
             agent_memory::list_memories,
             agent_memory::update_memory,
             agent_memory::list_top_importance_memories,
+            conversation_history::append_session_turn,
+            conversation_history::list_sessions,
+            conversation_history::get_session_history,
+            conversation_history::delete_session,
+            conversation_history::get_last_session_tail,
+            diagnostics::run_diagnostics,
             subagents::spawn_subagent_command,
             subagents::list_subagents,
             subagents::get_subagent_status,

@@ -121,6 +121,13 @@ export class GeminiLiveSession {
   private workflowProgressUnlisten: UnlistenFn | null = null;
   private multiflowProgressUnlisten: UnlistenFn | null = null;
   private readonly options: GeminiLiveSessionOptions;
+  // Each opened session gets a fresh UUID. Every user/model turn is
+  // appended to a file keyed on this id so the history list shows one
+  // entry per push-to-talk conversation, not one giant rolling log.
+  private readonly sessionId: string =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 
   constructor(options: GeminiLiveSessionOptions) {
     this.options = options;
@@ -146,6 +153,29 @@ export class GeminiLiveSession {
       this.options.onError(message);
       this.options.onStatusChange("error");
       throw error;
+    }
+
+    // Seed the new session with the tail of the previous one so the
+    // user can say "remember what I asked earlier" and Gemini has
+    // recent context. We deliberately pull from ONE prior session
+    // (not all of them) — concatenating every past session would
+    // blow the context budget and confuse the model with stale topics.
+    try {
+      const tail = await invoke<Array<{ role: string; text: string; at: string }>>(
+        "get_last_session_tail",
+        { maxTurns: 6 },
+      );
+      if (tail && tail.length > 0) {
+        const formatted = tail
+          .map((turn) => `${turn.role === "user" ? "User" : "Assistant"}: ${turn.text}`)
+          .join("\n");
+        this.client.sendTextTurn(
+          `Earlier this user said:\n${formatted}\n\nUse this for continuity only if they reference it; otherwise treat this as a fresh conversation.`,
+          false,
+        );
+      }
+    } catch (error) {
+      console.warn("[session] failed to seed prior-session tail:", error);
     }
 
     this.micUnlisten = await listen<number[]>("mic_chunk", (event) => {
@@ -289,9 +319,23 @@ export class GeminiLiveSession {
         return;
       case "input_transcript":
         this.options.onUserTranscript(message.text);
+        void invoke("append_session_turn", {
+          sessionId: this.sessionId,
+          role: "user",
+          text: message.text,
+        }).catch((error) => {
+          console.warn("[session] append user turn failed:", error);
+        });
         return;
       case "output_transcript":
         this.options.onModelTranscript(message.text);
+        void invoke("append_session_turn", {
+          sessionId: this.sessionId,
+          role: "model",
+          text: message.text,
+        }).catch((error) => {
+          console.warn("[session] append model turn failed:", error);
+        });
         // Stream model text into the overlay bubble so the user can read
         // the reply right next to the companion cursor.
         void invoke("overlay_show_response", {

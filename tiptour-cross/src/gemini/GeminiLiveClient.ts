@@ -199,6 +199,34 @@ export class GeminiLiveClient {
     } catch (personaError) {
       console.warn("[gemini] get_active_persona failed:", personaError);
     }
+    // Pull the user's enabled adapters so the control_app description only
+    // lists slugs they actually have wired up. This keeps the per-session
+    // setup payload under ~600 tokens instead of the ~3K-token catalog,
+    // which directly trims prompt cost on every model turn.
+    let enabledAdapterHints: Array<{ slug: string; hint: string }> = [];
+    try {
+      enabledAdapterHints =
+        (await invoke<Array<{ slug: string; hint: string }>>(
+          "get_enabled_adapter_hints",
+        )) ?? [];
+    } catch (hintsError) {
+      console.warn("[gemini] get_enabled_adapter_hints failed:", hintsError);
+    }
+    const enabledSlugList = enabledAdapterHints
+      .map((entry) => entry.slug)
+      .join(", ");
+    const enabledHandlerHints = enabledAdapterHints
+      .map((entry) => entry.hint)
+      .filter((hint) => hint.length > 0)
+      .join("\n");
+    const controlAppDescription =
+      enabledAdapterHints.length === 0
+        ? "Drive an installed third-party adapter. The user has not enabled any adapters yet — direct them to Settings → Connected apps before calling this."
+        : `Drive an installed third-party adapter. Use this whenever the user asks to do something IN a specific app — 'play X on Spotify', 'send WhatsApp to Mom: …', 'create a Linear issue', 'add to my Notion log', 'open this in VS Code', 'reveal this in Finder'. Look up the adapter slug + handler from the user's intent. Enabled adapter slugs (only these will succeed): ${enabledSlugList}. Pass handler args under \`args\`. CATEGORY ROUTING: when the user mentions an intent without naming a specific app, set slug='default:<category>' where category is one of tasks / music / email / calendar / notes / messages.`;
+    const controlAppArgsDescription =
+      enabledAdapterHints.length === 0
+        ? "Handler-specific arguments. No adapters enabled yet."
+        : `Handler-specific arguments. CRITICAL: use ONLY the exact field names listed below per handler — do NOT invent variants. The Rust deserializer rejects unknown fields.\n${enabledHandlerHints}`;
     const baselineSystemInstruction =
       "You are TipTour, a helpful voice companion. Reply concisely.";
     const composedSystemInstruction = activePersonaSystemPrompt
@@ -390,8 +418,7 @@ export class GeminiLiveClient {
               },
               {
                 name: "control_app",
-                description:
-                  "Drive an installed third-party adapter (Spotify, WhatsApp, Mail, Calendar, Notion, Linear, GitHub, Slack, Word, Excel, Safari, Finder, etc.). Use this whenever the user asks to do something IN a specific app — 'play X on Spotify', 'send WhatsApp to Mom: …', 'create a Linear issue', 'add to my Notion log', 'open this in VS Code', 'reveal this in Finder'. Look up the adapter slug + handler from the user's intent. The adapter must be installed + enabled (Settings → Connected apps) for the call to succeed; if it isn't, surface the failure verbatim so the user knows to install it. Available slugs include: spotify, apple-music, whatsapp, mail-macos, messages-macos, slack, calendar-macos, reminders-macos, notes-macos, notion, linear, obsidian, ms-to-do, pages, numbers, keynote, word, excel, powerpoint, outlook-desktop, github, vscode, terminal-macos, finder, file-explorer, safari, browser. The `browser` adapter drives any Chromium-based browser (Chrome / Edge / Arc / Brave / Vivaldi) and unlocks every webapp: ChatGPT, Google Docs / Sheets, YouTube, LinkedIn, Maps, internal tools. Its handlers are: list_tabs, open_url{url,new_tab?}, current_url, current_title, read_page_text{tab_match?}, click_text{text,tab_match?}, fill_field{selector,value,tab_match?}, execute_js{expression,tab_match?}. Each adapter exposes a small set of handlers (e.g. spotify: play_track/pause/resume/next/previous/current; whatsapp: send_message/open_chat; calendar-macos: create_event/list_today). Pass handler args under `args`.",
+                description: controlAppDescription,
                 parameters: {
                   type: "object",
                   properties: {
@@ -407,41 +434,7 @@ export class GeminiLiveClient {
                     },
                     args: {
                       type: "object",
-                      description:
-                        "Handler-specific arguments. CRITICAL: use ONLY the exact field names listed below per handler — do NOT invent variants like 'song_name' or 'track_name' or 'artist_name'. The Rust deserializer rejects unknown fields and the call fails silently if you guess.\n" +
-                        "spotify.play_track: {query: '<song or song+artist>'}\n" +
-                        "spotify.pause / resume / next / previous / current: {}\n" +
-                        "apple-music.play_track: {query: '<song name>'}; .pause / resume / next / previous / current: {}\n" +
-                        "whatsapp.send_message: {phone: '<E.164 e.g. +14155551234>', text: '<body>'}; .open_chat: {phone}\n" +
-                        "mail-macos.compose / send: {to, cc?, subject, body}\n" +
-                        "messages-macos.send: {to, text}\n" +
-                        "slack.post_message: {channel, text}; .post_dm: {user_id, text}\n" +
-                        "calendar-macos.create_event: {summary, start_iso, end_iso?, location?, notes?}; .list_today: {}\n" +
-                        "reminders-macos.add: {text, due_iso?, notes?}; .list_today: {}\n" +
-                        "notes-macos.create / append: {title, body}\n" +
-                        "notion.create_page: {parent_page_id, title, body}; .append_text: {page_id, text}\n" +
-                        "linear.create_issue: {team_key, title, description?, priority?}; .my_issues: {}\n" +
-                        "obsidian.open_note: {vault, file}; .create_note: {vault, name, content}; .append_to_daily: {vault, text}\n" +
-                        "ms-to-do.add: {title, notes?}\n" +
-                        "pages / numbers / keynote.new_document: {}; .open: {path}\n" +
-                        "word.open: {path}; .new_document: {}; .save_as_pdf: {input_path, output_path}\n" +
-                        "excel.open: {path}; .new_workbook: {}\n" +
-                        "powerpoint.open: {path}; .new_presentation: {}; .start_slideshow: {}\n" +
-                        "outlook-desktop.compose: {to, subject, body}\n" +
-                        "github.create_issue: {repo: '<owner/repo>', title, body?, labels?}; .my_review_requests: {}\n" +
-                        "vscode.open / open_in_cursor: {path}; .goto_line: {path, line, column?}\n" +
-                        "terminal-macos.run: {command, cwd?}; .open_cwd: {path}\n" +
-                        "finder.open_path / reveal_path: {path}\n" +
-                        "file-explorer.open_path / reveal_path: {path}\n" +
-                        "safari.open_url / new_tab: {url}; .current_url / current_title: {}\n" +
-                        "browser.list_tabs: {}; .open_url: {url, new_tab?}; .current_url / current_title / read_page_text: {tab_match?}; .click_text: {text, tab_match?}; .fill_field: {selector, value, tab_match?}; .execute_js: {expression, tab_match?}\n" +
-                        "brain-dump.capture_text: {text, tags?, title?}; .capture_screenshot: {caption?, tags?}; .daily_note_append: {text}; .find: {query}; .open_folder: {}\n" +
-                        "soniox.start: {}; .stop: {}; .toggle: {}; .state: {} — real-time transcription into the focused field\n" +
-                        "\n" +
-                        "CATEGORY ROUTING: when the user mentions an intent without naming a specific app — 'add eggs to my shopping list', 'play something upbeat', 'send Alice an email' — set slug='default:<category>' where category is one of tasks / music / email / calendar / notes / messages. The orchestrator resolves to whichever adapter the user picked during onboarding. Examples:\n" +
-                        "  'remind me to call mom tomorrow' -> control_app(default:tasks, add, {text:'call mom', due_iso:'2026-05-17'})\n" +
-                        "  'play something' -> control_app(default:music, resume, {})\n" +
-                        "  'send Sara a quick note: meeting moved to 3' -> control_app(default:messages, send_message, {...})",
+                      description: controlAppArgsDescription,
                     },
                   },
                   required: ["slug", "handler"],

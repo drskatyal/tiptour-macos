@@ -1496,3 +1496,93 @@ body {
   font-size: var(--type-13-size);
   line-height: var(--type-13-line);
 }
+
+/* History tab — two-pane layout: session list on the left, transcript on the right. */
+.sessions-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 400px;
+}
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--color-border);
+  padding-right: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+.sessions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.sessions-row:hover { background: var(--color-surface-hover); }
+.sessions-row-main { flex: 1; min-width: 0; }
+.sessions-row-title {
+  font-size: var(--type-13-size);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessions-row-meta {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+.sessions-row-delete {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  opacity: 0.4;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 6px;
+}
+.sessions-row-delete:hover { opacity: 1; color: #ff5555; }
+.sessions-detail { padding: 8px; }
+.sessions-detail-header { margin-bottom: 12px; }
+.sessions-detail-meta { font-size: 11px; opacity: 0.6; }
+.sessions-empty { opacity: 0.5; font-style: italic; }
+.sessions-turns { display: flex; flex-direction: column; gap: 10px; }
+.sessions-turn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-surface-elevated);
+}
+.sessions-turn-user { border-left: 2px solid var(--color-accent); }
+.sessions-turn-model { border-left: 2px solid #4a90e2; }
+.sessions-turn-role {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+.sessions-turn-text { white-space: pre-wrap; word-wrap: break-word; }
+
+/* Diagnostics tab */
+.diagnostics-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.diagnostics-table { overflow-x: auto; }
+.diagnostics-rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-13-size);
+}
+.diagnostics-rows th,
+.diagnostics-rows td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.diagnostics-rows th { font-weight: 500; opacity: 0.7; }
+tr.diagnostic-ok td:nth-child(3) { color: #2ecc71; }
+tr.diagnostic-fail td:nth-child(3) { color: #ff5555; }

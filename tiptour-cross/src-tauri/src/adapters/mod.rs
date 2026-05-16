@@ -28,6 +28,7 @@ pub mod apple_music;
 pub mod brain_dump;
 pub mod browser_cdp;
 pub mod calendar_macos;
+pub mod contacts;
 pub mod defaults;
 pub mod file_explorer;
 pub mod finder;
@@ -49,6 +50,7 @@ pub mod soniox;
 pub mod spotify;
 pub mod terminal_macos;
 pub mod vscode;
+pub mod web_search;
 pub mod whatsapp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -184,6 +186,8 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         browser_cdp::manifest(),
         brain_dump::manifest(),
         soniox::manifest(),
+        web_search::manifest(),
+        contacts::manifest(),
     ]
 }
 
@@ -220,6 +224,74 @@ pub fn set_adapter_enabled(slug: String, enabled: bool) -> Result<(), String> {
         current.retain(|s| s != &slug);
     }
     persist_enabled_slugs(&current)
+}
+
+/// Frontend-facing version of `enabled_adapter_slugs_with_capability_hints`:
+/// returns a flat array of {slug, hint} so the TS Gemini client can build
+/// its tool description without shipping the 3K-token catalog every session.
+#[tauri::command]
+pub fn get_enabled_adapter_hints() -> Vec<serde_json::Value> {
+    enabled_adapter_slugs_with_capability_hints()
+        .into_iter()
+        .map(|(slug, hint)| serde_json::json!({ "slug": slug, "hint": hint }))
+        .collect()
+}
+
+/// Build the lazy-tool subset: just the slugs the user enabled, paired
+/// with a one-line handler-shape hint extracted from a fixed lookup.
+/// Used by audio_query / GeminiLiveClient to avoid shipping the full
+/// 3K-token tool description on every call.
+pub fn enabled_adapter_slugs_with_capability_hints() -> Vec<(String, String)> {
+    // Hint table: terse handler shape per slug, kept here so we
+    // don't have to walk every adapter manifest on every dispatch.
+    // Adding a new adapter? Add its hint here too — the dispatcher
+    // tolerates extra slugs in the map; missing ones just send the
+    // slug name with an empty hint.
+    let hints: &[(&str, &str)] = &[
+        ("spotify", "spotify.play_track:{query}, .pause, .resume, .next, .previous, .current"),
+        ("apple-music", "apple-music.play_track:{query}, .pause, .resume, .next, .previous, .current"),
+        ("whatsapp", "whatsapp.send_message:{phone,text}, .open_chat:{phone}"),
+        ("mail-macos", "mail-macos.compose/send:{to,subject,body,cc?}"),
+        ("messages-macos", "messages-macos.send:{to,text}"),
+        ("slack", "slack.post_message:{channel,text}, .post_dm:{user_id,text}"),
+        ("calendar-macos", "calendar-macos.create_event:{summary,start_iso,end_iso?,location?,notes?}, .list_today"),
+        ("reminders-macos", "reminders-macos.add:{text,due_iso?,notes?}, .list_today"),
+        ("notes-macos", "notes-macos.create/append:{title,body}"),
+        ("notion", "notion.create_page:{parent_page_id,title,body}, .append_text:{page_id,text}"),
+        ("linear", "linear.create_issue:{team_key,title,description?,priority?}, .my_issues"),
+        ("obsidian", "obsidian.open_note:{vault,file}, .create_note:{vault,name,content}, .append_to_daily:{vault,text}"),
+        ("ms-to-do", "ms-to-do.add:{title,notes?}"),
+        ("github", "github.create_issue:{repo,title,body?,labels?}, .my_review_requests"),
+        ("vscode", "vscode.open:{path}, .open_in_cursor:{path}, .goto_line:{path,line,column?}"),
+        ("terminal-macos", "terminal-macos.run:{command,cwd?}, .open_cwd:{path}"),
+        ("finder", "finder.open_path/reveal_path:{path}"),
+        ("file-explorer", "file-explorer.open_path/reveal_path:{path}"),
+        ("safari", "safari.open_url/new_tab:{url}, .current_url, .current_title"),
+        ("browser", "browser.open_url:{url,new_tab?}, .read_page_text:{tab_match?}, .click_text:{text,tab_match?}, .fill_field:{selector,value,tab_match?}, .list_tabs"),
+        ("brain-dump", "brain-dump.capture_text:{text,tags?,title?}, .capture_screenshot:{caption?,tags?}, .daily_note_append:{text}, .find:{query}, .open_folder"),
+        ("soniox", "soniox.start, .stop, .toggle, .state"),
+        ("web-search", "web-search.search:{query,count?}, .news:{query,count?}"),
+        ("contacts", "contacts.lookup:{name}, .suggest:{partial}"),
+        ("pages", "pages.new_document, .open:{path}"),
+        ("numbers", "numbers.new_document, .open:{path}"),
+        ("keynote", "keynote.new_document, .open:{path}"),
+        ("word", "word.open:{path}, .new_document, .save_as_pdf:{input_path,output_path}"),
+        ("excel", "excel.open:{path}, .new_workbook"),
+        ("powerpoint", "powerpoint.open:{path}, .new_presentation, .start_slideshow"),
+        ("outlook-desktop", "outlook-desktop.compose:{to,subject,body}"),
+    ];
+    let enabled = enabled_slugs();
+    enabled
+        .into_iter()
+        .map(|slug| {
+            let hint = hints
+                .iter()
+                .find(|(s, _)| *s == slug.as_str())
+                .map(|(_, h)| (*h).to_string())
+                .unwrap_or_default();
+            (slug, hint)
+        })
+        .collect()
 }
 
 /// Read the per-user list of enabled adapter slugs. The file sits
@@ -317,6 +389,8 @@ pub async fn dispatch_adapter_command(
         "browser" => browser_cdp::dispatch(app, &handler, args).await,
         "brain-dump" => brain_dump::dispatch(app, &handler, args).await,
         "soniox" => soniox::dispatch(app, &handler, args).await,
+        "web-search" => web_search::dispatch(app, &handler, args).await,
+        "contacts" => contacts::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {normalized_slug} (was '{slug}')")),
     };
 
