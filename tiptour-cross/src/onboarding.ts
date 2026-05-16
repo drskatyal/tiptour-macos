@@ -220,7 +220,7 @@ function paintApiKeyStep(
     </div>
     <div class="onboarding-actions">
       <button class="secondary" id="onboarding-key-back">← Back</button>
-      <button class="primary" id="onboarding-key-save" disabled>Save &amp; continue</button>
+      <button class="primary" id="onboarding-key-save" aria-label="Save Gemini API key and continue to permissions" disabled>Save &amp; continue</button>
     </div>
   `;
 

@@ -16,8 +16,8 @@
       {
         "label": "panel",
         "title": "TipTour",
-        "width": 360,
-        "height": 540,
+        "width": 380,
+        "height": 600,
         "resizable": false,
         "decorations": false,
         "transparent": true,

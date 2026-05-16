@@ -396,13 +396,19 @@ body {
   color: var(--text-secondary);
 }
 .hotkey-hint kbd {
-  background: var(--surface-raised-hover);
-  border: 1px solid var(--surface-glass-border);
-  border-radius: var(--radius-sm);
-  padding: 1px var(--space-2);
+  background:
+    linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 1px 6px;
   font-family: var(--font-mono);
   font-size: var(--type-11-size);
+  font-weight: 600;
   color: var(--text-primary);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.20);
 }
 
 /* ----- Error banner ----- */
