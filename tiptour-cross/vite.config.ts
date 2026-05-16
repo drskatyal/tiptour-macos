@@ -20,6 +20,7 @@ export default defineConfig({
         indicators: resolve(__dirname, "indicators.html"),
         drafting: resolve(__dirname, "drafting.html"),
         commandTooltip: resolve(__dirname, "command-tooltip.html"),
+        dock: resolve(__dirname, "dock.html"),
       },
     },
   },

@@ -88,6 +88,22 @@
         "acceptFirstMouse": false
       },
       {
+        "label": "dock",
+        "url": "dock.html",
+        "title": "TipTour Dock",
+        "width": 520,
+        "height": 60,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true,
+        "shadow": false,
+        "acceptFirstMouse": false
+      },
+      {
         "label": "command-tooltip",
         "url": "command-tooltip.html",
         "title": "TipTour Command",

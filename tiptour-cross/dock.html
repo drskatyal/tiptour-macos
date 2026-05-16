@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/dock/dock.css" />
+  </head>
+  <body class="dock-body">
+    <div id="dock-root" class="dock-root" data-state="dash">
+      <!-- Collapsed state: a small grey dash. Hovering anywhere on
+           the dock root expands to the full toolbar.
+           data-state cycles: dash → toolbar (on hover) → dash (mouseleave) -->
+      <div class="dock-dash" aria-hidden="true"></div>
+
+      <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls">
+        <button id="dock-quick" class="dock-button dock-primary" title="Start a quick voice command (Alt+X)">
+          <span class="dock-icon" data-icon="mic"></span>
+          <span class="dock-label">Ask</span>
+        </button>
+        <button id="dock-transcribe" class="dock-button" title="Transcribe into the focused field (Ctrl+Shift+T)">
+          <span class="dock-icon" data-icon="caret"></span>
+          <span class="dock-label">Transcribe</span>
+        </button>
+        <button id="dock-screenshot" class="dock-button" title="Grab a screenshot and save to brain dump">
+          <span class="dock-icon" data-icon="frame"></span>
+          <span class="dock-label">Snap</span>
+        </button>
+        <button id="dock-brain-dump" class="dock-button" title="Capture a thought to brain dump">
+          <span class="dock-icon" data-icon="bolt"></span>
+          <span class="dock-label">Capture</span>
+        </button>
+        <span class="dock-divider" aria-hidden="true"></span>
+        <button id="dock-open-panel" class="dock-button dock-ghost" title="Open panel">
+          <span class="dock-icon" data-icon="panel"></span>
+        </button>
+        <button id="dock-open-settings" class="dock-button dock-ghost" title="Open settings">
+          <span class="dock-icon" data-icon="gear"></span>
+        </button>
+      </div>
+    </div>
+    <script type="module" src="/src/dock/main.ts"></script>
+  </body>
+</html>

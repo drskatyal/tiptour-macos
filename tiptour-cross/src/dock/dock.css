@@ -1,0 +1,219 @@
+/*
+ * TipTour dock — a small grey dash that lives in the center bottom of
+ * the primary display. Mouseover expands into a horizontal toolbar
+ * with quick actions; mouseleave collapses back to the dash. The
+ * transition is the "magnetic" hover that macOS Tahoe uses for the
+ * Stage Manager dock.
+ *
+ * Window is transparent + always-on-top + non-focusing so it floats
+ * above every other app without ever stealing focus.
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dock-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The hover hit-area is wider than the visible dash so the user
+     doesn't have to land a pixel on a 4px-tall sliver. */
+  padding: 18px 40px;
+  cursor: pointer;
+}
+
+/* Collapsed dash — the only visible thing at rest. */
+.dock-dash {
+  width: 56px;
+  height: 5px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06)),
+    rgba(20, 22, 26, 0.62);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10),
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 6px 14px -2px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  transition:
+    width var(--motion-medium) var(--motion-easing),
+    opacity var(--motion-medium) var(--motion-easing),
+    transform var(--motion-medium) var(--motion-easing);
+}
+
+.dock-root:hover .dock-dash,
+[data-state="toolbar"] .dock-dash {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+/* Expanded toolbar — appears on hover, sits in the same visual slot
+   as the dash. Glass card with each button as a pill. */
+.dock-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 50%),
+    rgba(20, 22, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 0.5px 1px rgba(0, 0, 0, 0.34),
+    0 12px 32px -6px rgba(0, 0, 0, 0.45),
+    0 28px 64px -16px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  pointer-events: none;
+  transition:
+    opacity var(--motion-medium) var(--motion-easing),
+    transform var(--motion-medium) var(--motion-easing);
+}
+
+.dock-root:hover .dock-toolbar,
+[data-state="toolbar"] .dock-toolbar {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dock-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-12-size);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+  box-shadow: var(--shadow-button);
+}
+.dock-button:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+.dock-button:active {
+  transform: scale(0.96);
+}
+
+.dock-primary {
+  background: linear-gradient(180deg, #2f6dee, var(--accent-500) 60%);
+  border-color: transparent;
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-button-primary);
+}
+.dock-primary:hover {
+  background: linear-gradient(180deg, #2c63db, var(--accent-600) 60%);
+  color: var(--text-on-accent);
+}
+
+.dock-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.dock-ghost:hover {
+  background: var(--surface-2);
+}
+
+.dock-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+}
+
+.dock-label {
+  font-size: var(--type-12-size);
+}
+.dock-ghost .dock-label {
+  display: none;
+}
+
+/* SVG icons via mask so they color with the button text. */
+.dock-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 14px;
+  mask-size: 14px;
+}
+.dock-icon[data-icon="mic"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Zm-5 7a5 5 0 0 0 4 4.9V15h2v-2.1A5 5 0 0 0 13 8h-1.5a3.5 3.5 0 0 1-7 0H3Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Zm-5 7a5 5 0 0 0 4 4.9V15h2v-2.1A5 5 0 0 0 13 8h-1.5a3.5 3.5 0 0 1-7 0H3Z'/></svg>");
+}
+.dock-icon[data-icon="caret"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M3 3h2v10H3V3Zm10 4-6-3.5v7L13 7Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M3 3h2v10H3V3Zm10 4-6-3.5v7L13 7Z'/></svg>");
+}
+.dock-icon[data-icon="frame"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 4a2 2 0 0 1 2-2h2l1-1h2l1 1h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm6 8a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-2a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 4a2 2 0 0 1 2-2h2l1-1h2l1 1h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm6 8a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-2a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z'/></svg>");
+}
+.dock-icon[data-icon="bolt"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M9 1 3 9h4l-1 6 6-8H8l1-6Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M9 1 3 9h4l-1 6 6-8H8l1-6Z'/></svg>");
+}
+.dock-icon[data-icon="panel"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V3Zm2 0v10h3V3H4Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V3Zm2 0v10h3V3H4Z'/></svg>");
+}
+.dock-icon[data-icon="gear"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 0a1 1 0 0 1 1 1v1.07a6 6 0 0 1 1.61.67l.76-.76a1 1 0 1 1 1.41 1.41l-.76.76A6 6 0 0 1 12.93 6H14a1 1 0 1 1 0 2h-1.07a6 6 0 0 1-.67 1.61l.76.76a1 1 0 1 1-1.41 1.41l-.76-.76A6 6 0 0 1 9 12.93V14a1 1 0 1 1-2 0v-1.07a6 6 0 0 1-1.61-.67l-.76.76a1 1 0 1 1-1.41-1.41l.76-.76A6 6 0 0 1 3.07 9H2a1 1 0 1 1 0-2h1.07a6 6 0 0 1 .67-1.61l-.76-.76a1 1 0 1 1 1.41-1.41l.76.76A6 6 0 0 1 7 2.07V1a1 1 0 0 1 1-1Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 0a1 1 0 0 1 1 1v1.07a6 6 0 0 1 1.61.67l.76-.76a1 1 0 1 1 1.41 1.41l-.76.76A6 6 0 0 1 12.93 6H14a1 1 0 1 1 0 2h-1.07a6 6 0 0 1-.67 1.61l.76.76a1 1 0 1 1-1.41 1.41l-.76-.76A6 6 0 0 1 9 12.93V14a1 1 0 1 1-2 0v-1.07a6 6 0 0 1-1.61-.67l-.76.76a1 1 0 1 1-1.41-1.41l.76-.76A6 6 0 0 1 3.07 9H2a1 1 0 1 1 0-2h1.07a6 6 0 0 1 .67-1.61l-.76-.76a1 1 0 1 1 1.41-1.41l.76.76A6 6 0 0 1 7 2.07V1a1 1 0 0 1 1-1Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z'/></svg>");
+}
+
+/* Active state badge — when a session is running or transcribing,
+   the dash glows blue and pulses to indicate active state. */
+[data-active="listening"] .dock-dash,
+[data-active="transcribing"] .dock-dash {
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.40), rgba(37, 99, 235, 0.30)),
+    rgba(20, 22, 26, 0.72);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px rgba(96, 165, 250, 0.20),
+    0 0 14px rgba(96, 165, 250, 0.45);
+  animation: dock-dash-breath 1.6s var(--motion-easing) infinite;
+}
+@keyframes dock-dash-breath {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}

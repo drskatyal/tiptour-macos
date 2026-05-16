@@ -5,6 +5,7 @@ mod adapters;
 mod agent_memory;
 mod app_discovery;
 mod audio_query;
+mod soniox_transcribe;
 mod app_metadata;
 mod app_settings;
 mod audio;
@@ -130,6 +131,11 @@ fn main() {
             audio_query::begin_quick_voice_capture,
             audio_query::append_quick_voice_chunk,
             audio_query::end_quick_voice_capture_and_dispatch,
+            soniox_transcribe::toggle_soniox_transcription,
+            soniox_transcribe::start_soniox_transcription,
+            soniox_transcribe::stop_soniox_transcription,
+            soniox_transcribe::append_soniox_audio_chunk,
+            soniox_transcribe::get_soniox_state,
             text_rewrite::list_providers,
             text_rewrite::rewrite_selection,
             text_rewrite::open_drafting_window_with_text,
