@@ -85,6 +85,14 @@ async function renderWizard(hooks: OnboardingHooks): Promise<void> {
     document.body.appendChild(wizardElement);
   }
   wizardElement.classList.add("onboarding-wizard");
+  // index.html ships the wizard div with `hidden` set so first paint
+  // doesn't leak the unfinished onboarding card. CRITICAL: we have to
+  // remove it here, otherwise the `.onboarding-wizard[hidden]
+  // { display:none }` rule keeps the card invisible while
+  // `data-onboarding-active="true"` simultaneously hides the normal
+  // .panel — the user sees an empty dark rectangle with no controls
+  // and no way to close.
+  wizardElement.removeAttribute("hidden");
   document.body.dataset.onboardingActive = "true";
 
   const wizardState: WizardState = {
@@ -141,6 +149,11 @@ async function renderWizard(hooks: OnboardingHooks): Promise<void> {
     }
     document.body.dataset.onboardingActive = "false";
     wizardElement!.innerHTML = "";
+    // Re-hide so the next mount of this webview (e.g. after a
+    // reload) doesn't briefly flash an empty wizard card on top of
+    // the panel. data-onboardingActive=false alone wouldn't be
+    // enough — the wizard's flex layout is its default state.
+    wizardElement!.setAttribute("hidden", "");
     await hooks.onComplete();
   }
 
