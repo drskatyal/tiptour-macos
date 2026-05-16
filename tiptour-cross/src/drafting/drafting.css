@@ -68,26 +68,38 @@ body {
   app-region: no-drag;
 }
 .drafting-toolbar-right button {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background:
+    var(--gradient-specular-top),
+    var(--surface-2);
+  color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
-  padding: 5px 10px;
+  padding: 6px 11px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
   font-size: var(--type-12-size);
-  min-width: 30px;
+  font-weight: 500;
+  min-width: 32px;
+  box-shadow: var(--shadow-button);
   transition:
     background var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing),
-    transform var(--motion-fast) var(--motion-easing);
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
 }
 .drafting-toolbar-right button:hover {
-  background: var(--surface-3);
+  background:
+    var(--gradient-specular-top-strong),
+    var(--surface-3);
   border-color: var(--border-strong);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
 }
 .drafting-toolbar-right button:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  box-shadow: var(--shadow-button);
 }
 .drafting-toolbar-right .drafting-action {
   padding: 6px 14px;
@@ -189,9 +201,26 @@ body {
   outline: none;
 }
 .drafting-editor:empty::before {
-  content: "Your draft will appear here when a rewrite completes…";
+  content: "Your draft will appear here…";
+  display: block;
+  text-align: center;
+  margin-top: 20vh;
   color: var(--text-tertiary);
-  font-style: italic;
+  font-size: var(--type-17-size);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+.drafting-editor:empty::after {
+  content: "Select text anywhere, then ask Gemini to rewrite, summarize, or translate.";
+  display: block;
+  text-align: center;
+  margin-top: var(--space-2);
+  max-width: 42ch;
+  margin-left: auto;
+  margin-right: auto;
+  color: var(--text-faint);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
 }
 
 /* ---------- Footer ---------- */
