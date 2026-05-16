@@ -146,7 +146,8 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
           <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;opacity:0.75">
             ${column.label} (${visible.filter((t) => t.status === column.status).length})
           </div>
-          <div class="kanban-cards" data-column-status="${column.status}"></div>
+          <div class="kanban-cards" data-column-status="${column.status}"
+               style="min-height:120px;display:flex;flex-direction:column;gap:6px"></div>
         </div>
       `,
     ).join("");

@@ -113,10 +113,37 @@ function escapeHtml(unsafeText: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Defaults for every IndicatorTypeToggles field. Used to backfill any
+// settings JSON written by an older build (or by a test mock) that
+// omits the `typesEnabled` block — the renderer dereferences each
+// flag and would crash on `undefined.workflowStep` otherwise.
+const DEFAULT_TYPE_TOGGLES: IndicatorTypeTogglesShape = {
+  workflowStep: true,
+  flowDone: true,
+  voiceCommand: true,
+  appLaunched: true,
+  screenshot: true,
+  error: true,
+};
+
 export async function renderIndicatorsTab(paneElement: HTMLElement): Promise<void> {
-  const currentSettings = await invoke<IndicatorSettingsShape>(
+  const loadedSettings = await invoke<Partial<IndicatorSettingsShape>>(
     "get_indicators_settings",
   );
+  // Merge against safe defaults so any missing field (e.g. typesEnabled
+  // on a stale settings file) doesn't throw downstream during render.
+  const currentSettings: IndicatorSettingsShape = {
+    schemaVersion: loadedSettings.schemaVersion ?? 1,
+    position: loadedSettings.position ?? "right-edge",
+    density: loadedSettings.density ?? "normal",
+    autoDismiss: loadedSettings.autoDismiss ?? "five-seconds",
+    maxVisible: loadedSettings.maxVisible ?? "four",
+    sound: loadedSettings.sound ?? "silent",
+    typesEnabled: {
+      ...DEFAULT_TYPE_TOGGLES,
+      ...(loadedSettings.typesEnabled ?? {}),
+    },
+  };
 
   paneElement.innerHTML = `
     <h2>Indicators</h2>
