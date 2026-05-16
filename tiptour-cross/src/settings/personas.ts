@@ -168,29 +168,20 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
 
   function renderPersonaRow(persona: PersonaShape): HTMLLIElement {
     const rowElement = document.createElement("li");
-    rowElement.className = "persona-row";
-    rowElement.style.border = "1px solid var(--color-border)";
-    rowElement.style.borderRadius = "var(--radius-md)";
-    rowElement.style.padding = "12px";
-    rowElement.style.marginBottom = "8px";
-    rowElement.style.background =
+    rowElement.className =
       persona.id === activePersonaId
-        ? "var(--surface-raised-hover)"
-        : "var(--surface-raised)";
+        ? "persona-row-card active"
+        : "persona-row-card";
 
     const headerElement = document.createElement("div");
-    headerElement.style.display = "flex";
-    headerElement.style.justifyContent = "space-between";
-    headerElement.style.alignItems = "center";
-    headerElement.style.marginBottom = "8px";
+    headerElement.className = "persona-row-header";
 
     const nameElement = document.createElement("strong");
     nameElement.textContent = persona.name;
     if (persona.id === activePersonaId) {
       const activeBadge = document.createElement("span");
       activeBadge.textContent = " · active";
-      activeBadge.style.color = "var(--accent-400)";
-      activeBadge.style.fontWeight = "normal";
+      activeBadge.className = "persona-active-badge";
       nameElement.appendChild(activeBadge);
     }
 

@@ -24,7 +24,7 @@ export async function renderFlowsTab(paneElement: HTMLElement): Promise<void> {
     <div class="button-stack">
       <button id="flows-import" class="primary">Import flow…</button>
     </div>
-    <ul id="flows-list" class="list-rows" style="margin-top:12px"></ul>
+    <ul id="flows-list" class="list-rows"></ul>
     <div id="flows-status-banner" class="flag-banner success" hidden></div>
   `;
 
@@ -101,7 +101,7 @@ function renderFlowRow(
       <span class="row-sub">${flow.stepCount} steps · created ${escapeHtml(createdLabel)}</span>
       <input type="text" placeholder="trigger aliases (comma-separated)" value="${escapeHtml(
         aliasesText,
-      )}" data-field="aliases" style="margin-top:6px; width:100%; box-sizing:border-box" />
+      )}" data-field="aliases" class="flow-aliases-input" />
     </div>
     <div class="row-actions">
       <button data-action="run" class="primary">Run</button>

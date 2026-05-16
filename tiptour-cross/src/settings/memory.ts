@@ -82,7 +82,7 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
   function renderTable(records: MemoryRecord[]): void {
     if (records.length === 0) {
       tableWrapElement.innerHTML = `
-        <div class="empty-state" style="padding:24px;text-align:center;opacity:0.7">
+        <div class="memory-empty-state">
           No memories yet. The agent will store useful facts here as you use it.
           Try asking it to remember something specific.
         </div>
@@ -93,7 +93,7 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
       .map((record) => {
         const importancePercent = Math.round(record.importance * 100);
         const tagsHtml = record.tags
-          .map((tag) => `<span class="chip" style="margin-right:4px">${escapeHtml(tag)}</span>`)
+          .map((tag) => `<span class="chip memory-tag-chip">${escapeHtml(tag)}</span>`)
           .join("");
         return `
           <tr data-memory-id="${escapeHtml(record.id)}">
@@ -102,8 +102,8 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
             <td>${tagsHtml}</td>
             <td>${escapeHtml(record.source ?? "—")}</td>
             <td title="${importancePercent}%">
-              <div style="background:var(--color-border);height:6px;border-radius:3px;width:60px">
-                <div style="background:var(--color-accent);height:100%;border-radius:3px;width:${importancePercent}%"></div>
+              <div class="importance-bar-container">
+                <div class="importance-bar-fill" style="width:${importancePercent}%"></div>
               </div>
             </td>
             <td>${formatRelativeTimestamp(record.lastRecalledAtUnixSeconds)}</td>
@@ -116,16 +116,16 @@ export async function renderMemoryTab(paneElement: HTMLElement): Promise<void> {
       })
       .join("");
     tableWrapElement.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <table class="memory-table">
         <thead>
-          <tr style="text-align:left;border-bottom:1px solid var(--color-border)">
-            <th style="padding:6px">Key</th>
-            <th style="padding:6px">Value</th>
-            <th style="padding:6px">Tags</th>
-            <th style="padding:6px">Source</th>
-            <th style="padding:6px">Importance</th>
-            <th style="padding:6px">Last recalled</th>
-            <th style="padding:6px"></th>
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Tags</th>
+            <th>Source</th>
+            <th>Importance</th>
+            <th>Last recalled</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>

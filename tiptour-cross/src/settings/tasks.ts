@@ -88,11 +88,11 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
         <input id="task-filter-subagent" type="checkbox" /> With sub-agent only
       </label>
     </div>
-    <div id="kanban-empty-state-host" class="empty-state" hidden style="padding:14px;text-align:center;opacity:0.7;font-size:12px;border:1px dashed rgba(255,255,255,0.12);border-radius:8px;margin-bottom:8px">
+    <div id="kanban-empty-state-host" class="kanban-empty-state" hidden>
       No tasks yet. Create one from the panel or ask the agent:
       "remind me to ship the demo this week".
     </div>
-    <div id="kanban-grid" style="display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:12px;align-items:start"></div>
+    <div id="kanban-grid" class="kanban-grid"></div>
     <div id="task-status-banner" class="flag-banner success" hidden></div>
     <div id="task-drawer" hidden></div>
   `;
@@ -148,13 +148,11 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
 
     kanbanGridElement.innerHTML = COLUMN_DEFINITIONS.map(
       (column) => `
-        <div class="kanban-column" data-status="${column.status}"
-             style="background:var(--color-surface-alt,#1d1d22);border-radius:8px;padding:8px;min-height:160px">
-          <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;opacity:0.75">
-            ${column.label} (${visible.filter((t) => t.status === column.status).length})
+        <div class="kanban-column" data-status="${column.status}">
+          <div class="kanban-column-header">
+            ${column.label} <span class="kanban-column-count">${visible.filter((t) => t.status === column.status).length}</span>
           </div>
-          <div class="kanban-cards" data-column-status="${column.status}"
-               style="min-height:120px;display:flex;flex-direction:column;gap:6px"></div>
+          <div class="kanban-cards" data-column-status="${column.status}"></div>
         </div>
       `,
     ).join("");
@@ -176,34 +174,30 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
     cardElement.className = "kanban-card";
     cardElement.draggable = true;
     cardElement.dataset.taskId = task.id;
-    cardElement.style.cssText =
-      "background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:8px;margin-bottom:6px;cursor:grab;font-size:12px";
 
     const subagentForCard = task.assignedSubagentId
       ? cachedSubagentsById.get(task.assignedSubagentId) ?? null
       : null;
     const subagentChip = subagentForCard
-      ? `<span class="chip" style="font-size:10px;background:var(--color-accent);color:#fff">
-           agent: ${escapeHtml(subagentForCard.name)} · ${subagentForCard.status}
-         </span>`
+      ? `<span class="chip chip-accent">agent: ${escapeHtml(subagentForCard.name)} · ${subagentForCard.status}</span>`
       : "";
 
     cardElement.innerHTML = `
-      <div style="font-weight:600;margin-bottom:4px">${escapeHtml(task.title)}</div>
-      ${task.description ? `<div style="opacity:0.75;margin-bottom:4px">${escapeHtml(task.description.slice(0, 80))}${task.description.length > 80 ? "…" : ""}</div>` : ""}
-      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-        <span class="chip" style="font-size:10px">${task.priority}</span>
-        <span class="chip" style="font-size:10px">${formatRelativeAge(task.createdAtUnixSeconds)} old</span>
-        ${task.tags.map((tag) => `<span class="chip" style="font-size:10px">${escapeHtml(tag)}</span>`).join("")}
+      <div class="kanban-card-title">${escapeHtml(task.title)}</div>
+      ${task.description ? `<div class="kanban-card-description">${escapeHtml(task.description.slice(0, 80))}${task.description.length > 80 ? "…" : ""}</div>` : ""}
+      <div class="kanban-card-chips">
+        <span class="chip">${task.priority}</span>
+        <span class="chip">${formatRelativeAge(task.createdAtUnixSeconds)} old</span>
+        ${task.tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
         ${subagentChip}
       </div>
     `;
     cardElement.addEventListener("dragstart", (event) => {
       event.dataTransfer?.setData("text/plain", task.id);
-      cardElement.style.opacity = "0.5";
+      cardElement.classList.add("kanban-card-dragging");
     });
     cardElement.addEventListener("dragend", () => {
-      cardElement.style.opacity = "1";
+      cardElement.classList.remove("kanban-card-dragging");
     });
     cardElement.addEventListener("click", () => openDrawerForTask(task));
     return cardElement;
@@ -230,40 +224,39 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
     const subagentForTask = task.assignedSubagentId
       ? cachedSubagentsById.get(task.assignedSubagentId) ?? null
       : null;
-    drawerElement.hidden = false;
-    drawerElement.style.cssText =
-      "position:fixed;top:0;right:0;height:100vh;width:380px;background:var(--color-surface);border-left:1px solid var(--color-border);padding:16px;overflow-y:auto;box-shadow:-4px 0 12px rgba(0,0,0,0.3);z-index:1000";
+    drawerElement.removeAttribute("hidden");
+    drawerElement.className = "task-drawer open";
     drawerElement.innerHTML = `
-      <button id="drawer-close" style="float:right">×</button>
+      <button id="drawer-close" class="task-drawer-close" aria-label="Close task details">×</button>
       <h3>${escapeHtml(task.title)}</h3>
-      <p style="opacity:0.8;white-space:pre-wrap">${escapeHtml(task.description || "(no description)")}</p>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
+      <p class="task-drawer-description">${escapeHtml(task.description || "(no description)")}</p>
+      <div class="task-drawer-chips">
         <span class="chip">${task.status}</span>
         <span class="chip">${task.priority}</span>
         ${task.tags.map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("")}
       </div>
-      <p style="font-size:11px;opacity:0.7">Created ${formatRelativeAge(task.createdAtUnixSeconds)} ago</p>
+      <p class="task-drawer-meta">Created ${formatRelativeAge(task.createdAtUnixSeconds)} ago</p>
       ${
         subagentForTask
-          ? `<div style="margin-top:12px;padding:8px;background:var(--color-surface-alt,#1d1d22);border-radius:6px">
+          ? `<div class="task-drawer-subagent">
                <strong>Sub-agent:</strong> ${escapeHtml(subagentForTask.name)}<br/>
                Status: ${subagentForTask.status}<br/>
                ${subagentForTask.lastProgressMessage ? `<em>${escapeHtml(subagentForTask.lastProgressMessage)}</em><br/>` : ""}
-               <button id="drawer-open-transcript" style="margin-top:6px">View transcript path</button>
+               <button id="drawer-open-transcript">View transcript path</button>
              </div>`
-          : `<button id="drawer-dispatch" class="primary" style="margin-top:8px">Dispatch to sub-agent</button>`
+          : `<button id="drawer-dispatch" class="primary">Dispatch to sub-agent</button>`
       }
-      <hr style="margin:12px 0;border-color:var(--color-border)" />
-      <button id="drawer-delete" style="color:#ff5d5d">Delete task</button>
+      <hr class="task-drawer-divider" />
+      <button id="drawer-delete" class="danger">Delete task</button>
     `;
     drawerElement.querySelector<HTMLButtonElement>("#drawer-close")!.addEventListener("click", () => {
-      drawerElement.hidden = true;
+      drawerElement.classList.remove("open");
     });
     drawerElement.querySelector<HTMLButtonElement>("#drawer-delete")!.addEventListener("click", async () => {
       if (!window.confirm("Delete this task?")) return;
       try {
         await invoke("delete_task", { id: task.id });
-        drawerElement.hidden = true;
+        drawerElement.classList.remove("open");
         await refresh();
       } catch (deleteError) {
         flashBanner(`Delete failed: ${errorMessageOf(deleteError)}`);
@@ -278,7 +271,7 @@ export async function renderTasksTab(paneElement: HTMLElement): Promise<void> {
             systemPromptOverride: null,
           });
           flashBanner("Sub-agent dispatched");
-          drawerElement.hidden = true;
+          drawerElement.classList.remove("open");
           await refresh();
         } catch (dispatchError) {
           flashBanner(`Dispatch failed: ${errorMessageOf(dispatchError)}`);

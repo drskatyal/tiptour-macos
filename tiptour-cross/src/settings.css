@@ -1249,3 +1249,150 @@ body {
   transform: scale(0.97);
   cursor: grabbing;
 }
+
+/* ============================================================================
+ * Tasks tab kanban grid.
+ * ========================================================================== */
+.kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.kanban-column {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-height: 200px;
+}
+.kanban-column-header {
+  font-size: var(--type-11-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.kanban-column-count {
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+}
+.kanban-cards {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.kanban-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  cursor: grab;
+  font-size: var(--type-12-size);
+  transition: border-color var(--motion-fast) var(--motion-easing),
+              background var(--motion-fast) var(--motion-easing),
+              transform var(--motion-fast) var(--motion-easing);
+}
+.kanban-card:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+.kanban-card-title {
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+}
+.kanban-card-description {
+  opacity: 0.75;
+  margin-bottom: var(--space-1);
+  font-size: var(--type-11-size);
+  line-height: var(--type-12-line);
+}
+.kanban-card-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Task drawer support */
+.task-drawer-description {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  margin: 0 0 var(--space-2) 0;
+}
+.task-drawer-chips {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0;
+}
+.task-drawer-meta {
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2) 0;
+}
+.task-drawer-subagent {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+ * Memory tab table.
+ * ========================================================================== */
+.memory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-13-size);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.memory-table thead tr {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.memory-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.memory-table tbody tr:last-child { border-bottom: none; }
+.memory-table tbody tr:hover { background: var(--surface-2); }
+.memory-empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.list-rows { margin-top: var(--space-3); }
+.flow-aliases-input {
+  margin-top: var(--space-2);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Persona row internals — replaces inline .style.* mutations. */
+.persona-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.persona-active-badge {
+  color: var(--accent-400);
+  font-weight: 500;
+}
