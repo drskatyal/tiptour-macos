@@ -358,6 +358,29 @@ openSettingsButton?.addEventListener("click", async () => {
   }
 });
 
+// Close button in the panel header hides this window. The tray icon
+// re-shows it. We hide rather than destroy so panel state (current
+// session, transcript, mode, persona) survives the next reopen.
+const hidePanelButton = document.getElementById(
+  "hide-panel-button",
+) as HTMLButtonElement | null;
+hidePanelButton?.addEventListener("click", async () => {
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().hide();
+  } catch (hidePanelError) {
+    // Fallback: if the dynamic import or hide() fails for any reason
+    // (older Tauri, weird WebView state), at least surface a useful
+    // error instead of silently swallowing.
+    showError(
+      "Could not hide panel: " +
+        (hidePanelError instanceof Error
+          ? hidePanelError.message
+          : String(hidePanelError)),
+    );
+  }
+});
+
 await listen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey fired");
   void togglePushToTalk();

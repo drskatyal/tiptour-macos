@@ -26,7 +26,7 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
       update broke a flow you'd recorded.
     </p>
 
-    <div class="flag-banner" style="background:rgba(248,113,113,0.08); border-color:rgba(248,113,113,0.3); color:#ffd0d0">
+    <div class="flag-banner">
       <strong>Deny-listed during exploration</strong>: actions whose element name or menu
       path contains any of these keywords are recorded but never auto-executed.
       <div style="margin-top:6px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px">
@@ -35,6 +35,12 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
     </div>
 
     <h3>Indexed apps</h3>
+    <p class="section-helper">
+      One row per app TipTour has walked. The capability count is how many
+      distinct buttons, menus, and shortcuts the registry knows for that app.
+      Click Re-explore on any row after an app update so the registry stays
+      accurate.
+    </p>
     <ul id="capabilities-list" class="list-rows"></ul>
     <div id="capabilities-status-banner" class="flag-banner success" hidden></div>
   `;

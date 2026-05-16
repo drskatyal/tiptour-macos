@@ -165,6 +165,7 @@ function paintWelcomeStep(
   onContinue: () => void,
 ): void {
   wizardElement.innerHTML = `
+    <div class="onboarding-drag-strip" data-tauri-drag-region></div>
     <div class="onboarding-step-counter">Step 1 of ${isMacPlatform ? 3 : 2}</div>
     <h2 class="onboarding-step-title">Welcome to TipTour</h2>
     <p class="onboarding-step-subtitle">
@@ -195,6 +196,7 @@ function paintApiKeyStep(
   onBack: () => void,
 ): void {
   wizardElement.innerHTML = `
+    <div class="onboarding-drag-strip" data-tauri-drag-region></div>
     <div class="onboarding-step-counter">Step 2 of ${isMacPlatform ? 3 : 2}</div>
     <h2 class="onboarding-step-title">Add your Gemini key</h2>
     <p class="onboarding-step-subtitle">
@@ -263,6 +265,7 @@ function paintPermissionsStep(
   rerender: () => void,
 ): void {
   wizardElement.innerHTML = `
+    <div class="onboarding-drag-strip" data-tauri-drag-region></div>
     <div class="onboarding-step-counter">Step 3 of 3</div>
     <h2 class="onboarding-step-title">Grant permissions</h2>
     <p class="onboarding-step-subtitle">

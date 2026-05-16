@@ -259,3 +259,14 @@ body {
   background: rgba(255, 255, 255, 0.25);
   background-clip: padding-box;
 }
+
+.drafting-toolbar-right button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+.drafting-editor:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25);
+  border-radius: var(--radius-sm);
+}

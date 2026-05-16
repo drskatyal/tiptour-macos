@@ -456,7 +456,7 @@ body {
   font-size: var(--type-12-size);
   font-weight: 600;
   white-space: nowrap;
-  transition: filter var(--motion-fast) var(--motion-ease);
+  transition: filter var(--motion-fast) var(--motion-easing);
   flex-shrink: 0;
 }
 .restart-now-button:hover {

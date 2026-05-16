@@ -40,13 +40,22 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
     </p>
 
     <h3>API keys</h3>
-    <p class="lede">
-      Stored in the OS keychain. The active persona's provider must have
-      a key configured for rewrite/draft features to work.
+    <p class="section-helper">
+      Stored in the OS keychain (macOS Keychain / Windows Credential Manager).
+      The active persona's provider must have a key configured here for the
+      rewrite tool, the drafting window, and any persona-bound voice commands
+      to work.
     </p>
     <div id="personas-provider-keys"></div>
 
     <h3>Personas</h3>
+    <p class="section-helper">
+      Each persona is a named bundle of system prompt + LLM provider + model
+      + reasoning toggle + temperature. The active persona handles
+      <code>rewrite_selection</code> calls; the others stand by until you
+      switch to them via voice ("switch to writing coach") or by clicking
+      Activate below.
+    </p>
     <div class="button-stack">
       <button id="personas-add-new" class="primary">+ New persona</button>
     </div>

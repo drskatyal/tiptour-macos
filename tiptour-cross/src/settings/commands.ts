@@ -61,8 +61,13 @@ export async function renderCommandsTab(paneElement: HTMLElement): Promise<void>
     <ul class="list-rows" id="discovered-apps-list"></ul>
 
     <h3>Custom</h3>
+    <p class="section-helper">
+      Define your own voice phrases that fire a keyboard shortcut, run a CLI
+      command, or call an adapter handler. Each command takes a trigger
+      phrase + action; add as many aliases as you'd say in conversation.
+    </p>
     <div id="commands-custom-editors"></div>
-    <div class="button-stack" style="margin-top:10px">
+    <div class="button-stack">
       <button id="commands-add" class="primary">Add custom command</button>
       <button id="commands-reload">Reload commands</button>
     </div>
