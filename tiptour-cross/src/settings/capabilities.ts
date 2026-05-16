@@ -29,7 +29,7 @@ export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<v
     <div class="flag-banner">
       <strong>Deny-listed during exploration</strong>: actions whose element name or menu
       path contains any of these keywords are recorded but never auto-executed.
-      <div style="margin-top:6px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px">
+      <div class="error-details-code">
         ${destructiveKeywords.map((keyword) => escapeHtml(keyword)).join(" · ")}
       </div>
     </div>

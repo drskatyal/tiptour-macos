@@ -1396,3 +1396,44 @@ body {
   color: var(--accent-400);
   font-weight: 500;
 }
+
+/* Recordings tab row — stacks vertically so the screenshots-grid
+   below row content has room. */
+.recording-row {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.recording-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* List-rows gap between siblings — implicit spacing. */
+.list-rows > .list-row + .list-row {
+  margin-top: var(--space-2);
+}
+
+/* Personas tab: API key per-provider row controls. */
+.personas-list { list-style: none; padding: 0; margin: var(--space-3) 0; }
+.provider-key-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.provider-key-input {
+  flex: 1;
+  min-width: 240px;
+}
+.provider-key-hint { flex-basis: 100%; }
+
+/* Capabilities tab: monospace block under the error banner. */
+.error-details-code {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--type-11-size);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}

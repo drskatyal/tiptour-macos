@@ -60,7 +60,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
       <button id="personas-add-new" class="primary">+ New persona</button>
     </div>
 
-    <ul id="personas-list" class="personas-list" style="list-style:none;padding:0;margin:12px 0"></ul>
+    <ul id="personas-list" class="personas-list"></ul>
 
     <div id="personas-status-banner" class="flag-banner success" hidden></div>
   `;
@@ -94,14 +94,14 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
       row.className = "settings-row";
       row.innerHTML = `
         <label>${escapeHtml(provider.displayName)}</label>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="provider-key-row">
           <input
             type="password"
             data-provider-key-input="${escapeHtml(provider.id)}"
             placeholder="${existingKey ? "•••••••• stored" : "Paste API key"}"
             autocomplete="off"
             spellcheck="false"
-            style="flex:1;min-width:240px"
+            class="provider-key-input"
           />
           <button data-provider-save="${escapeHtml(provider.id)}">Save</button>
           ${
@@ -109,7 +109,7 @@ export async function renderPersonasTab(paneElement: HTMLElement): Promise<void>
               ? `<button class="danger" data-provider-clear="${escapeHtml(provider.id)}">Clear</button>`
               : ""
           }
-          <span class="row-hint" style="flex-basis:100%">
+          <span class="row-hint provider-key-hint">
             ${
               provider.supportsReasoning
                 ? "Supports reasoning toggle."

@@ -70,13 +70,11 @@ function renderDemonstrationRow(
   flashBanner: (message: string) => void,
 ): HTMLElement {
   const rowElement = document.createElement("li");
-  rowElement.className = "list-row";
-  rowElement.style.flexDirection = "column";
-  rowElement.style.alignItems = "stretch";
+  rowElement.className = "list-row recording-row";
   const createdLabel = new Date(demonstration.createdAtUnixMs).toLocaleString();
   const audioBadge = demonstration.hasNarrationAudio ? "audio narration" : "no audio";
   rowElement.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; width:100%">
+    <div class="recording-row-top">
       <div class="row-main">
         <span class="row-title">${escapeHtml(demonstration.title)}</span>
         <span class="row-sub">${demonstration.traceEntryCount} events · ${escapeHtml(

@@ -51,7 +51,7 @@ export async function renderPermissionsTab(paneElement: HTMLElement): Promise<vo
     <h2>Permissions</h2>
     <p class="lede">macOS gates these by default. Grant what TipTour needs to work.</p>
     <ul id="permissions-list" class="list-rows"></ul>
-    <div class="list-row" style="margin-top:8px">
+    <div class="list-row">
       <div class="row-main">
         <span class="row-title"><span class="permission-indicator" data-granted="false"></span>Microphone</span>
         <span class="row-sub">
