@@ -10,6 +10,7 @@
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
+use crate::adapters;
 use crate::agent_memory;
 use crate::executor;
 use crate::multiflow;
@@ -157,6 +158,20 @@ async fn dispatch_inner(
             let flow_name = string_arg(&args, "name");
             match multiflow::run_flow_by_name(flow_name, app).await {
                 Ok(replay_id) => json!({ "status": "started", "replayId": replay_id }),
+                Err(message) => error_response(&message),
+            }
+        }
+
+        // Connected-app adapter dispatch. Gemini Live calls this when
+        // it wants to control any installed adapter — spotify play,
+        // whatsapp send, github issue, etc. Args shape:
+        //   { slug: "spotify", handler: "play_track", args: { query: "..." } }
+        "control_app" => {
+            let slug = string_arg(&args, "slug");
+            let handler = string_arg(&args, "handler");
+            let adapter_args = args.get("args").cloned().unwrap_or(json!({}));
+            match adapters::dispatch_adapter_command(app, slug, handler, adapter_args).await {
+                Ok(value) => json!({ "status": "ok", "result": value }),
                 Err(message) => error_response(&message),
             }
         }

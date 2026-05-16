@@ -24,7 +24,23 @@ use tauri::AppHandle;
 
 use crate::keychain;
 
+pub mod apple_music;
+pub mod calendar_macos;
+pub mod file_explorer;
+pub mod finder;
+pub mod github;
+pub mod helpers;
+pub mod iwork;
+pub mod linear;
+pub mod mail_macos;
+pub mod microsoft_to_do;
+pub mod notes_macos;
+pub mod notion;
+pub mod obsidian;
+pub mod reminders_macos;
+pub mod slack;
 pub mod spotify;
+pub mod vscode;
 pub mod whatsapp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,7 +141,32 @@ pub struct AdapterListing {
 /// Returns every bundled adapter the binary knows about. The
 /// settings UI calls `list_adapters` and renders this verbatim.
 pub fn bundled_manifests() -> Vec<AdapterManifest> {
-    vec![spotify::manifest(), whatsapp::manifest()]
+    vec![
+        // music
+        spotify::manifest(),
+        apple_music::manifest(),
+        // communication
+        whatsapp::manifest(),
+        mail_macos::manifest(),
+        slack::manifest(),
+        // productivity
+        calendar_macos::manifest(),
+        reminders_macos::manifest(),
+        notes_macos::manifest(),
+        notion::manifest(),
+        linear::manifest(),
+        obsidian::manifest(),
+        microsoft_to_do::manifest(),
+        iwork::pages_manifest(),
+        iwork::numbers_manifest(),
+        iwork::keynote_manifest(),
+        // dev
+        github::manifest(),
+        vscode::manifest(),
+        // files
+        finder::manifest(),
+        file_explorer::manifest(),
+    ]
 }
 
 #[tauri::command]
@@ -208,7 +249,24 @@ pub async fn dispatch_adapter_command(
     }
     match slug.as_str() {
         "spotify" => spotify::dispatch(app, &handler, args).await,
+        "apple-music" => apple_music::dispatch(app, &handler, args).await,
         "whatsapp" => whatsapp::dispatch(app, &handler, args).await,
+        "mail-macos" => mail_macos::dispatch(app, &handler, args).await,
+        "slack" => slack::dispatch(app, &handler, args).await,
+        "calendar-macos" => calendar_macos::dispatch(app, &handler, args).await,
+        "reminders-macos" => reminders_macos::dispatch(app, &handler, args).await,
+        "notes-macos" => notes_macos::dispatch(app, &handler, args).await,
+        "notion" => notion::dispatch(app, &handler, args).await,
+        "linear" => linear::dispatch(app, &handler, args).await,
+        "obsidian" => obsidian::dispatch(app, &handler, args).await,
+        "ms-to-do" => microsoft_to_do::dispatch(app, &handler, args).await,
+        "pages" => iwork::dispatch_pages(app, &handler, args).await,
+        "numbers" => iwork::dispatch_numbers(app, &handler, args).await,
+        "keynote" => iwork::dispatch_keynote(app, &handler, args).await,
+        "github" => github::dispatch(app, &handler, args).await,
+        "vscode" => vscode::dispatch(app, &handler, args).await,
+        "finder" => finder::dispatch(app, &handler, args).await,
+        "file-explorer" => file_explorer::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {slug}")),
     }
 }
