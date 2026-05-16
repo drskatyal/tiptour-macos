@@ -168,6 +168,10 @@ function setStatus(status: SessionStatus) {
     subtitle: "",
     sourceId: null,
   }).catch(() => undefined);
+
+  // Mirror into the tray so the Start/Stop session toggle reflects
+  // the live session state without polling.
+  void invoke("set_tray_session_active", { active: isActive }).catch(() => undefined);
 }
 
 function showError(message: string) {

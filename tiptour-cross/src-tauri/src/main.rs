@@ -199,6 +199,7 @@ fn main() {
             cost_meter::get_today_cost,
             cost_meter::get_cost_history,
             bug_report::export_bug_report,
+            tray::set_tray_session_active,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TipTour");
