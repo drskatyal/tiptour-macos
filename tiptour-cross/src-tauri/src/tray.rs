@@ -235,6 +235,7 @@ fn toggle_panel(window: &WebviewWindow) {
 fn request_graceful_shutdown(app: &AppHandle) {
     crate::multiflow::replayer::set_active_replay_token("__user_quit__");
     let _ = crate::audio::stop_mic_capture();
+    crate::crash_recovery::mark_clean_shutdown();
     let app_clone = app.clone();
     thread::spawn(move || {
         thread::sleep(Duration::from_millis(150));

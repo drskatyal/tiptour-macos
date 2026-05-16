@@ -26,6 +26,9 @@ pub mod personas;
 #[path = "src/cost_meter.rs"]
 pub mod cost_meter;
 
+#[path = "src/crash_recovery.rs"]
+pub mod crash_recovery;
+
 #[path = "src/mode.rs"]
 pub mod mode;
 

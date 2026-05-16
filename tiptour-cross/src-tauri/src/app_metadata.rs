@@ -95,6 +95,7 @@ pub fn open_data_folder_in_os_file_browser() -> Result<(), String> {
 pub fn quit_app_gracefully(app: tauri::AppHandle) {
     crate::multiflow::replayer::set_active_replay_token("__user_quit__");
     let _ = crate::audio::stop_mic_capture();
+    crate::crash_recovery::mark_clean_shutdown();
     let app_clone = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(150));

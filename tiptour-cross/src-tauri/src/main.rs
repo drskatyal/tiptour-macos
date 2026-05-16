@@ -9,6 +9,7 @@ mod audio;
 mod bug_report;
 mod capabilities;
 mod cost_meter;
+mod crash_recovery;
 mod custom_commands;
 mod executor;
 mod gemini_live_client;
@@ -42,6 +43,19 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
+            // Detect whether the previous run shut down cleanly before
+            // stamping a fresh boot sentinel. If it didn't, surface a
+            // banner the panel listens for.
+            let previous_run_crashed = crash_recovery::record_boot_and_detect_previous_crash();
+            if previous_run_crashed {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Wait a beat so the panel webview has had time to
+                    // install its listener before we emit.
+                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                    let _ = tauri::Emitter::emit(&app_handle, "previous_session_crashed", ());
+                });
+            }
             tray::install(app.handle())?;
             // Hotkey registration can fail if another running app holds
             // Alt+X (Microsoft Word's "insert symbol" chord, for example).

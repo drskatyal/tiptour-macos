@@ -901,6 +901,38 @@ await listen<string>("subagent_cancel_request", (event) => {
   // No active socket to close in the stub runner.
 });
 
+// Crash-recovery banner. Rust emits `previous_session_crashed` ~1.5s
+// after boot when the last run didn't shut down cleanly. Send routes
+// to export_bug_report and shows the path in the OS file browser.
+const crashRecoveryBanner = document.getElementById("crash-recovery-banner")!;
+const crashRecoverySendButton = document.getElementById(
+  "crash-recovery-send-button",
+) as HTMLButtonElement;
+const crashRecoveryDismissButton = document.getElementById(
+  "crash-recovery-dismiss-button",
+) as HTMLButtonElement;
+
+crashRecoverySendButton?.addEventListener("click", async () => {
+  try {
+    const zipPath = await invoke<string>("export_bug_report");
+    showError(`Bug report saved to ${zipPath}`);
+  } catch (exportError) {
+    showError(
+      "Export failed: " +
+        (exportError instanceof Error ? exportError.message : String(exportError)),
+    );
+  } finally {
+    crashRecoveryBanner.hidden = true;
+  }
+});
+crashRecoveryDismissButton?.addEventListener("click", () => {
+  crashRecoveryBanner.hidden = true;
+});
+
+await listen("previous_session_crashed", () => {
+  crashRecoveryBanner.hidden = false;
+});
+
 async function bootNormalPanelState(): Promise<void> {
   await loadStoredApiKey();
   await loadOperatingMode();
