@@ -591,9 +591,11 @@ body {
 }
 .screenshots-grid img {
   width: 100%;
-  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--surface-glass-border);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
 }
 
 .command-editor-grid {
@@ -750,28 +752,17 @@ body {
   flex-direction: column;
   gap: var(--space-2);
 }
-.indicators-type-toggle-row {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  align-items: start;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  cursor: pointer;
+/* Indicators per-type toggle rows: text on the left, switch on the
+   right. HTML puts the input first, then the text span — so we
+   explicitly assign grid columns instead of relying on document
+   order, otherwise the switch would land in the wide 1fr column
+   on the left and squish the text. */
+.indicators-type-toggle-row > input[type="checkbox"] {
+  grid-column: 2;
+  justify-self: end;
 }
-.indicators-type-toggle-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.indicators-type-toggle-label {
-  color: var(--text-primary);
-  font-size: var(--type-13-size);
-  font-weight: 500;
-}
-.indicators-type-toggle-description {
-  color: var(--text-tertiary);
-  font-size: var(--type-12-size);
-  line-height: var(--type-12-line);
+.indicators-type-toggle-row > .indicators-type-toggle-text {
+  grid-column: 1;
 }
 
 /* ============================================================================

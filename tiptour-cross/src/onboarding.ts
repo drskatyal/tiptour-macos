@@ -207,7 +207,7 @@ function paintApiKeyStep(
       <input
         id="onboarding-api-key-input"
         type="password"
-        placeholder="AI…"
+        placeholder="Paste your Gemini API key — starts with AIza…"
         autocomplete="off"
         spellcheck="false"
       />

@@ -197,6 +197,9 @@ body[data-onboarding-active="true"] > .onboarding-wizard {
 .onboarding-actions button.primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-3);
 }
 
 .onboarding-actions button.secondary {

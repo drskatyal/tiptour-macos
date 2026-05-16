@@ -214,13 +214,13 @@ body {
   content: "Select text anywhere, then ask TipTour to rewrite, summarize, or translate.";
   display: block;
   text-align: center;
-  margin-top: var(--space-2);
+  margin: var(--space-2) auto 0 auto;
   max-width: 42ch;
-  margin-left: auto;
-  margin-right: auto;
   color: var(--text-faint);
   font-size: var(--type-13-size);
   line-height: var(--type-13-line);
+  overflow-wrap: anywhere;
+  padding: 0 var(--space-3);
 }
 
 /* ---------- Footer ---------- */
