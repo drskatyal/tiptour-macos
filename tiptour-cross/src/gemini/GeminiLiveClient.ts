@@ -408,7 +408,33 @@ export class GeminiLiveClient {
                     args: {
                       type: "object",
                       description:
-                        "Handler-specific arguments. Shape depends on the adapter; common keys include query, text, path, url, to, subject, body, title.",
+                        "Handler-specific arguments. CRITICAL: use ONLY the exact field names listed below per handler — do NOT invent variants like 'song_name' or 'track_name' or 'artist_name'. The Rust deserializer rejects unknown fields and the call fails silently if you guess.\n" +
+                        "spotify.play_track: {query: '<song or song+artist>'}\n" +
+                        "spotify.pause / resume / next / previous / current: {}\n" +
+                        "apple-music.play_track: {query: '<song name>'}; .pause / resume / next / previous / current: {}\n" +
+                        "whatsapp.send_message: {phone: '<E.164 e.g. +14155551234>', text: '<body>'}; .open_chat: {phone}\n" +
+                        "mail-macos.compose / send: {to, cc?, subject, body}\n" +
+                        "messages-macos.send: {to, text}\n" +
+                        "slack.post_message: {channel, text}; .post_dm: {user_id, text}\n" +
+                        "calendar-macos.create_event: {summary, start_iso, end_iso?, location?, notes?}; .list_today: {}\n" +
+                        "reminders-macos.add: {text, due_iso?, notes?}; .list_today: {}\n" +
+                        "notes-macos.create / append: {title, body}\n" +
+                        "notion.create_page: {parent_page_id, title, body}; .append_text: {page_id, text}\n" +
+                        "linear.create_issue: {team_key, title, description?, priority?}; .my_issues: {}\n" +
+                        "obsidian.open_note: {vault, file}; .create_note: {vault, name, content}; .append_to_daily: {vault, text}\n" +
+                        "ms-to-do.add: {title, notes?}\n" +
+                        "pages / numbers / keynote.new_document: {}; .open: {path}\n" +
+                        "word.open: {path}; .new_document: {}; .save_as_pdf: {input_path, output_path}\n" +
+                        "excel.open: {path}; .new_workbook: {}\n" +
+                        "powerpoint.open: {path}; .new_presentation: {}; .start_slideshow: {}\n" +
+                        "outlook-desktop.compose: {to, subject, body}\n" +
+                        "github.create_issue: {repo: '<owner/repo>', title, body?, labels?}; .my_review_requests: {}\n" +
+                        "vscode.open / open_in_cursor: {path}; .goto_line: {path, line, column?}\n" +
+                        "terminal-macos.run: {command, cwd?}; .open_cwd: {path}\n" +
+                        "finder.open_path / reveal_path: {path}\n" +
+                        "file-explorer.open_path / reveal_path: {path}\n" +
+                        "safari.open_url / new_tab: {url}; .current_url / current_title: {}\n" +
+                        "browser.list_tabs: {}; .open_url: {url, new_tab?}; .current_url / current_title / read_page_text: {tab_match?}; .click_text: {text, tab_match?}; .fill_field: {selector, value, tab_match?}; .execute_js: {expression, tab_match?}",
                     },
                   },
                   required: ["slug", "handler"],
