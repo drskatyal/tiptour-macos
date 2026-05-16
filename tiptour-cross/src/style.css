@@ -869,3 +869,23 @@ body {
   background-repeat: no-repeat;
   cursor: pointer;
 }
+
+/* Pulse-style row in the panel that shows "N tasks in progress" with
+   a small caret hint that the row is clickable (opens Tasks tab in
+   Settings). Used by tasks-in-progress-line in index.html. */
+.tasks-in-progress-line {
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-11-size);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: background var(--motion-fast) var(--motion-easing),
+              color var(--motion-fast) var(--motion-easing);
+}
+.tasks-in-progress-line:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
