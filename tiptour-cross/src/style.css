@@ -24,7 +24,21 @@ body {
   flex-direction: column;
   box-sizing: border-box;
   border-radius: 18px;
-  overflow: hidden;
+  /* Allow vertical scroll when content stack outgrows the panel
+     window (permissions banner + saved flows + transcript can run
+     long). overflow:hidden was clipping content silently. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+/* Subtle scrollbar in the panel — matches the settings drawer. */
+body::-webkit-scrollbar { width: 6px; }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+}
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
 }
 
 .panel {
@@ -232,19 +246,25 @@ body {
   font-weight: 600;
 }
 .api-key button {
-  background: var(--accent-500);
+  background: linear-gradient(180deg, #2f6dee 0%, var(--accent-500) 60%);
   color: var(--text-on-accent);
   border-color: transparent;
-  padding: 7px var(--space-4);
-  font-weight: 500;
+  padding: 8px var(--space-4);
+  font-weight: 600;
+  box-shadow: var(--shadow-button-primary);
   /* Min-width so "Save" -> "Saved" toggle doesn't shrink the input. */
   min-width: 64px;
 }
 .api-key button:hover:not(:disabled) {
-  background: var(--accent-600);
+  background: linear-gradient(180deg, #2c63db 0%, var(--accent-600) 60%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 10px -2px rgba(37, 99, 235, 0.55),
+    0 12px 24px -6px rgba(37, 99, 235, 0.40);
 }
 .api-key button:active:not(:disabled) {
-  background: #2c5fe0;
+  background: var(--accent-600);
+  transform: scale(0.97);
 }
 
 /* ----- Permissions ----- */
