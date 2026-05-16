@@ -25,6 +25,7 @@ use tauri::AppHandle;
 use crate::keychain;
 
 pub mod apple_music;
+pub mod browser_cdp;
 pub mod calendar_macos;
 pub mod file_explorer;
 pub mod finder;
@@ -177,6 +178,7 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         finder::manifest(),
         file_explorer::manifest(),
         safari::manifest(),
+        browser_cdp::manifest(),
     ]
 }
 
@@ -285,6 +287,7 @@ pub async fn dispatch_adapter_command(
         "finder" => finder::dispatch(app, &handler, args).await,
         "file-explorer" => file_explorer::dispatch(app, &handler, args).await,
         "safari" => safari::dispatch(app, &handler, args).await,
+        "browser" => browser_cdp::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {slug}")),
     }
 }
