@@ -66,12 +66,26 @@ export async function renderAdaptersTab(paneElement: HTMLElement): Promise<void>
       keychain — so you can decide what to grant.
     </p>
     <div id="adapters-status-banner" class="flag-banner success" hidden></div>
+
+    <h3>Defaults</h3>
+    <p class="section-helper">
+      When you say "add to my shopping list" or "play something" without
+      naming a specific app, TipTour dispatches to the adapter you've
+      chosen for each category. Pick one per category below — you can
+      switch any time.
+    </p>
+    <div id="adapters-defaults"></div>
+
+    <h3>Available adapters</h3>
     <div id="adapters-categories"></div>
   `;
 
   const banner = paneElement.querySelector<HTMLDivElement>("#adapters-status-banner")!;
   const categoriesContainer = paneElement.querySelector<HTMLDivElement>(
     "#adapters-categories",
+  )!;
+  const defaultsContainer = paneElement.querySelector<HTMLDivElement>(
+    "#adapters-defaults",
   )!;
 
   function flash(message: string): void {
@@ -80,6 +94,76 @@ export async function renderAdaptersTab(paneElement: HTMLElement): Promise<void>
     setTimeout(() => {
       banner.hidden = true;
     }, 1600);
+  }
+
+  // Resolve the catalog of category defaults filtered to host OS +
+  // installed adapters. Empty list means the OS has no compatible
+  // adapter for any category — we hide the section.
+  interface DefaultCategoryResolved {
+    category: string;
+    displayLabel: string;
+    description: string;
+    viableCandidateSlugs: string[];
+    currentDefault: string | null;
+  }
+  const compatibleByslug = new Map(compatible.map((a) => [a.slug, a]));
+  const defaultCategories =
+    (await invoke<DefaultCategoryResolved[]>("list_default_categories", {
+      hostPlatform,
+    })) ?? [];
+  if (defaultCategories.length === 0) {
+    defaultsContainer.innerHTML = `
+      <div class="adapter-defaults-empty">
+        Defaults will appear once compatible adapters are installed.
+      </div>
+    `;
+  } else {
+    defaultsContainer.innerHTML = "";
+    for (const category of defaultCategories) {
+      const row = document.createElement("div");
+      row.className = "settings-row";
+      const optionsHtml = category.viableCandidateSlugs
+        .map((slug) => {
+          const adapter = compatibleByslug.get(slug);
+          const label = adapter?.name ?? slug;
+          const selected = category.currentDefault === slug ? " selected" : "";
+          return `<option value="${slug}"${selected}>${escapeHtml(label)}</option>`;
+        })
+        .join("");
+      const noneSelected = category.currentDefault ? "" : " selected";
+      row.innerHTML = `
+        <label for="default-${category.category}">${escapeHtml(category.displayLabel)}</label>
+        <div>
+          <select id="default-${category.category}" data-default-category="${category.category}">
+            <option value=""${noneSelected}>Ask each time</option>
+            ${optionsHtml}
+          </select>
+          <span class="row-hint">${escapeHtml(category.description)}</span>
+        </div>
+      `;
+      defaultsContainer.appendChild(row);
+    }
+    defaultsContainer
+      .querySelectorAll<HTMLSelectElement>("select[data-default-category]")
+      .forEach((select) => {
+        select.addEventListener("change", async () => {
+          const category = select.dataset.defaultCategory!;
+          try {
+            // Empty value = clear default (Ask each time).
+            await invoke("set_default_adapter", {
+              category,
+              slug: select.value,
+            });
+            flash(
+              select.value
+                ? `Default for ${category}: ${select.options[select.selectedIndex].text}`
+                : `Cleared default for ${category}.`,
+            );
+          } catch (error) {
+            flash(`Couldn't save default: ${errorMessageOf(error)}`);
+          }
+        });
+      });
   }
 
   if (compatible.length === 0) {
@@ -318,4 +402,12 @@ function humanizeCapability(cap: string): string {
 
 function errorMessageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
