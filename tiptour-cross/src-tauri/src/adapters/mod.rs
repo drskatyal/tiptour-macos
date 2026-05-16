@@ -33,13 +33,17 @@ pub mod helpers;
 pub mod iwork;
 pub mod linear;
 pub mod mail_macos;
+pub mod messages_macos;
 pub mod microsoft_to_do;
 pub mod notes_macos;
 pub mod notion;
 pub mod obsidian;
+pub mod office_windows;
 pub mod reminders_macos;
+pub mod safari;
 pub mod slack;
 pub mod spotify;
+pub mod terminal_macos;
 pub mod vscode;
 pub mod whatsapp;
 
@@ -148,6 +152,7 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         // communication
         whatsapp::manifest(),
         mail_macos::manifest(),
+        messages_macos::manifest(),
         slack::manifest(),
         // productivity
         calendar_macos::manifest(),
@@ -160,12 +165,18 @@ pub fn bundled_manifests() -> Vec<AdapterManifest> {
         iwork::pages_manifest(),
         iwork::numbers_manifest(),
         iwork::keynote_manifest(),
+        office_windows::word_manifest(),
+        office_windows::excel_manifest(),
+        office_windows::powerpoint_manifest(),
+        office_windows::outlook_desktop_manifest(),
         // dev
         github::manifest(),
         vscode::manifest(),
+        terminal_macos::manifest(),
         // files
         finder::manifest(),
         file_explorer::manifest(),
+        safari::manifest(),
     ]
 }
 
@@ -252,6 +263,7 @@ pub async fn dispatch_adapter_command(
         "apple-music" => apple_music::dispatch(app, &handler, args).await,
         "whatsapp" => whatsapp::dispatch(app, &handler, args).await,
         "mail-macos" => mail_macos::dispatch(app, &handler, args).await,
+        "messages-macos" => messages_macos::dispatch(app, &handler, args).await,
         "slack" => slack::dispatch(app, &handler, args).await,
         "calendar-macos" => calendar_macos::dispatch(app, &handler, args).await,
         "reminders-macos" => reminders_macos::dispatch(app, &handler, args).await,
@@ -263,10 +275,16 @@ pub async fn dispatch_adapter_command(
         "pages" => iwork::dispatch_pages(app, &handler, args).await,
         "numbers" => iwork::dispatch_numbers(app, &handler, args).await,
         "keynote" => iwork::dispatch_keynote(app, &handler, args).await,
+        "word" => office_windows::dispatch_word(app, &handler, args).await,
+        "excel" => office_windows::dispatch_excel(app, &handler, args).await,
+        "powerpoint" => office_windows::dispatch_powerpoint(app, &handler, args).await,
+        "outlook-desktop" => office_windows::dispatch_outlook_desktop(app, &handler, args).await,
         "github" => github::dispatch(app, &handler, args).await,
         "vscode" => vscode::dispatch(app, &handler, args).await,
+        "terminal-macos" => terminal_macos::dispatch(app, &handler, args).await,
         "finder" => finder::dispatch(app, &handler, args).await,
         "file-explorer" => file_explorer::dispatch(app, &handler, args).await,
+        "safari" => safari::dispatch(app, &handler, args).await,
         _ => Err(format!("Unknown adapter slug: {slug}")),
     }
 }

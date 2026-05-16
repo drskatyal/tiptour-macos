@@ -388,6 +388,32 @@ export class GeminiLiveClient {
                   required: ["name"],
                 },
               },
+              {
+                name: "control_app",
+                description:
+                  "Drive an installed third-party adapter (Spotify, WhatsApp, Mail, Calendar, Notion, Linear, GitHub, Slack, Word, Excel, Safari, Finder, etc.). Use this whenever the user asks to do something IN a specific app — 'play X on Spotify', 'send WhatsApp to Mom: …', 'create a Linear issue', 'add to my Notion log', 'open this in VS Code', 'reveal this in Finder'. Look up the adapter slug + handler from the user's intent. The adapter must be installed + enabled (Settings → Connected apps) for the call to succeed; if it isn't, surface the failure verbatim so the user knows to install it. Available slugs include: spotify, apple-music, whatsapp, mail-macos, messages-macos, slack, calendar-macos, reminders-macos, notes-macos, notion, linear, obsidian, ms-to-do, pages, numbers, keynote, word, excel, powerpoint, outlook-desktop, github, vscode, terminal-macos, finder, file-explorer, safari. Each adapter exposes a small set of handlers (e.g. spotify: play_track/pause/resume/next/previous/current; whatsapp: send_message/open_chat; calendar-macos: create_event/list_today). Pass handler args under `args`.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    slug: {
+                      type: "string",
+                      description:
+                        "The adapter slug. Lowercase, hyphen-separated. Examples: 'spotify', 'whatsapp', 'mail-macos', 'github', 'word'.",
+                    },
+                    handler: {
+                      type: "string",
+                      description:
+                        "The handler name within the adapter, e.g. 'play_track', 'send_message', 'create_issue', 'open_path'.",
+                    },
+                    args: {
+                      type: "object",
+                      description:
+                        "Handler-specific arguments. Shape depends on the adapter; common keys include query, text, path, url, to, subject, body, title.",
+                    },
+                  },
+                  required: ["slug", "handler"],
+                },
+              },
             ],
           },
         ],
