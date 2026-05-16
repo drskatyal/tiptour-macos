@@ -11,9 +11,10 @@ interface CapabilityIndexSummary {
 }
 
 export async function renderCapabilitiesTab(paneElement: HTMLElement): Promise<void> {
-  const destructiveKeywords = await invoke<string[]>("get_destructive_keywords").catch(
-    () => [] as string[],
-  );
+  const destructiveKeywords =
+    (await invoke<string[] | null>("get_destructive_keywords").catch(
+      () => [] as string[],
+    )) ?? [];
 
   paneElement.innerHTML = `
     <h2>Capabilities</h2>
