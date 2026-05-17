@@ -16,8 +16,9 @@ interface AppSettingsShape {
 
 const GEMINI_VOICE_CHOICES = ["Kore", "Aoede", "Charon", "Puck", "Fenrir"];
 const GEMINI_MODEL_CHOICES = [
-  { value: "gemini-3.1-flash-live-preview", label: "gemini-3.1-flash-live-preview (default)" },
-  { value: "gemini-2.0-flash-exp", label: "gemini-2.0-flash-exp (legacy)" },
+  { value: "gemini-3.1-flash-live-preview", label: "gemini-3.1-flash-live-preview (Live, default)" },
+  { value: "gemini-2.5-flash-lite", label: "gemini-2.5-flash-lite (Quick mode, REST audio)" },
+  { value: "gemini-2.5-flash", label: "gemini-2.5-flash (full reasoning)" },
 ];
 
 export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> {

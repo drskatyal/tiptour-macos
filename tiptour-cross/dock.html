@@ -24,7 +24,7 @@
         <span class="dock-action-shortcut" id="dock-action-shortcut"></span>
       </div>
 
-      <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls">
+      <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls" data-tauri-drag-region>
         <!-- Focused-app pip: tiny circle on the far left when a real
              target app is in focus. Just a 2-letter mono badge so it
              matches the compact aesthetic — full name lives in the
@@ -32,7 +32,7 @@
         <span id="dock-focused-app" class="dock-focused-pip" hidden></span>
         <button
           id="dock-quick"
-          class="dock-button dock-primary"
+          class="dock-button dock-primary" data-tauri-drag-region="false"
           data-action="Ask"
           data-shortcut="Alt + X"
           aria-label="Start a quick voice command"
@@ -41,7 +41,7 @@
         </button>
         <button
           id="dock-transcribe"
-          class="dock-button"
+          class="dock-button" data-tauri-drag-region="false"
           data-action="Dictate"
           data-shortcut="Alt + Z"
           aria-label="Transcribe into the focused field"
@@ -50,7 +50,7 @@
         </button>
         <button
           id="dock-screenshot"
-          class="dock-button"
+          class="dock-button" data-tauri-drag-region="false"
           data-action="Snap"
           data-shortcut=""
           aria-label="Grab a screenshot to brain dump"
@@ -59,7 +59,7 @@
         </button>
         <button
           id="dock-brain-dump"
-          class="dock-button"
+          class="dock-button" data-tauri-drag-region="false"
           data-action="Capture"
           data-shortcut=""
           aria-label="Capture a thought to brain dump"
@@ -68,7 +68,7 @@
         </button>
         <button
           id="dock-open-panel"
-          class="dock-button dock-ghost"
+          class="dock-button dock-ghost" data-tauri-drag-region="false"
           data-action="Panel"
           data-shortcut=""
           aria-label="Open panel"
@@ -77,7 +77,7 @@
         </button>
         <button
           id="dock-open-settings"
-          class="dock-button dock-ghost"
+          class="dock-button dock-ghost" data-tauri-drag-region="false"
           data-action="Settings"
           data-shortcut=""
           aria-label="Open settings"

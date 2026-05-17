@@ -248,6 +248,14 @@ function setStatus(status: SessionStatus) {
     sourceId: null,
   }).catch(() => undefined);
 
+  // Broadcast to the dock so it pulses the pill blue while any
+  // session is active. The dock listens for this event and flips
+  // data-active accordingly. Without this the dock had no idea a
+  // Live session was open.
+  void import("@tauri-apps/api/event").then(({ emit }) =>
+    emit("panel_session_state", isActive ? "listening" : "idle"),
+  );
+
   // Mirror into the tray so the Start/Stop session toggle reflects
   // the live session state without polling.
   void invoke("set_tray_session_active", { active: isActive }).catch(() => undefined);
@@ -348,12 +356,50 @@ interface PanelAppSettings {
   theme: string;
 }
 
+// Visible debug strip that prints each step of the session start
+// flow into the panel itself. The user couldn't see anything when
+// Start listening did nothing — now every step lands on screen so
+// the failure point is obvious.
+function debugTrace(message: string): void {
+  console.info("[panel-trace]", message);
+  let strip = document.getElementById("panel-debug-strip");
+  if (!strip) {
+    strip = document.createElement("div");
+    strip.id = "panel-debug-strip";
+    strip.style.cssText = [
+      "position:fixed",
+      "left:8px",
+      "right:8px",
+      "bottom:8px",
+      "z-index:2147483646",
+      "padding:8px 10px",
+      "background:rgba(15,15,20,0.88)",
+      "color:#9be0ff",
+      "font:11px/1.35 ui-monospace,monospace",
+      "border:1px solid rgba(155,224,255,0.30)",
+      "border-radius:8px",
+      "max-height:140px",
+      "overflow:auto",
+      "pointer-events:none",
+    ].join(";");
+    document.body.appendChild(strip);
+  }
+  const line = document.createElement("div");
+  const stamp = new Date().toLocaleTimeString();
+  line.textContent = `${stamp}  ${message}`;
+  strip.appendChild(line);
+  strip.scrollTop = strip.scrollHeight;
+}
+
 async function startSession() {
+  debugTrace("startSession() called");
   const key = apiKeyInput.value.trim();
   if (!key) {
+    debugTrace("startSession: no key in input");
     showError("Paste a Gemini API key first.");
     return;
   }
+  debugTrace(`startSession: key length=${key.length}`);
   clearError();
   console.info("[panel] starting session");
 
@@ -368,24 +414,37 @@ async function startSession() {
     console.warn("[panel] get_app_settings failed:", settingsError);
   }
 
+  debugTrace(`startSession: model=${panelAppSettings?.geminiModel ?? "(default)"}`);
   session = new GeminiLiveSession({
     apiKey: key,
     voiceName: panelAppSettings?.geminiVoice,
     modelShortId: panelAppSettings?.geminiModel,
-    onStatusChange: setStatus,
-    onUserTranscript: (text) => appendTranscript("user", text),
-    onModelTranscript: (text) => appendTranscript("model", text),
-    onError: (message) => showError(message),
+    onStatusChange: (newStatus) => {
+      debugTrace(`session status -> ${newStatus}`);
+      setStatus(newStatus);
+    },
+    onUserTranscript: (text) => {
+      debugTrace(`user transcript: ${text.slice(0, 60)}`);
+      appendTranscript("user", text);
+    },
+    onModelTranscript: (text) => {
+      debugTrace(`model transcript: ${text.slice(0, 60)}`);
+      appendTranscript("model", text);
+    },
+    onError: (message) => {
+      debugTrace(`session ERROR: ${message}`);
+      showError(message);
+    },
   });
 
   try {
+    debugTrace("session.open() awaiting…");
     await session.open();
+    debugTrace("session.open() resolved");
   } catch (error) {
-    console.error("[panel] session.open threw:", error);
-    // GeminiLiveSession already calls onError(message) on its way to
-    // throwing, so the error banner is set. But we ALSO log + show a
-    // visible status to make it obvious that the click was received.
     const detail = error instanceof Error ? error.message : String(error);
+    debugTrace(`session.open() threw: ${detail}`);
+    console.error("[panel] session.open threw:", error);
     showError(
       `Couldn't open Gemini session: ${detail}. ` +
         `Verify the API key is valid and that you have network access.`,
@@ -423,8 +482,14 @@ async function togglePushToTalk() {
   await pushToTalkInFlightPromise;
 }
 
-startButton.addEventListener("click", () => void startSession());
-stopButton.addEventListener("click", () => void stopSession());
+startButton.addEventListener("click", () => {
+  debugTrace("Start listening clicked");
+  void startSession();
+});
+stopButton.addEventListener("click", () => {
+  debugTrace("Stop clicked");
+  void stopSession();
+});
 
 // Gear icon in the panel header opens the deep-edit Settings window.
 const openSettingsButton = document.getElementById(
@@ -657,6 +722,7 @@ window.addEventListener("focus", () => void refreshLastHotkeyBehavior());
 
 await safeListen("push_to_talk_toggled", () => {
   console.info("[panel] hotkey press");
+  debugTrace("hotkey press received (Alt+X)");
   // Refresh once per press so a settings flip is picked up on the
   // very next hotkey use, not the one after that.
   void refreshLastHotkeyBehavior().then(() => {

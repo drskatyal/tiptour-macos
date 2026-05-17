@@ -13,34 +13,38 @@
  */
 
 :root {
-  /* Apple Liquid Glass — light/silver translucent palette.
-   *   - tint: barely-there white frost over whatever's behind
-   *   - rim-bright: the lit edge that reads as "glass catching light"
-   *   - rim-soft: the inner hairline on every other edge
-   *   - shade: a soft bottom band so the pill has depth, not a sticker
-   * Icons sit on this in near-black for high readability against
-   * any wallpaper underneath. */
+  /* Apple Liquid Glass — light/silver tint with a faint blue cast
+   * so the pill reads as "frosted glass" not "white plastic". The
+   * blue lives in the gradient base; the bright specular edge
+   * stays neutral so it reflects whatever's actually behind the
+   * window.
+   *
+   * Translucent target: high enough alpha to be readable on a
+   * busy wallpaper, low enough that the desktop bleed shows
+   * through and the pill feels weightless. */
   --dock-accent: #1d7afc;
-  --dock-glass-tint: rgba(255, 255, 255, 0.55);
-  --dock-glass-tint-strong: rgba(255, 255, 255, 0.72);
-  --dock-glass-text: #1a1a1f;
-  --dock-glass-text-soft: rgba(26, 26, 31, 0.62);
-  --dock-glass-rim-bright: rgba(255, 255, 255, 0.92);
-  --dock-glass-rim-soft: rgba(255, 255, 255, 0.45);
-  --dock-glass-shade: rgba(0, 0, 0, 0.06);
+  --dock-glass-tint: rgba(240, 246, 255, 0.78);
+  --dock-glass-tint-soft: rgba(225, 235, 250, 0.62);
+  --dock-glass-tint-strong: rgba(248, 252, 255, 0.88);
+  --dock-glass-text: #16181d;
+  --dock-glass-text-soft: rgba(22, 24, 29, 0.62);
+  --dock-glass-rim-bright: rgba(255, 255, 255, 0.96);
+  --dock-glass-rim-soft: rgba(255, 255, 255, 0.55);
+  --dock-glass-shade: rgba(20, 40, 80, 0.06);
 }
 
-/* The dock window is a transparent rectangle — anything that
- * paints outside the chip cluster bleeds onto the user's desktop.
- * Hard-pin no-scroll + no-overflow so the webview never grows
- * scrollbars when content briefly overflows during the toolbar
- * expansion animation. */
+/* The dock window is a transparent rectangle. Kill scrollbars,
+ * but leave overflow VISIBLE so the action-pill tooltip that
+ * floats above the toolbar isn't clipped at the body box. The
+ * outer Tauri webview is the actual viewport — it doesn't grow
+ * scrollbars as long as our painted content stays inside the
+ * window rectangle the Rust side allocated. */
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
 }
 html::-webkit-scrollbar,
@@ -53,7 +57,7 @@ body::-webkit-scrollbar {
 .dock-body {
   margin: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--dock-glass-text);
   font-family: var(--font-sans);
   font-size: var(--type-13-size);
   height: 100vh;
@@ -61,8 +65,8 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 12px;
-  overflow: hidden;
+  padding-bottom: 14px;
+  overflow: visible;
 }
 
 .dock-root {
@@ -118,33 +122,48 @@ body::-webkit-scrollbar {
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
+  gap: 6px;
+  /* Generous internal padding so the first/last chip never kisses
+   * the pill's curved rim — that "edge cutting" was caused by the
+   * 8px left/right padding being smaller than the chip's hover
+   * scale-out distance. */
+  padding: 6px 14px;
   border-radius: 999px;
   opacity: 0;
   transform: translateY(8px) scale(0.96);
   pointer-events: none;
-  /* Single white/silver liquid-glass capsule — the buttons inside
-     are visually subordinate. Top specular gradient + lit hairline +
-     soft bottom shade + multi-layer drop shadow gives the
-     "lit-from-above frosted glass" look macOS Tahoe uses. */
+  /* Light-blue liquid glass — translucent enough to see the
+   * desktop through, opaque enough to read on any wallpaper. The
+   * top specular gradient catches "light from above"; the side
+   * gradient subtly bleeds the wallpaper's color through the
+   * pill so it doesn't look like a sticker pasted on top. */
   background:
     linear-gradient(180deg,
-      rgba(255, 255, 255, 0.45) 0%,
-      rgba(255, 255, 255, 0.18) 30%,
-      rgba(255, 255, 255, 0.05) 60%,
-      rgba(255, 255, 255, 0.18) 100%),
-    var(--dock-glass-tint);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.20) 28%,
+      rgba(220, 232, 250, 0.05) 60%,
+      rgba(255, 255, 255, 0.25) 100%),
+    linear-gradient(135deg,
+      var(--dock-glass-tint-strong) 0%,
+      var(--dock-glass-tint) 60%,
+      var(--dock-glass-tint-soft) 100%);
+  backdrop-filter: blur(36px) saturate(170%);
+  -webkit-backdrop-filter: blur(36px) saturate(170%);
   box-shadow:
+    /* lit top edge */
     inset 0 0.75px 0 var(--dock-glass-rim-bright),
+    /* shaded bottom edge */
     inset 0 -0.5px 0 var(--dock-glass-shade),
+    /* full inner rim */
     inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    0 0.5px 0 rgba(255, 255, 255, 0.50),
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 8px 20px -4px rgba(0, 0, 0, 0.18),
-    0 24px 48px -10px rgba(0, 0, 0, 0.22);
+    /* hard contact line */
+    0 0.5px 0 rgba(255, 255, 255, 0.60),
+    /* tight contact shadow */
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    /* mid lift */
+    0 8px 22px -4px rgba(20, 40, 80, 0.18),
+    /* wide diffuse */
+    0 28px 60px -12px rgba(20, 40, 80, 0.22);
   transition:
     opacity 200ms cubic-bezier(0.2, 0.7, 0.2, 1),
     transform 280ms cubic-bezier(0.34, 1.36, 0.64, 1);
@@ -373,26 +392,81 @@ body::-webkit-scrollbar {
 /* Active states — when a session or transcription is running, the
  * primary chip pulses accent so the user has a peripheral signal
  * that something's listening even when the toolbar is collapsed. */
+/* "Working" state — fires whenever a voice session is open or
+ * transcription is running. The dash + the whole pill take on a
+ * blue tint + soft outer glow so the user sees TipTour is alive
+ * at a glance, even from peripheral vision. */
 [data-active="listening"] .dock-dash,
 [data-active="transcribing"] .dock-dash {
   background: var(--dock-accent);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.60),
     0 1px 2px rgba(0, 0, 0, 0.15),
-    0 0 20px 4px rgba(29, 122, 252, 0.55);
+    0 0 24px 6px rgba(29, 122, 252, 0.55);
   animation: dock-dash-pulse 1.6s ease-in-out infinite;
 }
 @keyframes dock-dash-pulse {
-  0%, 100% { transform: scale(1);    opacity: 0.90; }
-  50%      { transform: scale(1.05); opacity: 1; }
+  0%, 100% { transform: scale(1);    opacity: 0.92; }
+  50%      { transform: scale(1.06); opacity: 1; }
+}
+
+/* While listening, the whole expanded pill takes on a faint blue
+ * cast + a soft outer glow so it's obvious which mode is active
+ * even when the user's eye is somewhere else on the screen. */
+[data-active="listening"] .dock-toolbar,
+[data-active="transcribing"] .dock-toolbar {
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.20) 28%,
+      rgba(200, 220, 250, 0.10) 60%,
+      rgba(255, 255, 255, 0.25) 100%),
+    linear-gradient(135deg,
+      rgba(232, 240, 255, 0.88) 0%,
+      rgba(214, 228, 252, 0.78) 60%,
+      rgba(196, 216, 248, 0.70) 100%);
+  box-shadow:
+    inset 0 0.75px 0 var(--dock-glass-rim-bright),
+    inset 0 -0.5px 0 var(--dock-glass-shade),
+    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
+    0 0.5px 0 rgba(255, 255, 255, 0.60),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 22px -4px rgba(29, 122, 252, 0.22),
+    0 28px 60px -12px rgba(29, 122, 252, 0.30);
 }
 [data-active="listening"] .dock-button.dock-primary,
 [data-active="transcribing"] .dock-button.dock-primary {
-  background: rgba(29, 122, 252, 0.30);
+  background: var(--dock-accent);
   color: #fff;
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.50),
-    inset 0 0 0 1.25px var(--dock-accent),
-    0 1px 2px rgba(0, 0, 0, 0.10),
-    0 0 24px 2px rgba(29, 122, 252, 0.45);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1.25px rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 0 24px 4px rgba(29, 122, 252, 0.55);
+  animation: dock-primary-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dock-primary-pulse {
+  0%, 100% { transform: scale(1);    box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1.25px rgba(255, 255, 255, 0.45),
+    0 0 16px 2px rgba(29, 122, 252, 0.40); }
+  50%      { transform: scale(1.08); box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.70),
+    inset 0 0 0 1.25px rgba(255, 255, 255, 0.55),
+    0 0 28px 6px rgba(29, 122, 252, 0.70); }
+}
+
+/* When the dock is collapsed to just the dash AND a session is
+ * active, also tint the surrounding hit-area so the user notices
+ * something is running without having to hover. */
+[data-active="listening"] .dock-root::before,
+[data-active="transcribing"] .dock-root::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(29, 122, 252, 0.18), transparent 80%);
+  pointer-events: none;
+  z-index: -1;
+  animation: dock-dash-pulse 2s ease-in-out infinite;
 }

@@ -69,6 +69,22 @@ fn apply_presence_mode_visibility(app: &AppHandle, presence_mode: &str) {
 
 fn main() {
     tauri::Builder::default()
+        // Single-instance: when the user double-clicks the app a
+        // second time, hand the launch to the running process and
+        // raise the panel instead of spawning a second one. Without
+        // this Windows shows two tray icons (and TipTour fights
+        // itself for the global hotkey registration).
+        .plugin(tauri_plugin_single_instance::init(
+            |app, _argv, _cwd| {
+                if let Some(panel_window) = app.get_webview_window("panel") {
+                    let _ = panel_window.show();
+                    let _ = panel_window.set_focus();
+                }
+                // Also flash the dock toolbar so the user sees the
+                // running instance reacted to their second launch.
+                let _ = tauri::Emitter::emit(app, "dock_flash", ());
+            },
+        ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // macOS: become a true menu-bar / accessory app so we don't
@@ -134,8 +150,8 @@ fn main() {
                 if let Ok(Some(primary_monitor)) = dock_window.primary_monitor() {
                     let monitor_position = primary_monitor.position();
                     let monitor_size = primary_monitor.size();
-                    let dock_width: u32 = 420;
-                    let dock_height: u32 = 140;
+                    let dock_width: u32 = 520;
+                    let dock_height: u32 = 200;
                     // Sit ~7% above the bottom edge so the dock floats
                     // in the visual lower-middle rather than glued to
                     // the screen edge. On a 1080p display this lands

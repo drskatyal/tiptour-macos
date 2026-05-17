@@ -213,7 +213,10 @@ await listen<{ slug: string; handler: string; ok: boolean; message: string }>(
 );
 
 // Reflect the session/transcribe state via data-active so the dash
-// glows blue when something's running. Rust pushes events for both.
+// glows blue when something's running. Rust pushes events for both;
+// the panel's own setStatus also broadcasts panel_session_state so
+// the dock pulses while a Live Gemini session is open even if no
+// adapter has dispatched.
 await listen<string>("quick_voice_state", (event) => {
   const state = event.payload;
   if (state === "listening" || state === "thinking") {
@@ -221,6 +224,10 @@ await listen<string>("quick_voice_state", (event) => {
   } else {
     rootElement.dataset.active = "";
   }
+});
+
+await listen<string>("panel_session_state", (event) => {
+  rootElement.dataset.active = event.payload === "listening" ? "listening" : "";
 });
 
 await listen<string>("soniox_state", (event) => {
