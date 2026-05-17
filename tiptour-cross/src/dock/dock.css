@@ -1,31 +1,21 @@
-/* Floating dock — minimal dash at rest, expands on hover into a row
- * of small circular icon chips. Visual target: Apple "Liquid Glass"
- * (macOS Tahoe / iOS 26 era) — translucent base, true backdrop
- * refraction, top specular highlight, bottom shade, soft rim glow.
+/* Floating dock — minimal liquid-glass pill with icon-only buttons.
  *
- * The recipe per chip:
- *   1. translucent base tint (rgba black ~80%)
- *   2. backdrop-filter blur + saturate + brightness for refraction
- *   3. inset top highlight (white 30%)  — "light hits the top"
- *   4. inset bottom shade  (black 15%) — "shadow on the bottom"
- *   5. inset 1px rim       (white 8%)  — "lit edge"
- *   6. 1px hard contact shadow + multi-layer soft drop shadow
+ * Hard-coded sizing math so nothing clips:
+ *   - 6 buttons × 32px wide = 192
+ *   - 5 gaps × 6px = 30
+ *   - 2 × 40px inner padding = 80
+ *   = 302px pill width, well inside the 460px window.
+ *
+ * Pill height = 32px (button) + 14px padding (7+7) = 46px.
+ * Border-radius:999px → 23px curve radius on each end.
+ * First chip's left edge sits at 40px from pill-left → 17px of
+ * straight-section breathing room between chip rim and the curve.
  */
 
 :root {
-  /* Apple Liquid Glass — light/silver tint with a faint blue cast
-   * so the pill reads as "frosted glass" not "white plastic". The
-   * blue lives in the gradient base; the bright specular edge
-   * stays neutral so it reflects whatever's actually behind the
-   * window.
-   *
-   * Translucent target: high enough alpha to be readable on a
-   * busy wallpaper, low enough that the desktop bleed shows
-   * through and the pill feels weightless. */
   --dock-accent: #1d7afc;
   --dock-glass-tint: rgba(240, 246, 255, 0.78);
-  --dock-glass-tint-soft: rgba(225, 235, 250, 0.62);
-  --dock-glass-tint-strong: rgba(248, 252, 255, 0.88);
+  --dock-glass-tint-strong: rgba(248, 252, 255, 0.92);
   --dock-glass-text: #16181d;
   --dock-glass-text-soft: rgba(22, 24, 29, 0.62);
   --dock-glass-rim-bright: rgba(255, 255, 255, 0.96);
@@ -33,25 +23,15 @@
   --dock-glass-shade: rgba(20, 40, 80, 0.06);
 }
 
-/* The dock window is a transparent rectangle. Kill scrollbars,
- * but leave overflow VISIBLE so the action-pill tooltip that
- * floats above the toolbar isn't clipped at the body box. The
- * outer Tauri webview is the actual viewport — it doesn't grow
- * scrollbars as long as our painted content stays inside the
- * window rectangle the Rust side allocated. */
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
   background: transparent;
-  /* Hard-zero every potential outline. Some platforms (Windows
-   * webview2 in particular) draw a 1px border around transparent
-   * windows when there's no explicit border:none — that was the
-   * "separate square bordered box around it" the user saw. */
   border: 0;
   outline: 0;
+  overflow: visible;
   box-shadow: none;
 }
 html::-webkit-scrollbar,
@@ -72,7 +52,7 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
   overflow: visible;
 }
 
@@ -81,30 +61,26 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Tight hit-area around the dash; the unified pill is its own
-   * hover target once expanded. */
-  padding: 16px 30px;
+  padding: 14px 24px;
   cursor: pointer;
 }
 
-/* Collapsed dash — the only visible affordance at rest. Subtle
- * enough to disappear into the desktop, but with a slow breath
- * animation so the eye eventually catches it. */
+/* ---------- collapsed dash ---------- */
 .dock-dash {
-  width: 64px;
-  height: 6px;
+  width: 56px;
+  height: 5px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.65);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
     inset 0 -0.5px 0 rgba(0, 0, 0, 0.06),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.40),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45),
     0 1px 2px rgba(0, 0, 0, 0.12),
-    0 8px 18px -4px rgba(0, 0, 0, 0.16);
+    0 6px 14px -3px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   transition:
-    opacity 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 180ms ease,
     transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
   animation: dock-dash-idle 4.5s ease-in-out infinite;
 }
@@ -112,7 +88,6 @@ body::-webkit-scrollbar {
   0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
   50%      { transform: translateY(-0.5px) scale(1.03); opacity: 1; }
 }
-
 .dock-root:hover .dock-dash,
 [data-state="toolbar"] .dock-dash {
   opacity: 0;
@@ -120,32 +95,20 @@ body::-webkit-scrollbar {
   pointer-events: none;
 }
 
-/* Expanded toolbar — ONE unified liquid glass capsule that holds
- * every control. Same recipe (translucent tint + backdrop blur +
- * specular highlight + lit rim) but at the wrapper level, so the
- * whole row reads as one piece of material instead of separate
- * chips floating on the desktop. */
+/* ---------- expanded toolbar ---------- */
 .dock-toolbar {
   position: absolute;
   display: flex;
   align-items: center;
   gap: 6px;
-  /* border-radius:999px makes the pill a stadium — the rounded
-   * ends extend (pill-height / 2) horizontally from each side.
-   * Padding-x must be >= that radius PLUS the chip's own radius
-   * so the first/last chip's outline never crosses the curve.
-   * Pill height ~50px → 25px curve radius. Chip radius 18px.
-   * 32px padding keeps everything inside the straight section. */
-  padding: 7px 32px;
+  /* 40px horizontal padding > 23px curve radius + 16px breathing,
+   * so the first/last chip can NEVER touch the curved rim. */
+  padding: 7px 40px;
   border-radius: 999px;
   opacity: 0;
   transform: translateY(8px) scale(0.96);
   pointer-events: none;
-  /* Light-blue liquid glass — translucent enough to see the
-   * desktop through, opaque enough to read on any wallpaper. The
-   * top specular gradient catches "light from above"; the side
-   * gradient subtly bleeds the wallpaper's color through the
-   * pill so it doesn't look like a sticker pasted on top. */
+
   background:
     linear-gradient(180deg,
       rgba(255, 255, 255, 0.55) 0%,
@@ -155,24 +118,17 @@ body::-webkit-scrollbar {
     linear-gradient(135deg,
       var(--dock-glass-tint-strong) 0%,
       var(--dock-glass-tint) 60%,
-      var(--dock-glass-tint-soft) 100%);
+      var(--dock-glass-tint) 100%);
   backdrop-filter: blur(36px) saturate(170%);
   -webkit-backdrop-filter: blur(36px) saturate(170%);
   box-shadow:
-    /* lit top edge */
     inset 0 0.75px 0 var(--dock-glass-rim-bright),
-    /* shaded bottom edge */
     inset 0 -0.5px 0 var(--dock-glass-shade),
-    /* full inner rim */
     inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    /* hard contact line */
-    0 0.5px 0 rgba(255, 255, 255, 0.60),
-    /* tight contact shadow */
+    0 0.5px 0 rgba(255, 255, 255, 0.55),
     0 1px 3px rgba(0, 0, 0, 0.08),
-    /* mid lift */
     0 8px 22px -4px rgba(20, 40, 80, 0.18),
-    /* wide diffuse */
-    0 28px 60px -12px rgba(20, 40, 80, 0.22);
+    0 24px 52px -10px rgba(20, 40, 80, 0.20);
   transition:
     opacity 200ms cubic-bezier(0.2, 0.7, 0.2, 1),
     transform 280ms cubic-bezier(0.34, 1.36, 0.64, 1);
@@ -184,48 +140,36 @@ body::-webkit-scrollbar {
   pointer-events: auto;
 }
 
-/* Individual buttons in the toolbar — small dark circles with a
- * single white-tinted icon. Slight scale on hover so the user gets
- * tactile feedback. */
-/* Buttons live INSIDE the toolbar pill — transparent over the
- * shared white-glass capsule, dark icon on hover lights up with a
- * frosted silver halo. The whole row reads as one piece of glass. */
+/* ---------- buttons inside the pill ---------- */
 .dock-button {
   appearance: none;
-  border: none;
+  border: 0;
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   color: var(--dock-glass-text);
   background: transparent;
   box-shadow: none;
-  transition:
-    transform 160ms cubic-bezier(0.34, 1.36, 0.64, 1),
-    background 160ms ease,
-    box-shadow 200ms ease;
   padding: 0;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
 }
 .dock-button:hover {
   background: rgba(255, 255, 255, 0.55);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -0.5px 0 rgba(0, 0, 0, 0.06),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.50),
-    0 1px 2px rgba(0, 0, 0, 0.08);
-  transform: scale(1.06);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -0.5px 0 rgba(20, 40, 80, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
 }
 .dock-button:active {
-  transform: scale(0.94);
-  transition: transform 80ms ease;
+  background: rgba(255, 255, 255, 0.40);
 }
-
-/* Primary action (Ask / mic) — tinted accent so the row has a
- * visual anchor without breaking the unified-capsule look. */
 .dock-button.dock-primary {
   background: rgba(29, 122, 252, 0.16);
   color: #0a4fb8;
@@ -235,22 +179,14 @@ body::-webkit-scrollbar {
   background: rgba(29, 122, 252, 0.26);
   color: #073d92;
 }
+.dock-button.dock-ghost { color: var(--dock-glass-text-soft); }
+.dock-button.dock-ghost:hover { color: var(--dock-glass-text); }
 
-/* Ghost buttons (Panel / Settings) — same shape, slightly dimmer
- * icon so they fade against the primary control. */
-.dock-button.dock-ghost {
-  color: var(--dock-glass-text-soft);
-}
-.dock-button.dock-ghost:hover {
-  color: var(--dock-glass-text);
-}
-
-/* Icons — SVG masks tinted by background-color so we don't have to
- * ship per-color asset variants. */
+/* ---------- icons (SVG masks tinted by currentColor) ---------- */
 .dock-icon {
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
@@ -264,8 +200,8 @@ body::-webkit-scrollbar {
           mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='9' y='2' width='6' height='12' rx='3'/><path d='M5 11a7 7 0 0 0 14 0M12 19v3'/></svg>");
 }
 .dock-icon[data-icon="caret"] {
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h7M4 12h12M4 17h7M17 4v16M14 7l3-3 3 3M14 17l3 3 3-3'/></svg>");
-          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h7M4 12h12M4 17h7M17 4v16M14 7l3-3 3 3M14 17l3 3 3-3'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h12M4 12h16M4 17h12'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h12M4 12h16M4 17h12'/></svg>");
 }
 .dock-icon[data-icon="frame"] {
   -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='14' rx='2'/><circle cx='12' cy='12' r='3'/></svg>");
@@ -280,77 +216,47 @@ body::-webkit-scrollbar {
           mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='16' rx='2'/><path d='M9 4v16'/></svg>");
 }
 .dock-icon[data-icon="gear"] {
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/></svg>");
-          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12'/></svg>");
 }
 
-/* Focused-app pip — compact 36px circle on the far left, mono
- * 2-letter badge so it matches the chip cluster aesthetic. */
-.dock-focused-pip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 30px;
-  height: 28px;
-  padding: 0 10px;
-  margin-right: 4px;
-  border-radius: 999px;
-  color: var(--dock-glass-text);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, 0.42);
-  box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.80),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
-}
-
+/* ---------- focused-app pip + dispatch chip (inline minor pills) ---------- */
+.dock-focused-pip,
 .dock-dispatch-chip {
   display: inline-flex;
   align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  margin-left: 4px;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
-  color: var(--dock-glass-text);
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.55);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.80),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
-  animation: dock-chip-in 240ms cubic-bezier(0.34, 1.36, 0.64, 1);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.40);
+  color: var(--dock-glass-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
-.dock-dispatch-chip[data-ok="false"] {
-  color: #b00020;
-}
-.dock-dispatch-chip[data-ok="false"] {
-  color: #ffb4b4;
-}
-@keyframes dock-chip-in {
-  from { opacity: 0; transform: translateX(8px) scale(0.95); }
-  to   { opacity: 1; transform: translateX(0) scale(1); }
-}
+.dock-focused-pip { margin-right: 2px; }
+.dock-dispatch-chip { margin-left: 2px; font-weight: 500; }
+.dock-dispatch-chip[data-ok="false"] { color: #b00020; }
 
-/* Action pill tooltip — floats ABOVE the toolbar centered on the
- * hovered button. White action label + accent-colored shortcut
- * keys, matching the design reference exactly. */
+/* ---------- hover action-pill tooltip (above the row) ---------- */
 .dock-action-pill {
   position: absolute;
-  bottom: calc(100% + 14px);
+  bottom: calc(100% + 12px);
   left: 50%;
   transform: translate(-50%, 6px);
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  padding: 11px 22px;
+  padding: 9px 18px;
   border-radius: 999px;
   color: var(--dock-glass-text);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.01em;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
@@ -361,87 +267,59 @@ body::-webkit-scrollbar {
       rgba(255, 255, 255, 0.08) 65%,
       rgba(255, 255, 255, 0.22) 100%),
     var(--dock-glass-tint-strong);
-  backdrop-filter: blur(44px) saturate(180%);
-  -webkit-backdrop-filter: blur(44px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
   box-shadow:
     inset 0 0.75px 0 var(--dock-glass-rim-bright),
     inset 0 -0.5px 0 var(--dock-glass-shade),
     inset 0 0 0 0.5px var(--dock-glass-rim-soft),
     0 0.5px 0 rgba(255, 255, 255, 0.50),
-    0 4px 10px rgba(0, 0, 0, 0.10),
-    0 14px 32px -6px rgba(0, 0, 0, 0.22),
-    0 28px 56px -12px rgba(0, 0, 0, 0.26);
+    0 4px 10px rgba(0, 0, 0, 0.08),
+    0 14px 30px -6px rgba(20, 40, 80, 0.20);
   transition:
-    opacity 160ms ease,
-    transform 220ms cubic-bezier(0.34, 1.36, 0.64, 1);
+    opacity 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.36, 0.64, 1);
 }
 .dock-action-pill[data-visible="true"] {
   opacity: 1;
   transform: translate(-50%, 0);
 }
-.dock-action-label {
-  color: var(--dock-pill-text);
-}
+.dock-action-label { color: var(--dock-glass-text); }
 .dock-action-shortcut {
   color: var(--dock-accent);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.dock-action-shortcut:empty {
-  display: none;
-}
-/* Subtle separator dot between label + shortcut when both are
- * present, matches the macOS shortcut-hint typography. */
+.dock-action-shortcut:empty { display: none; }
 .dock-action-shortcut::before {
   content: "·";
   color: var(--dock-glass-text-soft);
   margin-right: 6px;
 }
 
-/* Active states — when a session or transcription is running, the
- * primary chip pulses accent so the user has a peripheral signal
- * that something's listening even when the toolbar is collapsed. */
-/* "Working" state — fires whenever a voice session is open or
- * transcription is running. The dash + the whole pill take on a
- * blue tint + soft outer glow so the user sees TipTour is alive
- * at a glance, even from peripheral vision. */
+/* ---------- 'working' visual state ---------- */
 [data-active="listening"] .dock-dash,
 [data-active="transcribing"] .dock-dash {
   background: var(--dock-accent);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.60),
-    0 1px 2px rgba(0, 0, 0, 0.15),
-    0 0 24px 6px rgba(29, 122, 252, 0.55);
+    0 0 22px 5px rgba(29, 122, 252, 0.55);
   animation: dock-dash-pulse 1.6s ease-in-out infinite;
 }
 @keyframes dock-dash-pulse {
   0%, 100% { transform: scale(1);    opacity: 0.92; }
   50%      { transform: scale(1.06); opacity: 1; }
 }
-
-/* While listening, the whole expanded pill takes on a faint blue
- * cast + a soft outer glow so it's obvious which mode is active
- * even when the user's eye is somewhere else on the screen. */
 [data-active="listening"] .dock-toolbar,
 [data-active="transcribing"] .dock-toolbar {
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.55) 0%,
-      rgba(255, 255, 255, 0.20) 28%,
-      rgba(200, 220, 250, 0.10) 60%,
-      rgba(255, 255, 255, 0.25) 100%),
-    linear-gradient(135deg,
-      rgba(232, 240, 255, 0.88) 0%,
-      rgba(214, 228, 252, 0.78) 60%,
-      rgba(196, 216, 248, 0.70) 100%);
   box-shadow:
     inset 0 0.75px 0 var(--dock-glass-rim-bright),
     inset 0 -0.5px 0 var(--dock-glass-shade),
     inset 0 0 0 0.5px var(--dock-glass-rim-soft),
-    0 0.5px 0 rgba(255, 255, 255, 0.60),
+    0 0.5px 0 rgba(255, 255, 255, 0.55),
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 8px 22px -4px rgba(29, 122, 252, 0.22),
-    0 28px 60px -12px rgba(29, 122, 252, 0.30);
+    0 24px 52px -10px rgba(29, 122, 252, 0.28);
 }
 [data-active="listening"] .dock-button.dock-primary,
 [data-active="transcribing"] .dock-button.dock-primary {
@@ -449,33 +327,15 @@ body::-webkit-scrollbar {
   color: #fff;
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1.25px rgba(255, 255, 255, 0.45),
-    0 1px 2px rgba(0, 0, 0, 0.12),
-    0 0 24px 4px rgba(29, 122, 252, 0.55);
+    0 0 18px 3px rgba(29, 122, 252, 0.55);
   animation: dock-primary-pulse 1.4s ease-in-out infinite;
 }
 @keyframes dock-primary-pulse {
-  0%, 100% { transform: scale(1);    box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1.25px rgba(255, 255, 255, 0.45),
-    0 0 16px 2px rgba(29, 122, 252, 0.40); }
-  50%      { transform: scale(1.08); box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.70),
-    inset 0 0 0 1.25px rgba(255, 255, 255, 0.55),
-    0 0 28px 6px rgba(29, 122, 252, 0.70); }
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(1.06); }
 }
 
-/* When the dock is collapsed to just the dash AND a session is
- * active, also tint the surrounding hit-area so the user notices
- * something is running without having to hover. */
-[data-active="listening"] .dock-root::before,
-[data-active="transcribing"] .dock-root::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 999px;
-  background: radial-gradient(closest-side, rgba(29, 122, 252, 0.18), transparent 80%);
-  pointer-events: none;
-  z-index: -1;
-  animation: dock-dash-pulse 2s ease-in-out infinite;
+@keyframes dock-chip-in {
+  from { opacity: 0; transform: translateX(6px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
