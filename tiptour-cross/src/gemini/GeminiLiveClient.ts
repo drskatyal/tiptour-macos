@@ -187,7 +187,29 @@ export class GeminiLiveClient {
   }
 
   private async sendSetup(): Promise<void> {
-    const resolvedModelShortId = this.options.modelShortId ?? DEFAULT_MODEL_SHORT_ID;
+    // Only a small set of Gemini models support bidiGenerateContent
+    // (the Live WebSocket). Anything else — including flash-lite
+    // and the regular flash — gets silently rejected by the server
+    // with "model not found for v1beta or not supported for
+    // bidiGenerateContent". The user's Settings dropdown can list
+    // models that are great for Quick mode (REST audio) but not
+    // Live, so we substitute the Live-default whenever the picked
+    // model isn't one of the known good ones.
+    const liveSupportedModels = new Set<string>([
+      "gemini-3.1-flash-live-preview",
+      "gemini-2.0-flash-live-001",
+      "gemini-2.5-flash-live-preview",
+    ]);
+    const requestedModel = this.options.modelShortId ?? DEFAULT_MODEL_SHORT_ID;
+    const resolvedModelShortId = liveSupportedModels.has(requestedModel)
+      ? requestedModel
+      : DEFAULT_MODEL_SHORT_ID;
+    if (resolvedModelShortId !== requestedModel) {
+      console.warn(
+        `[gemini] model "${requestedModel}" does not support Live (bidiGenerateContent). ` +
+          `Falling back to "${resolvedModelShortId}" so the Live session can open.`,
+      );
+    }
     const resolvedVoiceName = this.options.voiceName ?? DEFAULT_VOICE;
     // Pull the active persona so its system prompt is layered onto the
     // baseline TipTour identity. Failing to read should not block the

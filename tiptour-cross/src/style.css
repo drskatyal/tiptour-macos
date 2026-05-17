@@ -46,15 +46,29 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* Subtle scrollbar in the panel — matches the settings drawer. */
-body::-webkit-scrollbar { width: 6px; }
+/* Invisible scrollbar — the panel can still scroll (wheel / trackpad /
+ * keyboard), but the chrome doesn't carve a grey margin off the right
+ * edge. The thumb appears only when actively scrolling, on a thin
+ * 4px track that hovers over content instead of pushing it. */
+body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+body::-webkit-scrollbar {
+  width: 4px;
+  background: transparent;
+}
 body::-webkit-scrollbar-track { background: transparent; }
 body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.10);
+  background: transparent;
   border-radius: 999px;
+  transition: background 200ms ease;
+}
+body:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
 }
 body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.20);
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .panel {

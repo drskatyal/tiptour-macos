@@ -16,9 +16,12 @@ interface AppSettingsShape {
 
 const GEMINI_VOICE_CHOICES = ["Kore", "Aoede", "Charon", "Puck", "Fenrir"];
 const GEMINI_MODEL_CHOICES = [
-  { value: "gemini-3.1-flash-live-preview", label: "gemini-3.1-flash-live-preview (Live, default)" },
-  { value: "gemini-2.5-flash-lite", label: "gemini-2.5-flash-lite (Quick mode, REST audio)" },
-  { value: "gemini-2.5-flash", label: "gemini-2.5-flash (full reasoning)" },
+  // Live = bidirectional voice (TTS + STT) over WebSocket.
+  { value: "gemini-3.1-flash-live-preview", label: "gemini-3.1-flash-live-preview · Live (default)" },
+  { value: "gemini-2.5-flash-live-preview", label: "gemini-2.5-flash-live-preview · Live" },
+  // Quick-mode REST models — text reply only, audio in.
+  { value: "gemini-2.5-flash-lite", label: "gemini-2.5-flash-lite · Quick (text reply, fastest)" },
+  { value: "gemini-2.5-flash", label: "gemini-2.5-flash · Quick (text reply, full reasoning)" },
 ];
 
 export async function renderGeneralTab(paneElement: HTMLElement): Promise<void> {
