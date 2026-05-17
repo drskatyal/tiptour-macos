@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TipTour Overlay</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/overlay.css" />
+  </head>
+  <body class="overlay-body">
+    <svg id="cursor-svg" class="cursor-svg" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+      <defs>
+        <radialGradient id="cursor-gradient" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#7a8aff" />
+          <stop offset="60%" stop-color="#4f5ad9" />
+          <stop offset="100%" stop-color="#3a44ad" />
+        </radialGradient>
+        <filter id="cursor-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <polygon
+        points="6,4 38,22 22,26 18,42 14,28 6,24"
+        fill="url(#cursor-gradient)"
+        stroke="rgba(255,255,255,0.85)"
+        stroke-width="1.2"
+        filter="url(#cursor-glow)"
+      />
+    </svg>
+
+    <svg id="highlight-svg" class="highlight-svg" aria-hidden="true">
+      <path id="highlight-path" d=""></path>
+    </svg>
+
+    <div id="response-bubble" class="response-bubble" hidden>
+      <div class="response-text" id="response-text"></div>
+      <div class="waveform" id="waveform">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/overlay.ts"></script>
+  </body>
+</html>

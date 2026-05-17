@@ -1,0 +1,123 @@
+[package]
+name = "tiptour-cross"
+version = "0.0.1"
+description = "TipTour cross-platform voice agent"
+edition = "2021"
+rust-version = "1.77"
+
+# Test-support library target. Lives at `test_support_lib.rs`
+# (intentionally outside `src/` so the constraint "do not modify any
+# source under src-tauri/src/" stays honored). It re-exports a curated
+# subset of the production modules — the ones whose command surface
+# can be exercised end-to-end from `tests/*.rs` without a real Tauri
+# runtime, OS keychain, microphone, or accessibility-tree walk. The
+# shipped app keeps building from the binary target below; the lib
+# target is never linked into the bundle.
+[lib]
+name = "tiptour_test_support"
+path = "test_support_lib.rs"
+crate-type = ["lib"]
+
+[[bin]]
+name = "tiptour-cross"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[dependencies]
+tauri = { version = "2.1", features = ["tray-icon", "macos-private-api", "devtools"] }
+tauri-plugin-global-shortcut = "2.0"
+# Single-instance plugin: hands the launch off to the already-running
+# TipTour process when the user double-clicks the app icon a second
+# time. Without this Windows ends up with two tray icons (and two
+# competing hotkey registrations).
+tauri-plugin-single-instance = "2.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cpal = "0.15"
+keyring = "3"
+parking_lot = "0.12"
+anyhow = "1"
+once_cell = "1"
+dirs = "5"
+rdev = "0.5"
+hound = "3.5"
+chrono = { version = "0.4", features = ["clock"] }
+uuid = { version = "1", features = ["v4"] }
+enigo = "0.3"
+arboard = "3"
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "macros", "time", "net", "io-util"] }
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+futures-util = "0.3"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+strsim = "0.11"
+vosk = { version = "0.3", optional = true }
+ureq = { version = "2", optional = true }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+plist = "1"
+# HTTP client for the multi-provider LLM module (text_rewrite). Uses
+# rustls so we don't pull a second TLS stack alongside the
+# tokio-tungstenite native-tls dep. JSON feature gives us the
+# request/response serde bridge for free.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+# Markdown -> HTML conversion for the rich-text clipboard payload
+# the rewrite tool writes back into Word / Docs / Mail. Tiny, pure
+# Rust, no extra C deps.
+pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+async-trait = "0.1"
+# Optional vector-DB + on-device embedder for agent memory. These are
+# heavy native deps (LanceDB pulls Arrow + tokio runtime extras;
+# fastembed downloads an ONNX model on first use). They are gated
+# behind the `agent-memory-vector` feature so default builds stay lean
+# and Linux CI doesn't need to compile the full Arrow stack. When the
+# feature is off, the memory store falls back to a JSON-backed
+# bag-of-words ranker that exposes the same Tauri command surface, so
+# the UI + Gemini tool layer work unchanged.
+lancedb = { version = "0.10", optional = true }
+fastembed = { version = "4", optional = true }
+arrow = { version = "53", optional = true }
+arrow-array = { version = "53", optional = true }
+arrow-schema = { version = "53", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+uiautomation = "0.16"
+windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Registry"] }
+windows-capture = "1"
+lnk = "0.5"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+accessibility-sys = "0.1"
+objc2 = "0.5"
+objc2-foundation = "0.2"
+objc2-app-kit = "0.2"
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+# core-graphics 0.24 is the last release before CGEventTap/mach_port were
+# made private + CGEventTap's callback return type was changed and the
+# kCGWindowList constants were re-namespaced. 0.25 fixes none of our
+# transitive core-foundation 0.9-vs-0.10 conflict (tao/cocoa still pull
+# 0.9 regardless). We handle that conflict directly in target_app.rs via
+# raw CFDictionaryGetValue calls instead, and keep 0.24 here for its
+# stable public surface.
+core-graphics = "0.24"
+# screencapturekit was used for macOS screen capture; we now use the
+# simpler CGDisplay::image() path in src/screen/capture.rs which avoids
+# the fragile SCK Rust binding API churn. Re-introduce SCK when the
+# bindings stabilize and we need >1 fps capture.
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+vosk = ["dep:vosk", "dep:ureq"]
+agent-memory-vector = [
+    "dep:lancedb",
+    "dep:fastembed",
+    "dep:arrow",
+    "dep:arrow-array",
+    "dep:arrow-schema",
+]

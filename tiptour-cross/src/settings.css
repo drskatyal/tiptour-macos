@@ -1,0 +1,1611 @@
+/*
+ * Settings dashboard — 720x620 decorated window. On macOS the title
+ * bar is overlay-style (traffic lights float over the content), so
+ * the left rail and pane both reserve top padding equal to the
+ * traffic-light strip height to keep content from sliding under them.
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* Liquid-glass backdrop. A deep tinted gradient gives the
+     translucent cards above something to refract; without this the
+     "glass" reads as a flat dark fill. The blue/violet hint matches
+     macOS Tahoe's default wallpaper-bleed look. */
+  background:
+    radial-gradient(120% 80% at 10% -10%, rgba(37, 99, 235, 0.22), transparent 55%),
+    radial-gradient(100% 80% at 100% 110%, rgba(124, 58, 237, 0.18), transparent 55%),
+    radial-gradient(80% 80% at 50% 50%, rgba(15, 23, 42, 0.6), transparent 70%),
+    var(--surface-base);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+}
+
+.settings-body {
+  display: flex;
+}
+
+.settings-shell {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  width: 100%;
+  height: 100vh;
+  /* Prevent the whole shell from scrolling — each pane gets its
+   * own scrollbar so the sidebar stays put. Without this the
+   * outer body grew a scrollbar that clipped the right edge of
+   * every tab. */
+  overflow: hidden;
+}
+
+/*
+ * Left rail. On macOS the rail's top padding reserves 36px for the
+ * traffic-light strip; the WebKit -webkit-app-region: drag on the
+ * top area makes the OS treat that zone as a real titlebar drag
+ * region so the window remains movable. (Buttons re-enable nodrag.)
+ */
+.settings-nav {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 30%),
+    rgba(20, 22, 24, 0.55);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
+  padding: 48px var(--space-3) var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Sidebar gets its own scrollbar so 13 tabs always fit even on
+   * a window resized down to minHeight 480. */
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.settings-nav::-webkit-scrollbar { width: 6px; }
+.settings-nav::-webkit-scrollbar-track { background: transparent; }
+.settings-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+}
+
+.settings-app-title {
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  margin: 0;
+  letter-spacing: var(--type-15-track);
+  font-weight: 700;
+  color: var(--text-primary);
+  padding-left: var(--space-2);
+}
+
+.settings-tabs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/*
+ * Sidebar tabs. macOS Sequoia uses an iconed sidebar with a
+ * blue-tinted pill behind the active row. Each tab gets a leading
+ * SF-style glyph via ::before so the rail reads as a real native
+ * sidebar instead of a list of words.
+ */
+.settings-tab {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  padding: 7px var(--space-3) 7px 36px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  font-weight: 500;
+  position: relative;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing);
+}
+/* Tab icons. Inline SVG via mask-image so the glyph is colored by
+   background-color and inherits the tab's active/hover state. Each
+   icon is a 16x16 monochrome SF Symbol-equivalent, tuned to read
+   well at small sizes. The icon container is a 22x22 rounded
+   surface that holds the masked glyph centered. */
+.settings-tab::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    background var(--motion-medium) var(--motion-easing),
+    box-shadow var(--motion-medium) var(--motion-easing),
+    transform var(--motion-medium) var(--motion-easing);
+}
+.settings-tab::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  background-color: var(--text-secondary);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 14px 14px;
+  mask-size: 14px 14px;
+  transition: background-color var(--motion-medium) var(--motion-easing);
+  pointer-events: none;
+}
+.settings-tab[data-tab="general"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 0a1 1 0 0 1 1 1v1.07a6 6 0 0 1 1.61.67l.76-.76a1 1 0 1 1 1.41 1.41l-.76.76A6 6 0 0 1 12.93 6H14a1 1 0 1 1 0 2h-1.07a6 6 0 0 1-.67 1.61l.76.76a1 1 0 1 1-1.41 1.41l-.76-.76A6 6 0 0 1 9 12.93V14a1 1 0 1 1-2 0v-1.07a6 6 0 0 1-1.61-.67l-.76.76a1 1 0 1 1-1.41-1.41l.76-.76A6 6 0 0 1 3.07 9H2a1 1 0 1 1 0-2h1.07a6 6 0 0 1 .67-1.61l-.76-.76a1 1 0 1 1 1.41-1.41l.76.76A6 6 0 0 1 7 2.07V1a1 1 0 0 1 1-1Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 0a1 1 0 0 1 1 1v1.07a6 6 0 0 1 1.61.67l.76-.76a1 1 0 1 1 1.41 1.41l-.76.76A6 6 0 0 1 12.93 6H14a1 1 0 1 1 0 2h-1.07a6 6 0 0 1-.67 1.61l.76.76a1 1 0 1 1-1.41 1.41l-.76-.76A6 6 0 0 1 9 12.93V14a1 1 0 1 1-2 0v-1.07a6 6 0 0 1-1.61-.67l-.76.76a1 1 0 1 1-1.41-1.41l.76-.76A6 6 0 0 1 3.07 9H2a1 1 0 1 1 0-2h1.07a6 6 0 0 1 .67-1.61l-.76-.76a1 1 0 1 1 1.41-1.41l.76.76A6 6 0 0 1 7 2.07V1a1 1 0 0 1 1-1Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z'/></svg>");
+}
+.settings-tab[data-tab="commands"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M3 1a2 2 0 0 1 2 2v1.5h6V3a2 2 0 1 1 2 2h-1.5v6H13a2 2 0 1 1-2 2v-1.5H5V13a2 2 0 1 1-2-2h1.5V5H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2Zm0 1.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Zm10 0a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2ZM5.4 5v6H11V5H5.4ZM3 12.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Zm10 0a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M3 1a2 2 0 0 1 2 2v1.5h6V3a2 2 0 1 1 2 2h-1.5v6H13a2 2 0 1 1-2 2v-1.5H5V13a2 2 0 1 1-2-2h1.5V5H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2Zm0 1.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Zm10 0a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2ZM5.4 5v6H11V5H5.4ZM3 12.4a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Zm10 0a.6.6 0 1 0 0 1.2.6.6 0 0 0 0-1.2Z'/></svg>");
+}
+.settings-tab[data-tab="flows"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1.5a6.5 6.5 0 1 0 6.4 7.6h-2a4.5 4.5 0 1 1-1.3-4l-1.6 1.6h4.5V2.2L12.4 3.8A6.5 6.5 0 0 0 8 1.5Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1.5a6.5 6.5 0 1 0 6.4 7.6h-2a4.5 4.5 0 1 1-1.3-4l-1.6 1.6h4.5V2.2L12.4 3.8A6.5 6.5 0 0 0 8 1.5Z'/></svg>");
+}
+.settings-tab[data-tab="recordings"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='black'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='black'/></svg>");
+  background-color: var(--danger-500);
+}
+.settings-tab[data-tab="capabilities"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 1.5 4.5 8 8l6.5-3.5L8 1Zm-6.5 5.5v5L8 15l6.5-3.5v-5L8 10 1.5 6.5Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 1.5 4.5 8 8l6.5-3.5L8 1Zm-6.5 5.5v5L8 15l6.5-3.5v-5L8 10 1.5 6.5Z'/></svg>");
+}
+.settings-tab[data-tab="indicators"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a3 3 0 0 0-3 3v3.2A4 4 0 0 0 3 11h10a4 4 0 0 0-2-3.8V4a3 3 0 0 0-3-3Zm-1 13a2 2 0 0 0 2 0H7Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a3 3 0 0 0-3 3v3.2A4 4 0 0 0 3 11h10a4 4 0 0 0-2-3.8V4a3 3 0 0 0-3-3Zm-1 13a2 2 0 0 0 2 0H7Z'/></svg>");
+}
+.settings-tab[data-tab="memory"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 2a3 3 0 0 0-3 3 3 3 0 0 0 .5 1.7A3 3 0 0 0 2 9a3 3 0 0 0 3 3 3 3 0 0 0 3-1 3 3 0 0 0 3 1 3 3 0 0 0 3-3 3 3 0 0 0-.5-2.3A3 3 0 0 0 14 5a3 3 0 0 0-3-3 3 3 0 0 0-3 1 3 3 0 0 0-3-1Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 2a3 3 0 0 0-3 3 3 3 0 0 0 .5 1.7A3 3 0 0 0 2 9a3 3 0 0 0 3 3 3 3 0 0 0 3-1 3 3 0 0 0 3 1 3 3 0 0 0 3-3 3 3 0 0 0-.5-2.3A3 3 0 0 0 14 5a3 3 0 0 0-3-3 3 3 0 0 0-3 1 3 3 0 0 0-3-1Z'/></svg>");
+}
+.settings-tab[data-tab="tasks"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 3h4v10H2V3Zm5 0h3v6H7V3Zm4 0h3v3h-3V3Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M2 3h4v10H2V3Zm5 0h3v6H7V3Zm4 0h3v3h-3V3Z'/></svg>");
+}
+.settings-tab[data-tab="personas"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0 7c-2.7 0-6 1.3-6 4v2h12v-2c0-2.7-3.3-4-6-4Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0 7c-2.7 0-6 1.3-6 4v2h12v-2c0-2.7-3.3-4-6-4Z'/></svg>");
+}
+.settings-tab[data-tab="permissions"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 2 3v5c0 3.6 2.6 6.4 6 7 3.4-.6 6-3.4 6-7V3L8 1Zm-1 9.4-2.7-2.7 1.4-1.4L7 7.6l3.3-3.3 1.4 1.4L7 10.4Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1 2 3v5c0 3.6 2.6 6.4 6 7 3.4-.6 6-3.4 6-7V3L8 1Zm-1 9.4-2.7-2.7 1.4-1.4L7 7.6l3.3-3.3 1.4 1.4L7 10.4Z'/></svg>");
+}
+.settings-tab[data-tab="adapters"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 1a2 2 0 0 0-2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H5Zm0 2h6v3H5V3Zm0 7h6v3H5v-3Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M5 1a2 2 0 0 0-2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H5Zm0 2h6v3H5V3Zm0 7h6v3H5v-3Z'/></svg>");
+}
+.settings-tab[data-tab="about"]::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-1 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm-1 3h2v5h1v1H6v-1h1V9H6V8Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='black' d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-1 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm-1 3h2v5h1v1H6v-1h1V9H6V8Z'/></svg>");
+}
+
+.settings-tab:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.settings-tab:hover::before {
+  background: var(--surface-4);
+  transform: translateY(-50%) scale(1.05);
+}
+.settings-tab:hover::after {
+  background-color: var(--text-primary);
+}
+.settings-tab:active {
+  background: var(--surface-3);
+}
+.settings-tab:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+.settings-tab[data-active="true"] {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.20), rgba(37, 99, 235, 0.14));
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(96, 165, 250, 0.40),
+    0 1px 2px rgba(0, 0, 0, 0.20),
+    0 4px 12px -4px rgba(37, 99, 235, 0.30);
+}
+.settings-tab[data-active="true"]::before {
+  background: linear-gradient(180deg, #3b82f6, var(--accent-500));
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.20),
+    0 2px 6px -1px rgba(37, 99, 235, 0.60),
+    0 0 12px -2px rgba(96, 165, 250, 0.40);
+}
+.settings-tab[data-active="true"]::after {
+  background-color: #ffffff;
+}
+
+/*
+ * Pane. Padding-top includes the 28px traffic-light strip plus a real
+ * 24px gutter so the first heading sits visually centered against the
+ * macOS window control row. The pane fades on tab switch but its
+ * `min-height` matches the available viewport so the container can't
+ * collapse to zero between renders.
+ */
+.settings-pane {
+  /* No max-width: pane fills the available column so a maximized
+   * window doesn't leave a giant empty band on the right. The
+   * inner content can self-cap line length where it matters. */
+  padding: 48px var(--space-7) var(--space-7) var(--space-7);
+  overflow-y: auto;
+  height: 100vh;
+  box-sizing: border-box;
+  animation: settings-pane-fade-in var(--motion-medium) var(--motion-easing);
+  min-width: 0;
+}
+/* Inner content gets the line-length cap so paragraphs stay
+ * readable even when the pane itself spans 1200+ px. */
+.settings-pane > * {
+  max-width: 920px;
+}
+.settings-pane::-webkit-scrollbar { width: 6px; }
+.settings-pane::-webkit-scrollbar-track { background: transparent; }
+.settings-pane::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+}
+
+@keyframes settings-pane-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-pane h2 {
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--type-28-size);
+  line-height: var(--type-28-line);
+  letter-spacing: var(--type-28-track);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.settings-pane h3 {
+  margin: var(--space-7) 0 var(--space-3) 0;
+  font-size: var(--type-17-size);
+  line-height: var(--type-17-line);
+  letter-spacing: var(--type-17-track);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.settings-pane p.lede {
+  margin: 0 0 var(--space-6) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+  max-width: 56ch;
+}
+
+/*
+ * Two-column rows. The label column has tabular numerals for any
+ * inline numbers in row text; the control column auto-aligns.
+ */
+/*
+ * Settings rows are visually grouped into a card. Consecutive rows
+ * sit inside the same card-like fill; the first row rounds the top,
+ * the last row rounds the bottom, and the divider between them is a
+ * 1px inset line — the same pattern macOS System Settings uses.
+ */
+.settings-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  /* Liquid-glass card. Translucent fill + blur means the body tint
+     refracts through, the way macOS Tahoe System Settings cards
+     do. The 0.04 white hairline at the top of each card is the
+     specular highlight that sells the lit-from-above glass look. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.settings-row:first-of-type,
+.settings-pane h3 + .settings-row,
+.settings-pane .lede + .settings-row {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+.settings-row:last-of-type,
+.settings-row:has(+ h3),
+.settings-row:has(+ .button-stack),
+.settings-row:has(+ .settings-subhead) {
+  border-bottom-width: 1px;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+.settings-row + .settings-row {
+  border-top: 1px solid var(--surface-divider);
+}
+.settings-row > label {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+}
+.settings-row .row-hint {
+  display: block;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  margin-top: var(--space-1);
+}
+
+.settings-pane input[type="text"],
+.settings-pane input[type="password"],
+.settings-pane select,
+.settings-pane textarea {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0) 50%),
+    var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 9px var(--space-3);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  font-variant-numeric: tabular-nums;
+  min-width: 240px;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 2px rgba(0, 0, 0, 0.20);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.settings-pane input:hover:not(:disabled),
+.settings-pane select:hover:not(:disabled),
+.settings-pane textarea:hover:not(:disabled) {
+  background: var(--surface-input-focus);
+}
+.settings-pane input:focus-visible,
+.settings-pane select:focus-visible,
+.settings-pane textarea:focus-visible {
+  border-color: var(--accent-400);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 50%),
+    var(--surface-3);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    0 0 0 3px var(--accent-300),
+    0 0 18px -4px rgba(96, 165, 250, 0.45);
+}
+
+/* Buttons in the settings pane mirror DSSecondaryButtonStyle by
+   default — solid surface2 fill, capsule shape, surface3 on hover.
+   .primary mirrors DSPrimaryButtonStyle (Blue 600 → 700) and .danger
+   mirrors DSDestructiveButtonStyle. */
+.settings-pane button {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  padding: 7px var(--space-4);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  font-weight: 500;
+  /* Save -> Saved swaps need a min-width to avoid jitter. */
+  min-width: 78px;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.settings-pane button:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+.settings-pane button:active:not(:disabled) {
+  background: var(--surface-4);
+  transform: scale(0.97);
+}
+.settings-pane button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+.settings-pane button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.settings-pane button.primary {
+  background: var(--accent-500);
+  border-color: transparent;
+  color: var(--text-on-accent);
+  box-shadow: 0 4px 10px -4px rgba(37, 99, 235, 0.45);
+}
+.settings-pane button.primary:hover:not(:disabled) {
+  background: var(--accent-600);
+  box-shadow: 0 6px 14px -4px rgba(37, 99, 235, 0.55);
+}
+.settings-pane button.primary:active:not(:disabled) {
+  background: #2c5fe0;
+}
+.settings-pane button.danger {
+  background: rgba(229, 72, 77, 0.10);
+  border-color: rgba(229, 72, 77, 0.30);
+  color: var(--danger-text);
+}
+.settings-pane button.danger:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.30);
+  border-color: rgba(229, 72, 77, 0.40);
+  color: #ffffff;
+}
+.settings-pane button.danger:active:not(:disabled) {
+  background: rgba(229, 72, 77, 0.40);
+  color: #ffffff;
+}
+
+.hotkey-chip {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  cursor: pointer;
+  min-width: 140px;
+  text-align: center;
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    background var(--motion-fast) var(--motion-easing);
+}
+.hotkey-chip:hover {
+  background: var(--surface-input-focus);
+}
+.hotkey-chip[data-capturing="true"] {
+  border-color: var(--accent-400);
+  color: var(--accent-400);
+  background: var(--accent-300);
+}
+
+.list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  /* Same liquid-glass treatment as .settings-row so list cards
+     refract the body tint instead of reading as solid dark plates. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background var(--motion-fast) var(--motion-easing),
+              border-color var(--motion-fast) var(--motion-easing),
+              transform var(--motion-fast) var(--motion-easing);
+}
+.list-row:hover:not(.disabled) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
+    rgba(40, 46, 54, 0.62);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.list-row.disabled {
+  opacity: 0.6;
+}
+.list-row .row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.list-row .row-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.list-row .row-sub {
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  font-variant-numeric: tabular-nums;
+}
+.list-row .row-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.flag-banner {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #ffd0d0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+}
+.flag-banner.success {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #c8f7d4;
+}
+
+.permission-indicator {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--text-faint);
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+.permission-indicator[data-granted="true"] {
+  background: var(--warm-500);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+}
+.permission-indicator[data-granted="false"] {
+  background: var(--danger-500);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
+}
+
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.screenshots-grid img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+
+.command-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 160px 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+.command-editor-grid input,
+.command-editor-grid select {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.about-meta dl {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.about-meta dt {
+  color: var(--text-tertiary);
+}
+.about-meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.button-stack {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ----- Loading skeletons + empty states ----- */
+
+/*
+ * Replaces the bare "Loading…" text in main.ts while a tab's async
+ * `invoke` calls complete. Three skeleton rows hint at content shape
+ * so the user sees structure instead of a single line of gray text.
+ */
+.settings-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.settings-loading::before {
+  content: "";
+  display: block;
+  height: var(--type-22-size);
+  width: 40%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  position: relative;
+  overflow: hidden;
+}
+.settings-loading::after {
+  content: "";
+  display: block;
+  height: var(--type-13-size);
+  width: 70%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+.settings-loading-row {
+  height: 42px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--surface-raised) 0%,
+    var(--surface-raised-hover) 50%,
+    var(--surface-raised) 100%
+  );
+  background-size: 200% 100%;
+  animation: settings-skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes settings-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/*
+ * Empty state for any list-rows section that renders zero rows.
+ * Apply to a single <li class="list-row disabled"> by also adding
+ * the .empty-state class via the rendering modules.
+ */
+.list-row.empty-state {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border-style: dashed;
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  text-align: center;
+}
+.list-row.empty-state::before {
+  content: "\2728";
+  font-size: var(--type-22-size);
+  line-height: 1;
+  opacity: 0.6;
+  margin-bottom: var(--space-1);
+}
+
+/* ----- Native-style overlay scrollbar ----- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--motion-medium) var(--motion-easing);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  background-clip: padding-box;
+}
+
+/* Indicators tab specifics — section sub-heading and per-type toggle
+   rows. Reuses the dashboard's row spacing tokens. */
+.settings-subhead {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.indicators-type-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Indicators per-type toggle rows: text on the left, switch on the
+   right. HTML puts the input first, then the text span — so we
+   explicitly assign grid columns instead of relying on document
+   order, otherwise the switch would land in the wide 1fr column
+   on the left and squish the text. */
+.indicators-type-toggle-row > input[type="checkbox"] {
+  grid-column: 2;
+  justify-self: end;
+}
+.indicators-type-toggle-row > .indicators-type-toggle-text {
+  grid-column: 1;
+}
+
+/* ============================================================================
+ * macOS-style toggle switch — applied to every checkbox in the settings
+ * pane (and indicators per-type rows). Visually swaps the native UA
+ * checkbox for a pill-shaped track + circular knob that slides on
+ * :checked, matching macOS Sequoia's native NSSwitch.
+ * ========================================================================== */
+.settings-pane input[type="checkbox"],
+.indicators-type-toggle-row input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 38px;
+  height: 23px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0)),
+    var(--surface-3);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  outline: none;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.05),
+    inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: background var(--motion-medium) var(--motion-easing),
+              border-color var(--motion-medium) var(--motion-easing),
+              box-shadow var(--motion-medium) var(--motion-easing);
+}
+.settings-pane input[type="checkbox"]::after,
+.indicators-type-toggle-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffffff, #e5e7eb 80%);
+  box-shadow:
+    0 0.5px 0 rgba(255, 255, 255, 0.40) inset,
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 2px 6px rgba(0, 0, 0, 0.20),
+    0 4px 12px rgba(0, 0, 0, 0.10);
+  transition: transform cubic-bezier(0.34, 1.56, 0.64, 1) 220ms;
+}
+.settings-pane input[type="checkbox"]:checked,
+.indicators-type-toggle-row input[type="checkbox"]:checked {
+  background: linear-gradient(180deg, #3b82f6, var(--accent-500) 75%);
+  border-color: transparent;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.20),
+    0 2px 8px -2px rgba(37, 99, 235, 0.55),
+    0 0 0 0.5px rgba(37, 99, 235, 0.50);
+}
+.settings-pane input[type="checkbox"]:checked::after,
+.indicators-type-toggle-row input[type="checkbox"]:checked::after {
+  transform: translateX(15px);
+}
+.settings-pane input[type="checkbox"]:focus-visible,
+.indicators-type-toggle-row input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+.settings-pane input[type="checkbox"]:disabled,
+.indicators-type-toggle-row input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Selects — drop the default OS chevron + paint our own so the control
+ * matches the native macOS popup-button look.
+ * ========================================================================== */
+.settings-pane select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.settings-pane select:hover:not(:disabled) {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-primary) 50%),
+    linear-gradient(135deg, var(--text-primary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ============================================================================
+ * Indicators per-type rows — promote them from naked labels to proper
+ * rows that share the same surface-1 card treatment as .settings-row.
+ * ========================================================================== */
+.indicators-type-toggle-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.indicators-type-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+}
+.indicators-type-toggle-row + .indicators-type-toggle-row {
+  border-top: 1px solid var(--surface-divider);
+}
+.indicators-type-toggle-row:hover {
+  background: var(--surface-2);
+}
+.indicators-type-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.indicators-type-toggle-label {
+  color: var(--text-primary);
+  font-size: var(--type-13-size);
+  font-weight: 500;
+}
+.indicators-type-toggle-description {
+  color: var(--text-secondary);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+}
+
+/* ============================================================================
+ * Connected apps tab — adapter rows. Each adapter renders as a card
+ * with a header (name + toggle), description, capability chips, and
+ * an install section that appears when the adapter isn't authorized.
+ * ========================================================================== */
+.adapters-category {
+  margin-bottom: var(--space-7);
+}
+.adapter-row {
+  background:
+    var(--gradient-specular-top),
+    rgba(28, 32, 38, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.adapter-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.adapter-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.adapter-row-name strong {
+  font-size: var(--type-17-size);
+  line-height: var(--type-17-line);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.adapter-badge {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+.adapter-badge.installed {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.30);
+}
+.adapter-toggle {
+  display: inline-flex;
+}
+.adapter-row-description {
+  margin: 0 0 var(--space-3) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13-size);
+  line-height: var(--type-15-line);
+}
+.adapter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+.adapter-chip {
+  font-size: var(--type-11-size);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+.adapter-install {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+}
+.adapter-install-input-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+.adapter-install-input-row label {
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.adapter-setup-notes {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-12-size);
+  line-height: var(--type-13-line);
+  max-width: 60ch;
+}
+.adapter-help-link {
+  display: inline-block;
+  margin-top: var(--space-2);
+  color: var(--accent-400);
+  font-size: var(--type-12-size);
+  text-decoration: none;
+}
+.adapter-help-link:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================================
+ * Shared layout primitives used across tabs. Replaces dozens of inline
+ * style="..." attrs that previously broke the visual rhythm and made it
+ * hard to scan a tab.
+ * ========================================================================== */
+
+/* `<p class="section-helper">` — sits under an h3 to set up the rows below
+   with a one-line explanation. Smaller + softer than .lede so it reads as
+   subtitle, not lede. */
+.section-helper {
+  margin: -2px 0 var(--space-3) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  max-width: 56ch;
+}
+
+/* `<div class="filter-bar">` — search + actions row above a list. */
+.filter-bar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin: var(--space-3) 0 var(--space-3) 0;
+}
+.filter-bar-input {
+  flex: 1 1 auto;
+  min-width: 200px;
+}
+.filter-bar-checkbox-label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+}
+
+/* About tab metadata dl + dd — refine indentation + alignment so the dl
+   looks like a real macOS info panel instead of raw HTML. */
+.about-meta dl {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.about-meta dt {
+  color: var(--text-tertiary);
+  font-size: var(--type-13-size);
+}
+.about-meta dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* button-stack rows already exist; just refine vertical rhythm so they
+   sit consistently after their section header. */
+.button-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-3) 0;
+}
+
+/* ============================================================================
+ * `.chip` — small rounded label used for tags, status, importance,
+ * persona attributes. Currently used 10+ times across tasks.ts,
+ * memory.ts, personas.ts; without this rule it renders as unstyled
+ * inline text.
+ * ========================================================================== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-size: var(--type-11-size);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.chip + .chip {
+  margin-left: 4px;
+}
+.chip.chip-accent {
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.30);
+}
+.chip.chip-success {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.30);
+}
+.chip.chip-warning {
+  background: rgba(245, 196, 81, 0.18);
+  color: #fde68a;
+  border-color: rgba(245, 196, 81, 0.30);
+}
+.chip.chip-danger {
+  background: rgba(229, 72, 77, 0.18);
+  color: #fda4a4;
+  border-color: rgba(229, 72, 77, 0.30);
+}
+
+/* ============================================================================
+ * `.toggle` — checkbox + label row used in commands.ts and others
+ * for enable/disable toggles inside list rows.
+ * ========================================================================== */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--type-13-size);
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing);
+}
+.toggle:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.toggle input[type="checkbox"] {
+  margin: 0;
+}
+
+/* ============================================================================
+ * Layout primitives that replace inline cssText / styles in tasks +
+ * memory + personas. Keep these named after the surface they live on
+ * so a grep from the TS side is obvious.
+ * ========================================================================== */
+.kanban-empty-state {
+  padding: var(--space-4);
+  text-align: center;
+  opacity: 0.7;
+  color: var(--text-secondary);
+}
+.persona-row-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--surface-1);
+}
+.persona-row-card.active {
+  background: var(--surface-2);
+  border-color: rgba(96, 165, 250, 0.30);
+}
+.memory-table th,
+.memory-table td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: middle;
+}
+.memory-table th {
+  font-size: var(--type-11-size);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.memory-tag-chip { margin-right: 4px; }
+.importance-bar-container {
+  display: inline-block;
+  width: 60px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+  vertical-align: middle;
+}
+.importance-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent-500);
+  border-radius: var(--radius-pill);
+}
+
+/* Drawer (task detail) — slide in from the right side of the pane. */
+.task-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-elevated);
+  padding: var(--space-5);
+  overflow-y: auto;
+  z-index: 20;
+  transform: translateX(100%);
+  transition: transform var(--motion-medium) var(--motion-easing);
+}
+.task-drawer.open {
+  transform: translateX(0);
+}
+.task-drawer-close {
+  float: right;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: var(--type-15-size);
+  min-width: auto;
+  padding: 0;
+}
+.task-drawer-divider {
+  margin: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Task kanban card dragging state. */
+.kanban-card-dragging {
+  opacity: 0.5;
+  transform: scale(0.97);
+  cursor: grabbing;
+}
+
+/* ============================================================================
+ * Tasks tab kanban grid.
+ * ========================================================================== */
+.kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.kanban-column {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-height: 200px;
+}
+.kanban-column-header {
+  font-size: var(--type-11-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.kanban-column-count {
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+}
+.kanban-cards {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.kanban-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  cursor: grab;
+  font-size: var(--type-12-size);
+  transition: border-color var(--motion-fast) var(--motion-easing),
+              background var(--motion-fast) var(--motion-easing),
+              transform var(--motion-fast) var(--motion-easing);
+}
+.kanban-card:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+.kanban-card-title {
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+}
+.kanban-card-description {
+  opacity: 0.75;
+  margin-bottom: var(--space-1);
+  font-size: var(--type-11-size);
+  line-height: var(--type-12-line);
+}
+.kanban-card-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Task drawer support */
+.task-drawer-description {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  margin: 0 0 var(--space-2) 0;
+}
+.task-drawer-chips {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0;
+}
+.task-drawer-meta {
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2) 0;
+}
+.task-drawer-subagent {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+ * Memory tab table.
+ * ========================================================================== */
+.memory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-13-size);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.memory-table thead tr {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.memory-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.memory-table tbody tr:last-child { border-bottom: none; }
+.memory-table tbody tr:hover { background: var(--surface-2); }
+.memory-empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.list-rows { margin-top: var(--space-3); }
+.flow-aliases-input {
+  margin-top: var(--space-2);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Persona row internals — replaces inline .style.* mutations. */
+.persona-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.persona-active-badge {
+  color: var(--accent-400);
+  font-weight: 500;
+}
+
+/* Recordings tab row — stacks vertically so the screenshots-grid
+   below row content has room. */
+.recording-row {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.recording-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* List-rows gap between siblings — implicit spacing. */
+.list-rows > .list-row + .list-row {
+  margin-top: var(--space-2);
+}
+
+/* Personas tab: API key per-provider row controls. */
+.personas-list { list-style: none; padding: 0; margin: var(--space-3) 0; }
+.provider-key-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.provider-key-input {
+  flex: 1;
+  min-width: 240px;
+}
+.provider-key-hint { flex-basis: 100%; }
+
+/* Capabilities tab: monospace block under the error banner. */
+.error-details-code {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--type-11-size);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* Personas tab: persona row internals (model+temperature grid +
+   prompt textarea + triggers input + save button + per-row delete). */
+.persona-model-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.persona-reasoning-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--type-12-size);
+  transition: opacity var(--motion-fast) var(--motion-easing);
+}
+.persona-reasoning-label.disabled {
+  opacity: 0.5;
+}
+.persona-temp-input {
+  width: 76px;
+}
+.persona-prompt-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--type-12-size);
+  resize: vertical;
+}
+.persona-triggers-input {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+.persona-save-edits-button {
+  margin-top: var(--space-2);
+}
+.persona-delete-button {
+  margin-left: var(--space-1);
+}
+
+.adapters-empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  background: var(--surface-1);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+.adapters-empty-state strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--type-15-size);
+  margin-bottom: var(--space-2);
+}
+.adapters-empty-state p {
+  margin: 0;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+}
+
+/* History tab — two-pane layout: session list on the left, transcript on the right. */
+.sessions-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 400px;
+}
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--color-border);
+  padding-right: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+.sessions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.sessions-row:hover { background: var(--surface-raised-hover); }
+.sessions-row-main { flex: 1; min-width: 0; }
+.sessions-row-title {
+  font-size: var(--type-13-size);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessions-row-meta {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+.sessions-row-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  opacity: 0.4;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 6px;
+}
+.sessions-row-delete:hover { opacity: 1; color: #ff5555; }
+.sessions-detail { padding: 8px; }
+.sessions-detail-header { margin-bottom: 12px; }
+.sessions-detail-meta { font-size: 11px; opacity: 0.6; }
+.sessions-empty { opacity: 0.5; font-style: italic; }
+.sessions-turns { display: flex; flex-direction: column; gap: 10px; }
+.sessions-turn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+.sessions-turn-user { border-left: 2px solid var(--color-accent); }
+.sessions-turn-model { border-left: 2px solid #4a90e2; }
+.sessions-turn-role {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+.sessions-turn-text { white-space: pre-wrap; word-wrap: break-word; }
+
+/* Diagnostics tab */
+.diagnostics-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.diagnostics-table { overflow-x: auto; }
+.diagnostics-rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-13-size);
+}
+.diagnostics-rows th,
+.diagnostics-rows td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.diagnostics-rows th { font-weight: 500; opacity: 0.7; }
+tr.diagnostic-ok td:nth-child(3) { color: #2ecc71; }
+tr.diagnostic-fail td:nth-child(3) { color: #ff5555; }

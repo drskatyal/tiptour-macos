@@ -1,0 +1,955 @@
+/*
+ * Floating panel — 320x320 transparent webview. Everything visible
+ * lives inside .panel, which is the actual glass card. Tokens come
+ * from tokens.css; this file only composes them.
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* The Tauri panel window is transparent + windowEffects:["sidebar",
+     "mica","acrylic"] is set in tauri.conf.json, so the OS draws
+     native vibrancy material BEHIND any pixels the page paints. We
+     leave the body translucent enough for that material to show
+     through — but tinted enough that on platforms where the OS
+     effect fails to apply (Linux dev, older Windows) we still get a
+     readable dark card instead of a transparent rectangle. */
+  /* Liquid glass body — translucent tint + true backdrop blur with
+     saturate boost so colors behind the panel come through as
+     vivid frosted highlights instead of a grey wash. On macOS this
+     stacks with NSWindow vibrancy; on Windows it stacks with Mica;
+     on Linux it stands alone but still reads as glass. */
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 40%,
+      rgba(0, 0, 0, 0.04)       100%),
+    rgba(18, 20, 26, 0.55);
+  backdrop-filter: blur(40px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.05);
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.18),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  /* Allow vertical scroll when content stack outgrows the panel
+     window (permissions banner + saved flows + transcript can run
+     long). overflow:hidden was clipping content silently. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+/* Invisible scrollbar — the panel can still scroll (wheel / trackpad /
+ * keyboard), but the chrome doesn't carve a grey margin off the right
+ * edge. The thumb appears only when actively scrolling, on a thin
+ * 4px track that hovers over content instead of pushing it. */
+body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+body::-webkit-scrollbar {
+  width: 4px;
+  background: transparent;
+}
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  transition: background 200ms ease;
+}
+body:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.panel {
+  position: relative;
+  flex: 1 1 auto;
+  /* The body is the glass material; .panel just adds the top
+     specular highlight + content padding. No second blur stack —
+     stacking backdrop-filters double-blurs and washes out the OS
+     vibrancy that's doing the real work. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 30%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 280px;
+
+  /* Each section mutates independently (permissions collapse, error
+     banner appears, saved-flows list grows). `contain: layout style`
+     keeps a parent reflow inside the changed region instead of
+     repainting the whole panel chrome. */
+  contain: layout style;
+}
+
+/* ----- Header ----- */
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  font-weight: 600;
+
+  /* Tall enough that the drag region (data-tauri-drag-region on this
+     element) gives the user a real grab strip, not a 22px hairline.
+     Min-width on the status pill keeps the dot from jumping as the
+     label transitions Idle -> Listening -> Speaking -> Error. */
+  min-height: 32px;
+  padding-bottom: var(--space-2);
+  cursor: grab;
+}
+.panel-header:active {
+  cursor: grabbing;
+}
+
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 70px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-settings-button {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-15-size);
+  line-height: 1;
+  width: 26px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing);
+}
+/* Push the first header button (gear) to the far right so dot +
+   status-label sit at the left edge. The close button (X) follows
+   via the row's gap, so the two header buttons cluster together. */
+.panel-header > .panel-settings-button:first-of-type {
+  margin-left: auto;
+}
+.panel-settings-button:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.panel-settings-button:active {
+  transform: scale(0.985);
+  background: rgba(255, 255, 255, 0.04);
+}
+.panel-settings-button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--text-faint);
+  flex: 0 0 auto;
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.20),
+    0 0 0 0 rgba(255, 255, 255, 0);
+  transition:
+    background var(--motion-medium) var(--motion-easing),
+    box-shadow var(--motion-medium) var(--motion-easing);
+}
+.dot[data-status="listening"] {
+  background: radial-gradient(circle at 30% 30%, #6ee7b7, #34d399 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px rgba(52, 211, 153, 0.18),
+    0 0 12px 2px rgba(52, 211, 153, 0.35);
+  animation: dot-breath 1.8s var(--motion-easing) infinite;
+}
+.dot[data-status="speaking"] {
+  background: radial-gradient(circle at 30% 30%, #93c5fd, var(--accent-400) 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px var(--accent-300),
+    0 0 12px 2px rgba(96, 165, 250, 0.45);
+  animation: dot-breath 1.2s var(--motion-easing) infinite;
+}
+.dot[data-status="error"] {
+  background: radial-gradient(circle at 30% 30%, #fca5a5, var(--danger-500) 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px rgba(229, 72, 77, 0.20),
+    0 0 12px 2px rgba(229, 72, 77, 0.35);
+}
+@keyframes dot-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+
+/* ----- Shared form element baseline ----- */
+
+.panel input[type="text"],
+.panel input[type="password"],
+.panel select {
+  background: var(--surface-input);
+  border: 1px solid var(--surface-glass-border);
+  color: inherit;
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font: inherit;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.panel input:hover:not(:disabled),
+.panel select:hover:not(:disabled) {
+  background: var(--surface-input-focus);
+}
+.panel input:focus-visible,
+.panel select:focus-visible {
+  border-color: var(--accent-400);
+  background: var(--surface-input-focus);
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+
+/* Shared button reset for in-panel buttons. Pill-shaped to match the
+   Swift reference's DSPrimaryButtonStyle / DSSecondaryButtonStyle —
+   capsule buttons read as decisively interactive against the dark
+   surface. */
+.panel button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.panel button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.panel button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: var(--shadow-focus-ring);
+}
+.panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ----- API key row ----- */
+
+.api-key {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+}
+.api-key label {
+  grid-column: 1 / -1;
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.api-key button {
+  background: linear-gradient(180deg, #2f6dee 0%, var(--accent-500) 60%);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  padding: 8px var(--space-4);
+  font-weight: 600;
+  box-shadow: var(--shadow-button-primary);
+  /* Min-width so "Save" -> "Saved" toggle doesn't shrink the input. */
+  min-width: 64px;
+}
+.api-key button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2c63db 0%, var(--accent-600) 60%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 10px -2px rgba(37, 99, 235, 0.55),
+    0 12px 24px -6px rgba(37, 99, 235, 0.40);
+}
+.api-key button:active:not(:disabled) {
+  background: var(--accent-600);
+  transform: scale(0.97);
+}
+
+/* ----- Permissions ----- */
+
+/* Each permission row keeps its full slot reserved even after the
+   permission is granted-and-hidden, by using visibility: hidden +
+   height collapse only on the *section* level. Inside the section,
+   already-granted rows are simply not rendered (DOM-hidden), but the
+   section itself uses fixed inner padding so the first appearance
+   doesn't snap-resize the panel. */
+.permissions {
+  background: rgba(245, 196, 81, 0.08);
+  border: 1px solid rgba(245, 196, 81, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  contain: layout style;
+}
+.permissions-label {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+  font-weight: 600;
+}
+.permission-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  min-height: 22px;
+}
+.permission-row button {
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  padding: 3px var(--space-2);
+  font-size: var(--type-11-size);
+  min-width: 56px;
+}
+.permission-row button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ----- Mode + actions ----- */
+
+.mode-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.mode-toggle label {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.mode-toggle select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: var(--space-5);
+  /* Down-chevron rendered via a CSS background so we don't need an
+     <svg> element inside the markup. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-tertiary) 50%),
+    linear-gradient(135deg, var(--text-tertiary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.actions button {
+  flex: 1;
+  padding: 10px var(--space-4);
+  font-weight: 500;
+  font-size: var(--type-13-size);
+  letter-spacing: 0.005em;
+  /* Both buttons share the same min-height so the Start/Stop swap
+     doesn't shift the section below by one pixel. */
+  min-height: 36px;
+}
+/* Primary CTA — magnetic hover (1.02 scale), accent-glow shadow, layered
+   inner highlight. Press scales down 0.97 with a tighter shadow so the
+   button physically responds. */
+.actions button.primary {
+  background: linear-gradient(180deg, #2f6dee 0%, var(--accent-500) 60%);
+  color: var(--text-on-accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-button-primary);
+  transform: translateY(0);
+}
+.actions button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2c63db 0%, var(--accent-600) 60%);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.40),
+    0 4px 10px -2px rgba(37, 99, 235, 0.55),
+    0 14px 28px -6px rgba(37, 99, 235, 0.40),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22);
+}
+.actions button.primary:active:not(:disabled) {
+  background: var(--accent-600);
+  transform: scale(0.97);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 1px 3px rgba(37, 99, 235, 0.30),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10);
+}
+/* Secondary — frosted glass card. surface-2 fill + specular top + soft
+   shadow. Hover lifts and brightens; press scales down. */
+.actions button.secondary {
+  background:
+    var(--gradient-specular-top),
+    var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-button);
+}
+.actions button.secondary:hover:not(:disabled) {
+  background:
+    var(--gradient-specular-top-strong),
+    var(--surface-3);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+.actions button.secondary:active:not(:disabled) {
+  transform: scale(0.97);
+  background: var(--surface-3);
+}
+
+/* ----- Hotkey hint ----- */
+
+.hotkey-hint {
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+}
+.hotkey-hint kbd {
+  background:
+    linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--type-11-size);
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.20);
+}
+
+/* ----- Error banner ----- */
+
+.error-banner {
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  color: #fda5a5;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Restart-required banner shown after the user grants Screen Recording.
+   Persistent (no auto-dismiss) and amber-toned to distinguish from
+   error reds — this is an action prompt, not a failure. Stays visible
+   until the user clicks Restart or quits the app. */
+.restart-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: rgba(251, 191, 36, 0.10);
+  border: 1px solid rgba(251, 191, 36, 0.40);
+  color: #fde68a;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+}
+.restart-banner-message {
+  flex: 1;
+  min-width: 0;
+}
+.restart-banner-message strong {
+  display: block;
+  color: #fef3c7;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.restart-now-button {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+  border: none;
+  color: #1a1306;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-12-size);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: filter var(--motion-fast) var(--motion-easing);
+  flex-shrink: 0;
+}
+.restart-now-button:hover {
+  filter: brightness(1.08);
+}
+.restart-now-button:active {
+  filter: brightness(0.94);
+}
+.restart-now-button:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+/* ----- Saved flows ----- */
+
+.saved-flows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-3);
+  contain: layout style;
+}
+.saved-flows-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 22px;
+}
+.saved-flows-title {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.saved-flows-record {
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-11-size);
+  /* Min-width prevents Record-new-flow <-> Stop-recording label swap
+     from shifting the title column horizontally. */
+  min-width: 110px;
+  text-align: center;
+}
+.saved-flows-record:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.saved-flows-record[data-recording="true"] {
+  background: rgba(248, 113, 113, 0.25);
+  color: #fca5a5;
+}
+
+.recording-opt-in {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.record-flow-naming {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.record-flow-naming input {
+  flex: 1;
+  font-size: var(--type-12-size);
+  padding: 5px 7px;
+}
+.record-flow-naming button {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  padding: 5px var(--space-2);
+  font-size: var(--type-11-size);
+  min-width: 52px;
+}
+.record-flow-naming button:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.record-flow-naming button.record-flow-cancel {
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+}
+.record-flow-naming button.record-flow-cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.saved-flows-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 140px;
+  overflow-y: auto;
+}
+.saved-flow-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-glass-border);
+  transition: background var(--motion-fast) var(--motion-easing);
+}
+.saved-flow-row:hover {
+  background: var(--surface-raised-hover);
+}
+.saved-flow-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.saved-flow-name {
+  font-size: var(--type-12-size);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-flow-steps {
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.saved-flow-buttons {
+  display: flex;
+  gap: var(--space-1);
+}
+.saved-flow-buttons button {
+  background: var(--surface-raised-hover);
+  color: var(--text-primary);
+  padding: 2px 7px;
+  font-size: var(--type-11-size);
+  /* Min-width so Run -> Running… doesn't reflow the row. */
+  min-width: 64px;
+}
+.saved-flow-buttons button.saved-flow-run {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+}
+.saved-flow-buttons button.saved-flow-run:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.saved-flow-buttons button:disabled {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.saved-flow-buttons button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.saved-flow-aliases {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.saved-flow-aliases label {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.saved-flow-aliases input {
+  font-size: var(--type-11-size);
+  padding: 3px var(--space-2);
+}
+
+/*
+ * Empty state for the saved-flows list. A subtle inset card with a
+ * unicode glyph + a one-line tip beats a single italic gray line.
+ */
+.saved-flows-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-raised);
+  border: 1px dashed var(--surface-glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  text-align: center;
+}
+.saved-flows-empty::before {
+  content: "\2728"; /* sparkles */
+  font-size: var(--type-17-size);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* ----- Always-on listening ----- */
+
+.always-on-listening {
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  contain: layout style;
+}
+.always-on-listening-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 18px;
+}
+.always-on-listening-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.always-on-listening-status {
+  /* Fixed min-width on the status pill prevents the title from
+     drifting as state cycles Disabled -> Downloading -> Listening. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 110px;
+  font-size: var(--type-11-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.always-on-listening-status[data-state="ready"],
+.always-on-listening-status[data-state="listening"] {
+  color: var(--warm-500);
+}
+.always-on-listening-status[data-state="downloading"] {
+  color: var(--warning-500);
+}
+.always-on-listening-status[data-state="error"] {
+  color: var(--danger-500);
+}
+.always-on-listening-toggle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  cursor: pointer;
+}
+.always-on-listening-privacy-note {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  color: var(--text-faint);
+}
+.always-on-listening-heard {
+  font-size: var(--type-11-size);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ----- Transcript ----- */
+
+.transcript {
+  min-height: 40px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--surface-divider);
+  padding-top: var(--space-2);
+  white-space: pre-wrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----- Overlay-style scrollbar for any scrolling region in the panel ----- */
+
+.panel ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.panel ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  transition: background var(--motion-medium) var(--motion-easing);
+}
+.panel ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ----- Inline API-key help row ----- */
+.api-key-help-row {
+  font-size: var(--type-11-size);
+  line-height: var(--type-11-line);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+.api-key-help-link {
+  color: var(--accent-400);
+  text-decoration: none;
+  margin-left: var(--space-1);
+}
+.api-key-help-link:hover {
+  text-decoration: underline;
+}
+
+/* ----- "Saved" toast for settings persistence feedback ----- */
+.saved-toast {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(74, 222, 128, 0.16);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: var(--warm-500);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-11-size);
+  letter-spacing: var(--type-11-track);
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+  z-index: 100;
+}
+.saved-toast[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.cost-meter-line {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--surface-divider);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ============================================================================
+ * macOS-style toggle switch for every checkbox inside the panel —
+ * matches the Settings dashboard treatment so the recording-opt-in
+ * and always-on-listening rows read as native NSSwitch controls.
+ * ========================================================================== */
+.panel input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  outline: none;
+  transition: background var(--motion-medium) var(--motion-easing),
+              border-color var(--motion-medium) var(--motion-easing);
+}
+.panel input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform var(--motion-medium) var(--motion-easing);
+}
+.panel input[type="checkbox"]:checked {
+  background: var(--accent-500);
+  border-color: transparent;
+}
+.panel input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+.panel input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+
+/* Selects in the panel — drop UA chevron + paint our own. */
+.panel select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* Pulse-style row in the panel that shows "N tasks in progress" with
+   a small caret hint that the row is clickable (opens Tasks tab in
+   Settings). Used by tasks-in-progress-line in index.html. */
+.tasks-in-progress-line {
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-11-size);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: background var(--motion-fast) var(--motion-easing),
+              color var(--motion-fast) var(--motion-easing);
+}
+.tasks-in-progress-line:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}

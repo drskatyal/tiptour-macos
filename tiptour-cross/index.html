@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/onboarding.css" />
+  </head>
+  <body>
+    <!-- First-run onboarding wizard. Empty by default; populated by
+         src/onboarding.ts when no Gemini key + no completion flag are
+         present. main.ts blocks normal panel boot while this is
+         active. -->
+    <div id="onboarding-wizard" class="onboarding-wizard" hidden></div>
+    <main class="panel">
+      <!-- The whole header is a Tauri drag region so the user can
+           grab anywhere on the top strip to move the borderless
+           window. The settings button + status label opt out via
+           interactive elements bubbling through, so clicking them
+           still works. -->
+      <header class="panel-header" data-tauri-drag-region>
+        <span class="dot" data-status="idle" data-tauri-drag-region></span>
+        <span class="status-label" id="status-label" data-tauri-drag-region>Idle</span>
+        <button
+          id="open-settings-button"
+          class="panel-settings-button"
+          title="Open settings"
+          aria-label="Open settings"
+        >&#x2699;</button>
+        <button
+          id="hide-panel-button"
+          class="panel-settings-button"
+          title="Hide panel (use the tray icon to reopen)"
+          aria-label="Hide panel"
+        >&#x2715;</button>
+      </header>
+
+      <section class="api-key">
+        <label for="api-key-input">Gemini API key</label>
+        <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" />
+        <button id="api-key-save">Save</button>
+        <!-- Inline help row: visible while the field is empty AND the
+             user hasn't saved a key yet. Hidden once a key is loaded
+             from the keychain (so returning users don't see it). -->
+        <div id="api-key-help-row" class="api-key-help-row" hidden>
+          Need a Gemini key?
+          <a
+            class="api-key-help-link"
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noreferrer noopener"
+          >Get one free →</a>
+        </div>
+      </section>
+
+      <section class="permissions" id="permissions-section" hidden>
+        <div class="permissions-label">macOS permissions needed</div>
+        <div class="permission-row" id="ax-permission-row" hidden>
+          <span>Accessibility (for clicks &amp; typing)</span>
+          <button id="grant-accessibility">Grant</button>
+        </div>
+        <div class="permission-row" id="screen-permission-row" hidden>
+          <span>Screen recording (so Gemini can see)</span>
+          <button id="grant-screen-recording">Grant</button>
+        </div>
+      </section>
+
+      <section class="restart-banner" id="crash-recovery-banner" hidden>
+        <div class="restart-banner-message">
+          <strong>TipTour didn't shut down cleanly last time.</strong>
+          Send a crash report?
+        </div>
+        <button id="crash-recovery-send-button" class="restart-now-button">Send</button>
+        <button id="crash-recovery-dismiss-button">Dismiss</button>
+      </section>
+
+      <section class="restart-banner" id="restart-required-banner" hidden>
+        <div class="restart-banner-message">
+          <strong>One more step.</strong>
+          Screen Recording was granted, but macOS only applies it to the next
+          launch. Quit and relaunch TipTour so Gemini can see your screen.
+        </div>
+        <button id="restart-now-button" class="restart-now-button">
+          Restart TipTour
+        </button>
+      </section>
+
+      <section class="mode-toggle">
+        <label for="mode-select">Mode</label>
+        <select id="mode-select">
+          <option value="autopilot">Autopilot — TipTour clicks for me</option>
+          <option value="teaching">Teaching — point, I click</option>
+        </select>
+      </section>
+
+      <section class="mode-toggle">
+        <label for="voice-mode-select">Voice</label>
+        <select id="voice-mode-select">
+          <option value="live">Bidirectional · Gemini Live (voice in + voice out)</option>
+          <option value="quick">Unidirectional · Gemini Lite (voice in, text reply)</option>
+        </select>
+      </section>
+
+      <section class="mode-toggle">
+        <label for="hotkey-behavior-select">Hotkey</label>
+        <select id="hotkey-behavior-select">
+          <option value="toggle">Tap to toggle (press once to start, again to stop)</option>
+          <option value="hold">Hold to record (press &amp; hold to record, release to send)</option>
+        </select>
+      </section>
+
+      <section class="mode-toggle">
+        <label for="presence-mode-select">Presence</label>
+        <select id="presence-mode-select">
+          <option value="dock">Dock — floating toolbar at the bottom</option>
+          <option value="cursor-buddy">Cursor buddy — agent follows your mouse</option>
+          <option value="notch">Notch — tiny indicator in the menu-bar area</option>
+        </select>
+      </section>
+
+      <section class="actions">
+        <button id="start-listening" class="primary">Start listening</button>
+        <button id="stop-listening" class="secondary" hidden>Stop</button>
+      </section>
+
+      <section class="hotkey-hint">
+        Or press <kbd id="hotkey-display">Alt + X</kbd> anywhere.
+      </section>
+
+      <section class="always-on-listening" id="always-on-listening-section">
+        <div class="always-on-listening-header">
+          <span class="always-on-listening-title">Always-on listening</span>
+          <span class="always-on-listening-status" id="always-on-listening-status">Disabled</span>
+        </div>
+        <label class="always-on-listening-toggle">
+          <input type="checkbox" id="always-on-listening-toggle" />
+          <span>Enable "tiptour" wake word</span>
+        </label>
+        <div class="always-on-listening-privacy-note">
+          Always-on microphone listening. Audio never leaves your machine in this mode.
+        </div>
+        <div class="always-on-listening-heard" id="always-on-listening-heard" hidden></div>
+      </section>
+
+      <section class="error-banner" id="error-banner" hidden></section>
+
+      <section class="saved-flows" id="saved-flows-section">
+        <div class="saved-flows-header">
+          <span class="saved-flows-title">Saved flows</span>
+          <button id="record-flow-toggle" class="saved-flows-record">Record new flow</button>
+        </div>
+        <label class="recording-opt-in">
+          <input type="checkbox" id="recording-opt-in-toggle" />
+          <span>Enable input recording (required to save flows)</span>
+        </label>
+        <div class="record-flow-naming" id="record-flow-naming" hidden>
+          <input
+            id="record-flow-name-input"
+            type="text"
+            placeholder="Flow name (e.g. morning routine)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="record-flow-confirm">Start</button>
+          <button id="record-flow-cancel" class="record-flow-cancel">Cancel</button>
+        </div>
+        <ul id="saved-flows-list" class="saved-flows-list"></ul>
+      </section>
+
+      <div id="tasks-in-progress-line" class="tasks-in-progress-line" hidden></div>
+
+      <div id="cost-meter-line" class="cost-meter-line" hidden>
+        <span id="cost-meter-text">$0.00 this session</span>
+      </div>
+
+      <section class="transcript" id="transcript"></section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

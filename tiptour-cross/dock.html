@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/dock/dock.css" />
+  </head>
+  <body class="dock-body">
+    <div id="dock-root" class="dock-root" data-state="dash">
+      <!-- Collapsed state: a small grey dash. Hovering anywhere on
+           the dock root expands to the full toolbar.
+           data-state cycles: dash → toolbar (on hover) → dash (mouseleave) -->
+      <div class="dock-dash" aria-hidden="true"></div>
+
+      <!-- Action pill tooltip — floats ABOVE the toolbar when any
+           individual button is hovered. The .dock-button hover sets
+           data-action + data-shortcut on this element via JS so the
+           pill always reflects the focused control. White label +
+           accent-colored shortcut keys, single rounded capsule. -->
+      <div id="dock-action-pill" class="dock-action-pill" hidden>
+        <span class="dock-action-label" id="dock-action-label"></span>
+        <span class="dock-action-shortcut" id="dock-action-shortcut"></span>
+      </div>
+
+      <div class="dock-toolbar" role="toolbar" aria-label="TipTour quick controls" data-tauri-drag-region>
+        <!-- Focused-app pip: tiny circle on the far left when a real
+             target app is in focus. Just a 2-letter mono badge so it
+             matches the compact aesthetic — full name lives in the
+             tooltip if needed. -->
+        <span id="dock-focused-app" class="dock-focused-pip" hidden></span>
+        <button
+          id="dock-quick"
+          class="dock-button dock-primary" data-tauri-drag-region="false"
+          data-action="Ask"
+          data-shortcut="Alt + X"
+          aria-label="Start a quick voice command"
+        >
+          <span class="dock-icon" data-icon="mic"></span>
+        </button>
+        <button
+          id="dock-transcribe"
+          class="dock-button" data-tauri-drag-region="false"
+          data-action="Dictate"
+          data-shortcut="Alt + Z"
+          aria-label="Transcribe into the focused field"
+        >
+          <span class="dock-icon" data-icon="caret"></span>
+        </button>
+        <button
+          id="dock-screenshot"
+          class="dock-button" data-tauri-drag-region="false"
+          data-action="Snap"
+          data-shortcut=""
+          aria-label="Grab a screenshot to brain dump"
+        >
+          <span class="dock-icon" data-icon="frame"></span>
+        </button>
+        <button
+          id="dock-brain-dump"
+          class="dock-button" data-tauri-drag-region="false"
+          data-action="Capture"
+          data-shortcut=""
+          aria-label="Capture a thought to brain dump"
+        >
+          <span class="dock-icon" data-icon="bolt"></span>
+        </button>
+        <button
+          id="dock-open-panel"
+          class="dock-button dock-ghost" data-tauri-drag-region="false"
+          data-action="Panel"
+          data-shortcut=""
+          aria-label="Open panel"
+        >
+          <span class="dock-icon" data-icon="panel"></span>
+        </button>
+        <button
+          id="dock-open-settings"
+          class="dock-button dock-ghost" data-tauri-drag-region="false"
+          data-action="Settings"
+          data-shortcut=""
+          aria-label="Open settings"
+        >
+          <span class="dock-icon" data-icon="gear"></span>
+        </button>
+        <!-- Transient confirmation chip — appears for ~1.6s after any
+             adapter_dispatched event, then auto-fades. -->
+        <span id="dock-dispatch-chip" class="dock-dispatch-chip" hidden></span>
+      </div>
+    </div>
+    <script type="module" src="/src/dock/main.ts"></script>
+  </body>
+</html>

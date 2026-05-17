@@ -1,0 +1,250 @@
+// User-facing app settings: Gemini voice/model, push-to-talk chord.
+//
+// Lives at `dirs::data_local_dir()/TipTour/settings.json` — deliberately
+// separate from `mode_settings.json`, `recorder_settings.json`, and
+// `vosk_settings.json` for now so the new settings dashboard can iterate
+// on schema without touching battle-tested per-feature files. We'll
+// consolidate later once the shape stabilizes.
+
+use std::fs;
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
+
+const ROOT_DIRECTORY_NAME: &str = "TipTour";
+const SETTINGS_FILE_NAME: &str = "settings.json";
+const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+// Defaults — chosen to match the values the codebase ships with today so
+// loading a missing settings file produces zero behavioural change.
+const DEFAULT_GEMINI_VOICE: &str = "Kore";
+const DEFAULT_GEMINI_MODEL: &str = "gemini-3.1-flash-live-preview";
+const DEFAULT_PUSH_TO_TALK_CHORD: &str = "Alt+X";
+// Theme defaults to "auto" so a fresh install honors the user's OS
+// appearance until they explicitly pick a side.
+const DEFAULT_THEME: &str = "auto";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppSettings {
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
+    #[serde(default = "default_voice")]
+    pub gemini_voice: String,
+    #[serde(default = "default_model")]
+    pub gemini_model: String,
+    #[serde(default = "default_chord")]
+    pub push_to_talk_chord: String,
+    /// Two-key chord (modifier + key) that toggles Soniox real-time
+    /// transcription into the focused field. Default Alt+Z so users
+    /// land on a hotkey near Alt+X (push-to-talk) but in a different
+    /// finger position.
+    #[serde(default = "default_transcribe_chord")]
+    pub transcribe_chord: String,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// Voice-mode for the push-to-talk hotkey:
+    ///   "quick" — one-shot REST call to flash-lite with audio +
+    ///             tools; result lands in the floating command
+    ///             tooltip. No TTS. Cheap.
+    ///   "live"  — open a streaming Gemini Live WebSocket session
+    ///             with TTS reply for real conversation.
+    /// Default: "quick" because typical hotkey use is one command
+    /// per press, not a dialogue.
+    #[serde(default = "default_voice_mode")]
+    pub voice_mode: String,
+    /// Hotkey trigger style:
+    ///   "toggle" — press to start, press again to stop
+    ///   "hold"   — press & hold to record, release to send
+    /// Default: "toggle" so users on a Mac trackpad-and-keyboard
+    /// setup don't have to keep a finger down.
+    #[serde(default = "default_hotkey_behavior")]
+    pub hotkey_behavior: String,
+    /// Which on-screen presence the agent uses:
+    ///   "dock"          — floating toolbar at the bottom-center
+    ///   "cursor-buddy"  — small avatar follows the user's mouse
+    ///   "notch"         — tiny indicator pinned to the menu-bar area
+    /// The cursor-buddy + notch modes are wired into the overlay
+    /// window when selected — the dock window is hidden in those
+    /// modes so we don't have two presences fighting for attention.
+    #[serde(default = "default_presence_mode")]
+    pub presence_mode: String,
+    /// Path the brain-dump adapter writes captures to. Empty = use
+    /// the default `~/Documents/TipTour Brain Dumps/`. Point at an
+    /// Obsidian vault root to make captures part of an Obsidian
+    /// vault (graph + daily-notes work natively).
+    #[serde(default)]
+    pub brain_dump_folder: String,
+}
+
+fn default_schema_version() -> u32 {
+    CURRENT_SCHEMA_VERSION
+}
+fn default_voice() -> String {
+    DEFAULT_GEMINI_VOICE.to_string()
+}
+fn default_model() -> String {
+    DEFAULT_GEMINI_MODEL.to_string()
+}
+fn default_chord() -> String {
+    DEFAULT_PUSH_TO_TALK_CHORD.to_string()
+}
+fn default_transcribe_chord() -> String {
+    "Alt+Z".to_string()
+}
+fn default_theme() -> String {
+    DEFAULT_THEME.to_string()
+}
+fn default_voice_mode() -> String {
+    // Default to Live so the user gets the full bidirectional voice
+    // experience (STT + TTS + screen vision) out of the box. Quick
+    // mode is text-reply-only and tends to read as "broken" the first
+    // time you try it.
+    "live".to_string()
+}
+fn default_hotkey_behavior() -> String {
+    "toggle".to_string()
+}
+fn default_presence_mode() -> String {
+    "dock".to_string()
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            gemini_voice: default_voice(),
+            gemini_model: default_model(),
+            push_to_talk_chord: default_chord(),
+            transcribe_chord: default_transcribe_chord(),
+            theme: default_theme(),
+            voice_mode: default_voice_mode(),
+            hotkey_behavior: default_hotkey_behavior(),
+            presence_mode: default_presence_mode(),
+            brain_dump_folder: String::new(),
+        }
+    }
+}
+
+fn settings_file_path() -> Option<PathBuf> {
+    let mut path = dirs::data_local_dir()?;
+    path.push(ROOT_DIRECTORY_NAME);
+    path.push(SETTINGS_FILE_NAME);
+    Some(path)
+}
+
+pub fn load_app_settings_from_disk() -> AppSettings {
+    let Some(path) = settings_file_path() else {
+        return AppSettings::default();
+    };
+    let Ok(contents) = fs::read_to_string(&path) else {
+        return AppSettings::default();
+    };
+    serde_json::from_str(&contents).unwrap_or_default()
+}
+
+pub fn save_app_settings_to_disk(settings: &AppSettings) -> Result<(), String> {
+    let path = settings_file_path().ok_or_else(|| "no data dir".to_string())?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    // Atomic tmp+rename so a crash mid-write can't truncate the file.
+    let mut tmp_path = path.clone();
+    tmp_path.set_extension("json.tmp");
+    let serialized = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
+    fs::write(&tmp_path, serialized).map_err(|error| error.to_string())?;
+    fs::rename(&tmp_path, &path).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_app_settings() -> Result<AppSettings, String> {
+    Ok(load_app_settings_from_disk())
+}
+
+/// Non-command direct setter the integration tests call — no
+/// AppHandle dependency. The Tauri command below wraps this and
+/// additionally broadcasts `theme_changed` so every webview can
+/// reapply the active theme attribute without polling.
+pub fn set_app_settings(settings: AppSettings) -> Result<(), String> {
+    save_app_settings_to_disk(&settings)
+}
+
+#[tauri::command]
+pub fn set_app_settings_with_broadcast(
+    settings: AppSettings,
+    app: AppHandle,
+) -> Result<(), String> {
+    save_app_settings_to_disk(&settings)?;
+    let _ = app.emit("theme_changed", settings.theme.clone());
+    Ok(())
+}
+
+/// Light-touch single-field setter for the panel UI. Avoids forcing
+/// the panel to round-trip every shape of `AppSettings` just to
+/// change one value (e.g. switching voice mode mid-session).
+/// Whitelisted fields only — unknown names return an error rather
+/// than silently no-op'ing, which would make UI feedback misleading.
+#[tauri::command]
+pub fn set_app_setting_field(field: String, value: String) -> Result<(), String> {
+    let mut current = load_app_settings_from_disk();
+    match field.as_str() {
+        "voice_mode" => {
+            if value != "live" && value != "quick" {
+                return Err(format!("invalid voice_mode '{value}'"));
+            }
+            current.voice_mode = value;
+        }
+        "hotkey_behavior" => {
+            if value != "toggle" && value != "hold" {
+                return Err(format!("invalid hotkey_behavior '{value}'"));
+            }
+            current.hotkey_behavior = value;
+        }
+        "presence_mode" => {
+            if value != "dock" && value != "cursor-buddy" && value != "notch" {
+                return Err(format!("invalid presence_mode '{value}'"));
+            }
+            current.presence_mode = value;
+        }
+        "gemini_model" => {
+            current.gemini_model = value;
+        }
+        "gemini_voice" => {
+            current.gemini_voice = value;
+        }
+        "theme" => {
+            current.theme = value;
+        }
+        other => return Err(format!("unknown field '{other}'")),
+    }
+    save_app_settings_to_disk(&current)
+}
+
+/// Wipe every settings file we know about. Called from the "Reset all
+/// settings" button in the About tab. The Gemini API key in the
+/// platform keychain is cleared separately by the caller because it
+/// lives outside of `data_local_dir`.
+#[tauri::command]
+pub fn reset_all_settings() -> Result<(), String> {
+    let mut root = match dirs::data_local_dir() {
+        Some(path) => path,
+        None => return Err("no data dir".to_string()),
+    };
+    root.push(ROOT_DIRECTORY_NAME);
+    for file_name in [
+        SETTINGS_FILE_NAME,
+        "mode_settings.json",
+        "recorder_settings.json",
+        "vosk_settings.json",
+    ] {
+        let target = root.join(file_name);
+        if target.exists() {
+            // Ignore individual failures so a permission error on one
+            // file doesn't leave the rest in place.
+            let _ = fs::remove_file(target);
+        }
+    }
+    Ok(())
+}

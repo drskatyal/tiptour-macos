@@ -1,0 +1,172 @@
+/*
+ * Full-virtual-desktop transparent overlay. Owns the blue cursor, the
+ * freeform highlight stroke, and the response bubble (glass).
+ */
+
+html,
+body.overlay-body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  /* The webview itself is click-through via the OS window flags. The
+     element below must NOT block clicks either — pointer-events: none
+     belongs on every child by default. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.cursor-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Transform-driven motion is buttery on the compositor; CSS transitions
+     handle the bezier-like arc when we change the transform property. */
+  transform: translate(-100px, -100px);
+  transition: transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1);
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 4px 14px rgba(85, 96, 226, 0.6));
+}
+
+.cursor-svg.visible {
+  opacity: 1;
+}
+
+/*
+ * Response bubble. Same layered-glass treatment as the floating panel
+ * so the two pieces of chrome read as belonging to one app.
+ */
+.response-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-100px, -100px);
+  transition:
+    transform 650ms cubic-bezier(0.45, 0.0, 0.25, 1),
+    opacity var(--motion-slow) var(--motion-easing);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--surface-glass-strong);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  max-width: 340px;
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  letter-spacing: var(--type-13-track);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-elevated), var(--surface-glass-inner);
+  border: 1px solid var(--surface-glass-border);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.response-bubble:not([hidden]) {
+  opacity: 1;
+}
+
+.response-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  /* Re-enable pointer events so the user can scroll long replies; the
+     bubble itself stays click-through everywhere outside the scroller. */
+  pointer-events: auto;
+}
+
+.response-text p { margin: 0 0 6px 0; }
+.response-text p:last-child { margin-bottom: 0; }
+.response-text ul, .response-text ol { margin: 4px 0 6px 0; padding-left: 20px; }
+.response-text li { margin: 2px 0; }
+.response-text strong { font-weight: 600; }
+.response-text em { font-style: italic; }
+.response-text code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.response-text pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 4px 0;
+}
+.response-text pre code { background: transparent; padding: 0; }
+.response-text a { color: var(--accent-400); }
+
+.waveform {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+  height: 14px;
+  align-items: center;
+}
+.waveform span {
+  display: block;
+  width: 3px;
+  background: linear-gradient(180deg, #7a8aff, var(--accent-500));
+  border-radius: 2px;
+  animation: wave 900ms ease-in-out infinite;
+}
+.waveform span:nth-child(2) {
+  animation-delay: 120ms;
+}
+.waveform span:nth-child(3) {
+  animation-delay: 240ms;
+}
+.waveform span:nth-child(4) {
+  animation-delay: 360ms;
+}
+.waveform span:nth-child(5) {
+  animation-delay: 480ms;
+}
+@keyframes wave {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+/* Freeform highlight stroke painted while the user holds Ctrl+Shift.
+   Soft yellow rounded line mirroring the Swift overlay's brush. The SVG
+   spans the full virtual desktop so we can paint at raw global pixel
+   coordinates without translating per-monitor. */
+.highlight-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 350ms var(--motion-easing);
+}
+
+.highlight-svg.fading-out {
+  opacity: 0;
+}
+
+.highlight-svg path {
+  fill: none;
+  stroke: rgba(255, 220, 90, 0.4);
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

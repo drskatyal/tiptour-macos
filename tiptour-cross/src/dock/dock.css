@@ -1,0 +1,341 @@
+/* Floating dock — minimal liquid-glass pill with icon-only buttons.
+ *
+ * Hard-coded sizing math so nothing clips:
+ *   - 6 buttons × 32px wide = 192
+ *   - 5 gaps × 6px = 30
+ *   - 2 × 40px inner padding = 80
+ *   = 302px pill width, well inside the 460px window.
+ *
+ * Pill height = 32px (button) + 14px padding (7+7) = 46px.
+ * Border-radius:999px → 23px curve radius on each end.
+ * First chip's left edge sits at 40px from pill-left → 17px of
+ * straight-section breathing room between chip rim and the curve.
+ */
+
+:root {
+  --dock-accent: #1d7afc;
+  --dock-glass-tint: rgba(240, 246, 255, 0.78);
+  --dock-glass-tint-strong: rgba(248, 252, 255, 0.92);
+  --dock-glass-text: #16181d;
+  --dock-glass-text-soft: rgba(22, 24, 29, 0.62);
+  --dock-glass-rim-bright: rgba(255, 255, 255, 0.96);
+  --dock-glass-rim-soft: rgba(255, 255, 255, 0.55);
+  --dock-glass-shade: rgba(20, 40, 80, 0.06);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.dock-body {
+  margin: 0;
+  background: transparent;
+  color: var(--dock-glass-text);
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  overflow: visible;
+}
+
+.dock-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  cursor: pointer;
+}
+
+/* ---------- collapsed dash ---------- */
+.dock-dash {
+  width: 56px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 6px 14px -3px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: dock-dash-idle 4.5s ease-in-out infinite;
+}
+@keyframes dock-dash-idle {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
+  50%      { transform: translateY(-0.5px) scale(1.03); opacity: 1; }
+}
+.dock-root:hover .dock-dash,
+[data-state="toolbar"] .dock-dash {
+  opacity: 0;
+  transform: translateY(6px) scale(0.92);
+  pointer-events: none;
+}
+
+/* ---------- expanded toolbar ---------- */
+.dock-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 40px horizontal padding > 23px curve radius + 16px breathing,
+   * so the first/last chip can NEVER touch the curved rim. */
+  padding: 7px 40px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  pointer-events: none;
+
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.20) 28%,
+      rgba(220, 232, 250, 0.05) 60%,
+      rgba(255, 255, 255, 0.25) 100%),
+    linear-gradient(135deg,
+      var(--dock-glass-tint-strong) 0%,
+      var(--dock-glass-tint) 60%,
+      var(--dock-glass-tint) 100%);
+  backdrop-filter: blur(36px) saturate(170%);
+  -webkit-backdrop-filter: blur(36px) saturate(170%);
+  box-shadow:
+    inset 0 0.75px 0 var(--dock-glass-rim-bright),
+    inset 0 -0.5px 0 var(--dock-glass-shade),
+    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
+    0 0.5px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 22px -4px rgba(20, 40, 80, 0.18),
+    0 24px 52px -10px rgba(20, 40, 80, 0.20);
+  transition:
+    opacity 200ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 280ms cubic-bezier(0.34, 1.36, 0.64, 1);
+}
+.dock-root:hover .dock-toolbar,
+[data-state="toolbar"] .dock-toolbar {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ---------- buttons inside the pill ---------- */
+.dock-button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dock-glass-text);
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.dock-button:hover {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -0.5px 0 rgba(20, 40, 80, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
+}
+.dock-button:active {
+  background: rgba(255, 255, 255, 0.40);
+}
+.dock-button.dock-primary {
+  background: rgba(29, 122, 252, 0.16);
+  color: #0a4fb8;
+  box-shadow: inset 0 0 0 0.75px rgba(29, 122, 252, 0.42);
+}
+.dock-button.dock-primary:hover {
+  background: rgba(29, 122, 252, 0.26);
+  color: #073d92;
+}
+.dock-button.dock-ghost { color: var(--dock-glass-text-soft); }
+.dock-button.dock-ghost:hover { color: var(--dock-glass-text); }
+
+/* ---------- icons (SVG masks tinted by currentColor) ---------- */
+.dock-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.dock-icon[data-icon="mic"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='9' y='2' width='6' height='12' rx='3'/><path d='M5 11a7 7 0 0 0 14 0M12 19v3'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='9' y='2' width='6' height='12' rx='3'/><path d='M5 11a7 7 0 0 0 14 0M12 19v3'/></svg>");
+}
+.dock-icon[data-icon="caret"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h12M4 12h16M4 17h12'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h12M4 12h16M4 17h12'/></svg>");
+}
+.dock-icon[data-icon="frame"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='14' rx='2'/><circle cx='12' cy='12' r='3'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='14' rx='2'/><circle cx='12' cy='12' r='3'/></svg>");
+}
+.dock-icon[data-icon="bolt"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M13 2L4 14h6l-1 8 9-12h-6l1-8z'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M13 2L4 14h6l-1 8 9-12h-6l1-8z'/></svg>");
+}
+.dock-icon[data-icon="panel"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='16' rx='2'/><path d='M9 4v16'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='16' rx='2'/><path d='M9 4v16'/></svg>");
+}
+.dock-icon[data-icon="gear"] {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12'/></svg>");
+}
+
+/* ---------- focused-app pip + dispatch chip (inline minor pills) ---------- */
+.dock-focused-pip,
+.dock-dispatch-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.40);
+  color: var(--dock-glass-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.dock-focused-pip { margin-right: 2px; }
+.dock-dispatch-chip { margin-left: 2px; font-weight: 500; }
+.dock-dispatch-chip[data-ok="false"] { color: #b00020; }
+
+/* ---------- hover action-pill tooltip (above the row) ---------- */
+.dock-action-pill {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translate(-50%, 6px);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  color: var(--dock-glass-text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.22) 35%,
+      rgba(255, 255, 255, 0.08) 65%,
+      rgba(255, 255, 255, 0.22) 100%),
+    var(--dock-glass-tint-strong);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    inset 0 0.75px 0 var(--dock-glass-rim-bright),
+    inset 0 -0.5px 0 var(--dock-glass-shade),
+    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
+    0 0.5px 0 rgba(255, 255, 255, 0.50),
+    0 4px 10px rgba(0, 0, 0, 0.08),
+    0 14px 30px -6px rgba(20, 40, 80, 0.20);
+  transition:
+    opacity 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.36, 0.64, 1);
+}
+.dock-action-pill[data-visible="true"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.dock-action-label { color: var(--dock-glass-text); }
+.dock-action-shortcut {
+  color: var(--dock-accent);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dock-action-shortcut:empty { display: none; }
+.dock-action-shortcut::before {
+  content: "·";
+  color: var(--dock-glass-text-soft);
+  margin-right: 6px;
+}
+
+/* ---------- 'working' visual state ---------- */
+[data-active="listening"] .dock-dash,
+[data-active="transcribing"] .dock-dash {
+  background: var(--dock-accent);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.60),
+    0 0 22px 5px rgba(29, 122, 252, 0.55);
+  animation: dock-dash-pulse 1.6s ease-in-out infinite;
+}
+@keyframes dock-dash-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.92; }
+  50%      { transform: scale(1.06); opacity: 1; }
+}
+[data-active="listening"] .dock-toolbar,
+[data-active="transcribing"] .dock-toolbar {
+  box-shadow:
+    inset 0 0.75px 0 var(--dock-glass-rim-bright),
+    inset 0 -0.5px 0 var(--dock-glass-shade),
+    inset 0 0 0 0.5px var(--dock-glass-rim-soft),
+    0 0.5px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 22px -4px rgba(29, 122, 252, 0.22),
+    0 24px 52px -10px rgba(29, 122, 252, 0.28);
+}
+[data-active="listening"] .dock-button.dock-primary,
+[data-active="transcribing"] .dock-button.dock-primary {
+  background: var(--dock-accent);
+  color: #fff;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
+    0 0 18px 3px rgba(29, 122, 252, 0.55);
+  animation: dock-primary-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dock-primary-pulse {
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(1.06); }
+}
+
+@keyframes dock-chip-in {
+  from { opacity: 0; transform: translateX(6px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}

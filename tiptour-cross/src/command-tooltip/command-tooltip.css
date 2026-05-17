@@ -1,0 +1,137 @@
+/*
+ * Command tooltip — a small floating card that sits in the lower-right
+ * corner of the primary display. Reports what TipTour heard, what it
+ * did, and how long it took. Transparent surroundings + a single
+ * blurred glass card so the OS desktop shows through the edges.
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 100vw;
+  height: 100vh;
+}
+
+.command-tooltip-root {
+  margin: 16px;
+  padding: 12px 14px;
+  min-width: 260px;
+  max-width: 360px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
+    rgba(20, 22, 26, 0.78);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.32),
+    0 12px 32px -8px rgba(0, 0, 0, 0.42),
+    0 24px 60px -16px rgba(0, 0, 0, 0.40);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform var(--motion-medium) var(--motion-easing),
+              opacity var(--motion-medium) var(--motion-easing);
+}
+
+.command-tooltip-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-tooltip-state {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.command-tooltip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--text-faint);
+  flex: 0 0 auto;
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.20),
+    0 0 0 0 rgba(255, 255, 255, 0);
+  transition: background var(--motion-medium) var(--motion-easing),
+              box-shadow var(--motion-medium) var(--motion-easing);
+}
+
+/* Per-state styling */
+[data-state="listening"] .command-tooltip-dot {
+  background: radial-gradient(circle at 30% 30%, #6ee7b7, #34d399 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px rgba(52, 211, 153, 0.20),
+    0 0 12px 2px rgba(52, 211, 153, 0.38);
+  animation: pulse-breath 1.4s var(--motion-easing) infinite;
+}
+[data-state="thinking"] .command-tooltip-dot {
+  background: radial-gradient(circle at 30% 30%, #93c5fd, var(--accent-400) 70%);
+  box-shadow:
+    inset 0 0.5px 0.5px rgba(255, 255, 255, 0.30),
+    0 0 0 3px var(--accent-300),
+    0 0 12px 2px rgba(96, 165, 250, 0.50);
+  animation: pulse-breath 0.9s var(--motion-easing) infinite;
+}
+[data-state="ok"] .command-tooltip-dot {
+  background: radial-gradient(circle at 30% 30%, #6ee7b7, #34d399 70%);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+[data-state="reply"] .command-tooltip-dot {
+  background: radial-gradient(circle at 30% 30%, #93c5fd, var(--accent-500) 70%);
+  box-shadow: 0 0 0 2px var(--accent-300);
+}
+[data-state="error"] .command-tooltip-dot {
+  background: radial-gradient(circle at 30% 30%, #fca5a5, var(--danger-500) 70%);
+  box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.30);
+}
+[data-state="idle"] .command-tooltip-root {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@keyframes pulse-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.22); }
+}
+
+.command-tooltip-body-text {
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+  color: var(--text-primary);
+  font-weight: 500;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.command-tooltip-body-text:empty {
+  display: none;
+}
+
+.command-tooltip-footer {
+  font-size: var(--type-11-size);
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.command-tooltip-footer:empty {
+  display: none;
+}

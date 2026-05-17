@@ -1,0 +1,192 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0",
+  "productName": "TipTour",
+  "version": "0.0.1",
+  "identifier": "com.tiptour.cross",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "panel",
+        "title": "TipTour",
+        "width": 380,
+        "height": 600,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": true,
+        "visible": true,
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["sidebar", "mica", "acrylic"],
+          "state": "active",
+          "radius": 18
+        }
+      },
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "TipTour Overlay",
+        "fullscreen": false,
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
+      },
+      {
+        "label": "settings",
+        "url": "settings.html",
+        "title": "TipTour Settings",
+        "width": 980,
+        "height": 720,
+        "minWidth": 760,
+        "minHeight": 540,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "focus": true,
+        "visible": false,
+        "shadow": true,
+        "titleBarStyle": "Overlay"
+      },
+      {
+        "label": "indicators",
+        "url": "indicators.html",
+        "title": "TipTour Indicators",
+        "width": 320,
+        "height": 1080,
+        "x": 1920,
+        "y": 0,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
+      },
+      {
+        "label": "dock",
+        "url": "dock.html",
+        "title": "TipTour Dock",
+        "width": 460,
+        "height": 150,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true,
+        "shadow": false,
+        "acceptFirstMouse": false,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [],
+          "state": "inactive",
+          "radius": 0
+        }
+      },
+      {
+        "label": "panel-tab",
+        "url": "panel-tab.html",
+        "title": "TipTour Tab",
+        "width": 28,
+        "height": 96,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [],
+          "state": "inactive",
+          "radius": 0
+        }
+      },
+      {
+        "label": "command-tooltip",
+        "url": "command-tooltip.html",
+        "title": "TipTour Command",
+        "width": 400,
+        "height": 160,
+        "x": 1500,
+        "y": 880,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": false
+      },
+      {
+        "label": "drafting",
+        "url": "drafting.html",
+        "title": "TipTour Draft",
+        "width": 720,
+        "height": 720,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "focus": true,
+        "visible": false,
+        "shadow": true,
+        "titleBarStyle": "Overlay"
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/tray.png",
+      "iconAsTemplate": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Voice companion for your computer.",
+    "longDescription": "TipTour is a tray-resident voice agent that hears, sees, and helps.",
+    "resources": [
+      "resources/vosk-models/small-en-us/**/*"
+    ]
+  },
+  "plugins": {}
+}

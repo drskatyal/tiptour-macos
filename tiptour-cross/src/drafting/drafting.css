@@ -1,0 +1,272 @@
+/*
+ * Drafting window — landing surface for LLM rewrites.
+ *
+ * Layout: top toolbar (drag-handle + format buttons + actions),
+ * scrolling editor body, footer with provenance + word count.
+ * Glass aesthetic matches the panel + settings styling.
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(120% 80% at 10% -10%, rgba(37, 99, 235, 0.18), transparent 55%),
+    radial-gradient(100% 80% at 100% 110%, rgba(124, 58, 237, 0.16), transparent 55%),
+    var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-15-size);
+  line-height: var(--type-15-line);
+  letter-spacing: var(--type-15-track);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Toolbar ---------- */
+
+.drafting-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 36px var(--space-5) var(--space-3) var(--space-5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 60%),
+    rgba(20, 22, 26, 0.7);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.drafting-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.drafting-app-badge {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  font-size: var(--type-11-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 6px -2px rgba(37, 99, 235, 0.6);
+}
+.drafting-status {
+  color: var(--text-secondary);
+  font-size: var(--type-12-size);
+}
+.drafting-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+.drafting-toolbar-right button {
+  background:
+    var(--gradient-specular-top),
+    var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-12-size);
+  font-weight: 500;
+  min-width: 32px;
+  box-shadow: var(--shadow-button);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+.drafting-toolbar-right button:hover {
+  background:
+    var(--gradient-specular-top-strong),
+    var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+.drafting-toolbar-right button:active {
+  transform: scale(0.96);
+  box-shadow: var(--shadow-button);
+}
+.drafting-toolbar-right .drafting-action {
+  padding: 6px 14px;
+  min-width: 70px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+.drafting-toolbar-right .drafting-action.primary {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  box-shadow: 0 4px 10px -4px rgba(37, 99, 235, 0.45);
+}
+.drafting-toolbar-right .drafting-action.primary:hover {
+  background: var(--accent-600);
+}
+.drafting-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 var(--space-2);
+}
+
+/* ---------- Editor ---------- */
+
+.drafting-main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-8);
+}
+.drafting-editor {
+  max-width: 64ch;
+  margin: 0 auto;
+  min-height: 60vh;
+  outline: none;
+  font-size: var(--type-15-size);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.drafting-editor h1 {
+  font-size: var(--type-28-size);
+  line-height: var(--type-28-line);
+  letter-spacing: var(--type-28-track);
+  font-weight: 700;
+  margin: var(--space-6) 0 var(--space-3) 0;
+}
+.drafting-editor h2 {
+  font-size: var(--type-22-size);
+  line-height: var(--type-22-line);
+  letter-spacing: var(--type-22-track);
+  font-weight: 700;
+  margin: var(--space-5) 0 var(--space-2) 0;
+}
+.drafting-editor h3 {
+  font-size: var(--type-17-size);
+  line-height: var(--type-17-line);
+  letter-spacing: var(--type-17-track);
+  font-weight: 600;
+  margin: var(--space-4) 0 var(--space-2) 0;
+}
+.drafting-editor p {
+  margin: 0 0 var(--space-3) 0;
+}
+.drafting-editor ul,
+.drafting-editor ol {
+  margin: 0 0 var(--space-3) 0;
+  padding-left: var(--space-5);
+}
+.drafting-editor li {
+  margin: var(--space-1) 0;
+}
+.drafting-editor pre,
+.drafting-editor code {
+  font-family: var(--font-mono);
+  font-size: var(--type-13-size);
+}
+.drafting-editor pre {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  overflow-x: auto;
+}
+.drafting-editor code {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.drafting-editor strong { font-weight: 700; }
+.drafting-editor em { font-style: italic; }
+.drafting-editor blockquote {
+  border-left: 3px solid var(--accent-500);
+  padding: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--text-secondary);
+}
+.drafting-editor:focus {
+  outline: none;
+}
+.drafting-editor:empty::before {
+  content: "Your draft will appear here…";
+  display: block;
+  text-align: center;
+  margin-top: 20vh;
+  color: var(--text-tertiary);
+  font-size: var(--type-17-size);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+.drafting-editor:empty::after {
+  content: "Select text anywhere, then ask TipTour to rewrite, summarize, or translate.";
+  display: block;
+  text-align: center;
+  margin: var(--space-2) auto 0 auto;
+  max-width: 42ch;
+  color: var(--text-faint);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  overflow-wrap: anywhere;
+  padding: 0 var(--space-3);
+}
+
+/* ---------- Footer ---------- */
+
+.drafting-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-tertiary);
+  font-size: var(--type-11-size);
+  letter-spacing: 0.04em;
+}
+.drafting-stats {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Scrollbar ---------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  background-clip: padding-box;
+}
+
+.drafting-toolbar-right button:focus-visible {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow: 0 0 0 3px var(--accent-300);
+}
+.drafting-editor:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25);
+  border-radius: var(--radius-sm);
+}

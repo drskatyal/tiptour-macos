@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour Settings</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/settings.css" />
+  </head>
+  <body class="settings-body">
+    <main class="settings-shell">
+      <nav class="settings-nav" id="settings-nav">
+        <h1 class="settings-app-title">TipTour</h1>
+        <ul class="settings-tabs">
+          <li><button class="settings-tab" data-tab="general">General</button></li>
+          <li><button class="settings-tab" data-tab="commands">Voice Commands</button></li>
+          <li><button class="settings-tab" data-tab="flows">Saved Flows</button></li>
+          <li><button class="settings-tab" data-tab="recordings">Recordings</button></li>
+          <li><button class="settings-tab" data-tab="capabilities">Capabilities</button></li>
+          <li><button class="settings-tab" data-tab="indicators">Indicators</button></li>
+          <li><button class="settings-tab" data-tab="memory">Memory</button></li>
+          <li><button class="settings-tab" data-tab="tasks">Tasks</button></li>
+          <li><button class="settings-tab" data-tab="personas">Personas</button></li>
+          <li><button class="settings-tab" data-tab="adapters">Connected apps</button></li>
+          <li><button class="settings-tab" data-tab="sessions">History</button></li>
+          <li><button class="settings-tab" data-tab="diagnostics">Diagnostics</button></li>
+          <li id="permissions-tab-item" hidden>
+            <button class="settings-tab" data-tab="permissions">Permissions</button>
+          </li>
+          <li><button class="settings-tab" data-tab="about">About</button></li>
+        </ul>
+      </nav>
+      <section class="settings-pane" id="settings-pane">
+        <div class="settings-loading">Loading…</div>
+      </section>
+    </main>
+    <script type="module" src="/src/settings/main.ts"></script>
+  </body>
+</html>

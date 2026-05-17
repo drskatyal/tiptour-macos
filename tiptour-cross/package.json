@@ -1,0 +1,31 @@
+{
+  "name": "tiptour-cross",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test:e2e": "playwright test",
+    "serve:dist": "http-server dist -p 4173 -s -c-1",
+    "fetch:vosk": "node scripts/fetch-vosk-model.mjs",
+    "prebuild:tauri": "npm run fetch:vosk",
+    "bundle:tauri": "npm run fetch:vosk && npm run tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.0",
+    "@tauri-apps/plugin-global-shortcut": "^2.0.0",
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.4.3",
+    "marked": "^18.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@tauri-apps/cli": "^2.1.0",
+    "http-server": "^14.1.1",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}

@@ -1,0 +1,270 @@
+/*
+ * First-run onboarding wizard. A vertical card-shaped overlay rendered
+ * on top of the panel content while `data-onboarding-active="true"` is
+ * set on <body>. Hidden by default; main.ts toggles it when
+ * `is_first_run` returns true (or when "Show onboarding again" fires).
+ */
+
+.onboarding-wizard {
+  position: absolute;
+  inset: 0;
+  /* Tinted gradient backdrop so the wizard feels like a deliberate
+     onboarding card and not the panel falling back to a flat fill.
+     The radial blue-violet hint matches the rest of the app's
+     liquid-glass aesthetic. */
+  background:
+    radial-gradient(100% 60% at 50% 0%, rgba(37, 99, 235, 0.22), transparent 70%),
+    radial-gradient(100% 70% at 50% 100%, rgba(124, 58, 237, 0.16), transparent 70%),
+    var(--surface-base);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-5) var(--space-5) var(--space-5);
+  z-index: 50;
+  overflow-y: auto;
+}
+
+/* The HTML `hidden` attribute applies `display: none` from UA styles, but
+   our `.onboarding-wizard { display: flex }` rule overrides it via cascade
+   specificity, leaving the wizard pinned over the panel and intercepting
+   clicks (caught by Playwright e2e). Make the hidden state stick by giving
+   the rule equal specificity + a `display: none` win. */
+.onboarding-wizard[hidden] {
+  display: none;
+}
+
+body[data-onboarding-active="true"] > .panel {
+  /* Hide normal panel chrome behind the wizard so a slow render of the
+     wizard card can't leak the unfinished panel through. */
+  visibility: hidden;
+}
+body[data-onboarding-active="true"] > .onboarding-wizard {
+  visibility: visible;
+}
+
+.onboarding-step-counter {
+  font-size: var(--type-11-size);
+  letter-spacing: var(--type-11-track);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.onboarding-step-title {
+  font-size: var(--type-22-size);
+  line-height: var(--type-22-line);
+  letter-spacing: var(--type-22-track);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+  font-weight: 600;
+}
+
+.onboarding-step-subtitle {
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.onboarding-feature-list {
+  list-style: none;
+  margin: 0 0 var(--space-5) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.onboarding-feature-list li {
+  position: relative;
+  padding-left: var(--space-4);
+  font-size: var(--type-12-size);
+  line-height: var(--type-12-line);
+  color: var(--text-secondary);
+}
+
+.onboarding-feature-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-500);
+}
+
+.onboarding-key-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.onboarding-key-field input {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0) 50%),
+    var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 9px var(--space-3);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-13-size);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 2px rgba(0, 0, 0, 0.20);
+  transition: border-color var(--motion-fast) var(--motion-easing),
+              box-shadow var(--motion-fast) var(--motion-easing);
+}
+
+.onboarding-key-field input:focus {
+  outline: none;
+  border-color: var(--accent-400);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    0 0 0 3px var(--accent-300),
+    0 0 18px -4px rgba(96, 165, 250, 0.45);
+}
+
+.onboarding-link {
+  font-size: var(--type-12-size);
+  color: var(--accent-400);
+  text-decoration: none;
+}
+
+.onboarding-link:hover {
+  text-decoration: underline;
+}
+
+.onboarding-permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  margin-bottom: var(--space-2);
+  font-size: var(--type-12-size);
+  color: var(--text-secondary);
+}
+
+.onboarding-permission-row[data-granted="true"] {
+  opacity: 0.55;
+}
+
+/* Granted pill in the permissions step. SVG-based check so it
+   renders identically on every platform (the raw ✓ codepoint had
+   hugely inconsistent metrics across system fonts). The pseudo-
+   element is a 14x14 green disc with a white checkmark embedded
+   in the SVG itself. */
+.onboarding-permission-row .granted-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warm-500);
+  font-weight: 600;
+  font-size: var(--type-12-size);
+}
+.onboarding-permission-row .granted-check::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%2334d399'/><path d='M4.5 8l2.5 2.5 4.5-5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.45));
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-4);
+  gap: var(--space-2);
+}
+
+.onboarding-actions button.primary {
+  background: linear-gradient(180deg, #2f6dee 0%, var(--accent-500) 60%);
+  color: var(--text-on-accent);
+  border: none;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-button-primary);
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
+}
+
+.onboarding-actions button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2c63db 0%, var(--accent-600) 60%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 10px -2px rgba(37, 99, 235, 0.55),
+    0 12px 24px -6px rgba(37, 99, 235, 0.40);
+}
+
+.onboarding-actions button.primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.onboarding-actions button.primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-3);
+}
+
+.onboarding-actions button.secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+.onboarding-actions button.secondary:hover {
+  color: var(--text-primary);
+}
+
+.onboarding-all-set {
+  font-size: var(--type-13-size);
+  color: var(--warm-500);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-3) 0;
+}
+
+.onboarding-restart-banner {
+  background: rgba(245, 196, 81, 0.12);
+  border: 1px solid rgba(245, 196, 81, 0.3);
+  color: var(--warning-500);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-11-size);
+  margin-bottom: var(--space-3);
+}
+
+/* Drag strip above the onboarding step content. Without this the user
+   can't reposition the panel during setup because the wizard covers
+   the .panel-header drag region. Tall enough to grab without thinking;
+   subtle enough that it doesn't read as a separator. */
+.onboarding-drag-strip {
+  height: 22px;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-5)) var(--space-3) calc(-1 * var(--space-5));
+  cursor: grab;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.onboarding-drag-strip:active {
+  cursor: grabbing;
+}

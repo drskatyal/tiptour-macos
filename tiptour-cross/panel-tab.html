@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/panel-tab/panel-tab.css" />
+  </head>
+  <body class="panel-tab-body">
+    <!-- A tiny edge tab that lives flush against the right side of
+         the screen when the main panel is hidden. Click it to bring
+         the panel back. The vertical strip itself doubles as a
+         drag handle so the user can reposition it. -->
+    <button
+      id="panel-tab-button"
+      class="panel-tab-button"
+      title="Show TipTour panel"
+      aria-label="Show TipTour panel"
+    >
+      <span class="panel-tab-grip" aria-hidden="true"></span>
+    </button>
+    <script type="module" src="/src/panel-tab/main.ts"></script>
+  </body>
+</html>

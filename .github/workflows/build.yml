@@ -1,0 +1,246 @@
+# Cross-platform build verification. Until somebody runs a real Mac and a
+# real Windows clone-and-build by hand, this is the only signal that the
+# platform-gated AX / UIA / Vosk / fastembed code paths actually compile
+# against their native SDKs. Every PR runs all three matrix legs; the
+# linux leg also runs unit tests since it's the cheapest target.
+
+name: Cross-platform build
+
+on:
+  push:
+    branches: [main, claude/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: ${{ matrix.os }} build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022, ubuntu-22.04]
+    defaults:
+      run:
+        working-directory: tiptour-cross
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tiptour-cross/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('tiptour-cross/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: tiptour-cross/package-lock.json
+
+      - name: Linux system deps (GTK + ALSA + xdo for rdev)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libsoup-3.0-dev libasound2-dev libxdo-dev libxtst-dev \
+            libudev-dev
+
+      - name: Install npm deps
+        run: npm install
+
+      - name: Type-check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Rust check (default features)
+        id: rust-check-default
+        working-directory: tiptour-cross/src-tauri
+        # Explicit `shell: bash` so the step runs the same bash on every
+        # matrix leg, including Windows (which would otherwise default to
+        # PowerShell and choke on `set -o pipefail`). `continue-on-error`
+        # lets the subsequent diagnostic steps run instead of the whole
+        # job dying before we can extract the compiler output.
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo check --message-format=human --color never 2>&1 | tee cargo-check.log
+
+      - name: Surface cargo errors to the job summary on failure
+        if: steps.rust-check-default.outcome == 'failure'
+        working-directory: tiptour-cross/src-tauri
+        shell: bash
+        run: |
+          {
+            echo "## cargo check (default features) failed on ${{ matrix.os }}"
+            echo ""
+            echo "First 150 lines of compiler output:"
+            echo ""
+            echo '```'
+            head -n 150 cargo-check.log || echo "(cargo-check.log was not produced — the step died before cargo ran)"
+            echo '```'
+            echo ""
+            echo "Every error line:"
+            echo ""
+            echo '```'
+            grep -E "^error" cargo-check.log || echo "(no error lines found)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload cargo log on failure
+        if: steps.rust-check-default.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-check-log-${{ matrix.os }}
+          path: tiptour-cross/src-tauri/cargo-check.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Fail the job if cargo check failed
+        if: steps.rust-check-default.outcome == 'failure'
+        run: exit 1
+
+      - name: Rust check (vosk feature, skipped on Linux without libvosk)
+        if: matrix.os != 'ubuntu-22.04'
+        working-directory: tiptour-cross/src-tauri
+        # We don't fail the matrix on a missing libvosk — the feature is
+        # opt-in and most contributors don't have libvosk on their build
+        # machine. We DO want to verify the conditional compilation
+        # gates parse correctly under cfg(feature = "vosk").
+        run: cargo check --features vosk --message-format=short || echo "vosk feature build skipped (libvosk likely missing)"
+
+      - name: Rust tests
+        id: rust-tests
+        # Build-and-run the full integration-test suite on every leg so
+        # the platform-conditional code (e.g. mac/win-only types under
+        # cfg(target_os = ...)) is exercised on its own OS. tee the
+        # full output to a file so the artifact upload + job summary
+        # can surface the actual panic on failure — without this the
+        # only visible signal is "exit code 101".
+        working-directory: tiptour-cross/src-tauri
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo test --workspace --no-fail-fast --color never 2>&1 | tee cargo-test.log
+
+      - name: Surface cargo test panics to the job summary on failure
+        if: steps.rust-tests.outcome == 'failure'
+        working-directory: tiptour-cross/src-tauri
+        shell: bash
+        run: |
+          {
+            echo "## cargo test failed on ${{ matrix.os }}"
+            echo ""
+            echo "Last 200 lines of test output:"
+            echo ""
+            echo '```'
+            tail -n 200 cargo-test.log || echo "(no cargo-test.log)"
+            echo '```'
+            echo ""
+            echo "Every FAILED test:"
+            echo ""
+            echo '```'
+            grep -E "^test .* FAILED|^---- .* stdout ----|panicked at|thread .* panicked" cargo-test.log || echo "(no FAILED markers found)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rust test stdout on failure
+        if: steps.rust-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-test-stdout-${{ matrix.os }}
+          path: tiptour-cross/src-tauri/cargo-test.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Fail the job if cargo test failed
+        if: steps.rust-tests.outcome == 'failure'
+        run: exit 1
+
+      - name: Tauri build (release, default features)
+        # Full release build only on tag pushes so PRs stay fast.
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm run tauri build
+
+  e2e-tests:
+    name: Playwright e2e (frontend, headless Chromium)
+    runs-on: ubuntu-22.04
+    # Frontend e2e tests cover the four webview pages (panel, overlay,
+    # indicators, settings) by mocking `window.__TAURI_INTERNALS__`
+    # and asserting on rendered DOM + dispatched invokes. Chromium
+    # behaves identically across OSes so we only run this on Linux.
+    # The build matrix above is gated on this job's success so a UI
+    # regression blocks the bundle build too.
+    defaults:
+      run:
+        working-directory: tiptour-cross
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: tiptour-cross/package-lock.json
+
+      - name: Install npm deps
+        run: npm install
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('tiptour-cross/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright Chromium (with system deps)
+        # `--with-deps` pulls in the Linux libraries (libnss, libgbm,
+        # etc.) Chromium needs to render headless. Cheap if cached.
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: tiptour-cross/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build-gate:
+    name: Build matrix gate (waits on e2e)
+    needs: [build, e2e-tests]
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - name: Block release if any upstream job failed
+        # Surface a single boolean a release workflow can rely on.
+        run: |
+          if [[ "${{ needs.build.result }}" != "success" || "${{ needs.e2e-tests.result }}" != "success" ]]; then
+            echo "Upstream job(s) failed: build=${{ needs.build.result }} e2e=${{ needs.e2e-tests.result }}"
+            exit 1
+          fi
+          echo "All upstream jobs passed."

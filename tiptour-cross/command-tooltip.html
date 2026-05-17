@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TipTour Command</title>
+    <link rel="stylesheet" href="/src/tokens.css" />
+    <link rel="stylesheet" href="/src/command-tooltip/command-tooltip.css" />
+  </head>
+  <body class="command-tooltip-body">
+    <div id="command-tooltip-root" class="command-tooltip-root" data-state="idle">
+      <div class="command-tooltip-bar">
+        <span class="command-tooltip-dot" aria-hidden="true"></span>
+        <span class="command-tooltip-state" id="command-tooltip-state">Idle</span>
+      </div>
+      <div class="command-tooltip-body-text" id="command-tooltip-body-text"></div>
+      <div class="command-tooltip-footer" id="command-tooltip-footer"></div>
+    </div>
+    <script type="module" src="/src/command-tooltip/main.ts"></script>
+  </body>
+</html>

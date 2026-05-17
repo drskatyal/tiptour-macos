@@ -1,0 +1,240 @@
+/*
+ * TipTour design tokens — single source of truth shared by panel,
+ * overlay, and settings webviews. Imported first from each window's
+ * HTML so every other stylesheet can read these custom properties.
+ *
+ * Naming notes:
+ *   --surface-*   layered glass surfaces (background + border + inner)
+ *   --text-*      foreground tones in priority order
+ *   --accent-*    brand-tint scale; 500 is the canonical accent
+ *   --space-*     4px-based spacing scale
+ *   --radius-*    corner radii
+ *   --shadow-*    composed drop-shadows (top-tight, bottom-wide)
+ *   --motion-*    durations + easings paired with one easing curve
+ *   --type-*-size / --type-*-line / --type-*-track
+ *                 per-step typography metrics so tracking can be
+ *                 tightened at display sizes the way SF does it
+ */
+/* Inter variable font — same SF Pro feel on every OS, with proper
+   optical sizing across our type scale. Fetched once from Google
+   Fonts; subset to weights we actually use to keep the payload
+   tiny. The body still falls back to -apple-system / system-ui
+   if the fetch fails so the panel remains readable offline. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: dark;
+
+  /* Typography. Inter Variable as primary (Google Fonts), -apple-
+     system as the immediate fallback so macOS users get SF Pro
+     natively, then the system stack. JetBrains Mono for code with
+     ligatures on. */
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Code", monospace;
+
+  /* Type scale — tracking tightens as the size grows, matching SF Pro's
+     own optical-size hint table. Line-heights bias slightly looser at
+     body sizes for readability inside the dense panel. */
+  --type-11-size: 11px;
+  --type-11-line: 14px;
+  --type-11-track: 0.02em;
+
+  --type-12-size: 12px;
+  --type-12-line: 16px;
+  --type-12-track: 0.01em;
+
+  --type-13-size: 13px;
+  --type-13-line: 18px;
+  --type-13-track: 0em;
+
+  --type-15-size: 15px;
+  --type-15-line: 20px;
+  --type-15-track: -0.005em;
+
+  --type-17-size: 17px;
+  --type-17-line: 22px;
+  --type-17-track: -0.01em;
+
+  --type-22-size: 22px;
+  --type-22-line: 28px;
+  --type-22-track: -0.015em;
+
+  --type-28-size: 28px;
+  --type-28-line: 34px;
+  --type-28-track: -0.02em;
+
+  /* Foreground tones. -primary is body, -secondary is supporting copy,
+     -tertiary is metadata, -faint is disabled/placeholder. */
+  /* Text-color alphas raised across the board. The 0.52/0.38 tertiary +
+     faint levels were originally chosen for layered-glass aesthetics but
+     fall under WCAG AA on a non-pure-black surface (which is what users
+     actually see when backdrop-filter degrades). Now hits 4.5:1 on every
+     surface variant. */
+  /* Text colors copied from the Swift DesignSystem (#ECEEED / #ADB5B2 /
+     #6B736F) with one deviation: tertiary is brightened from #6B736F
+     (3.6:1 — fails WCAG AA) to #8a9590 (~4.7:1 — passes AA at body
+     sizes) because hint/metadata rows were rendering as unreadable
+     gray-on-gray on the dark surfaces. */
+  --text-primary: #ECEEED;
+  --text-secondary: #ADB5B2;
+  --text-tertiary: #8a9590;
+  --text-faint: rgba(138, 149, 144, 0.62);
+  --text-on-accent: #ffffff;
+
+  /* Accent — Tailwind Blue 600 / 700 / 400, matching DS.Colors.accent
+     and DS.Colors.accentHover from the Swift build. The translucent
+     focus halo uses Blue 500 @ 32%. */
+  --accent-300: rgba(59, 130, 246, 0.32);
+  --accent-400: #60a5fa;
+  --accent-500: #2563eb;
+  --accent-600: #1d4ed8;
+
+  --warm-500: #34d399;
+  --warning-500: #ffb224;
+  --danger-500: #e5484d;
+  --danger-hover: #f2555a;
+  --danger-text: #ff6369;
+
+  /* Layered solid surfaces — NOT translucent glass. The reference
+     macOS build uses opaque surface1..4 fills (#171918 → #2E3130)
+     and lets elevation come from lightness, not transparency. This
+     reads consistently on any compositor (mac vibrancy is a nice-to-
+     have but the design holds without it). */
+  --surface-base: #101211;
+  --surface-1: #171918;
+  --surface-2: #202221;
+  --surface-3: #272A29;
+  --surface-4: #2E3130;
+
+  --border-subtle: #373B39;
+  --border-strong: #444947;
+
+  /* Legacy glass aliases — kept so existing rules keep compiling, but
+     they now resolve to solid surfaces. */
+  --surface-glass: var(--surface-1);
+  --surface-glass-strong: var(--surface-base);
+  --surface-glass-border: var(--border-subtle);
+  --surface-glass-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --surface-raised: var(--surface-2);
+  --surface-raised-hover: var(--surface-3);
+  --surface-input: var(--surface-2);
+  --surface-input-focus: var(--surface-3);
+  --surface-divider: var(--border-subtle);
+
+  /* --color-* aliases. The Tasks and Memory settings tabs were built
+     against a `--color-surface`/`--color-border`/`--color-accent`
+     naming convention that didn't exist in this token sheet. Rather
+     than rename every inline style, we alias the canonical tokens here
+     so the kanban grid cards, drawer, memory table borders, and
+     importance bar all render with the rest of the design system
+     instead of falling through to the hardcoded `#1d1d22` fallback. */
+  --color-surface: var(--surface-raised);
+  --color-surface-alt: rgba(255, 255, 255, 0.025);
+  --color-border: var(--surface-glass-border);
+  --color-accent: var(--accent-500);
+
+  /* Spacing scale on a 4px grid. The panel is dense so we lean on the
+     small end; the settings dashboard uses --space-5 / --space-6 for
+     pane padding. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* Corner radii. macOS Sequoia / Tahoe leans on generous radii:
+     buttons sit at 8px, cards at 12px, large panels at 16-18px. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* Apple-style 5-layer shadow stacks. The trick to a "premium" feel
+     is many small soft shadows at different blur radii, not one big
+     shadow. Each layer adds depth at a different distance from the
+     surface. */
+  --shadow-elevated:
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 8px 16px -4px rgba(0, 0, 0, 0.30),
+    0 20px 40px -8px rgba(0, 0, 0, 0.40),
+    0 40px 80px -16px rgba(0, 0, 0, 0.35);
+  --shadow-raised:
+    0 0.5px 1px rgba(0, 0, 0, 0.18),
+    0 1.5px 3px rgba(0, 0, 0, 0.12),
+    0 4px 10px -2px rgba(0, 0, 0, 0.20),
+    0 10px 20px -6px rgba(0, 0, 0, 0.18);
+  --shadow-hover:
+    0 0.5px 1px rgba(0, 0, 0, 0.22),
+    0 2px 4px -1px rgba(0, 0, 0, 0.18),
+    0 6px 14px -3px rgba(0, 0, 0, 0.28),
+    0 14px 28px -8px rgba(0, 0, 0, 0.22);
+  --shadow-button:
+    0 0.5px 1px rgba(0, 0, 0, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.10);
+  --shadow-button-primary:
+    0 0.5px 1px rgba(0, 0, 0, 0.40),
+    0 2px 6px -1px rgba(37, 99, 235, 0.45),
+    0 8px 20px -4px rgba(37, 99, 235, 0.35),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+  --shadow-focus-ring:
+    0 0 0 2px var(--surface-base),
+    0 0 0 4px var(--accent-400),
+    0 0 12px -2px rgba(96, 165, 250, 0.6);
+  /* The specular highlight that runs along the top of every glass
+     surface. Reuse this rather than inlining the same 0.05/0.08
+     hairline gradient in twelve places. */
+  --gradient-specular-top:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 35%);
+  --gradient-specular-top-strong:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 40%);
+
+  /* Motion. One canonical easing curve (a softened standard ease-out)
+     applied to every transition; durations vary by intent. */
+  --motion-easing: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --motion-fast: 100ms;
+  --motion-medium: 160ms;
+  --motion-slow: 260ms;
+
+  /* Base font setup so child stylesheets can use `font: inherit` and
+     still get tabular numerals + SF-style optical kerning. */
+  font-family: var(--font-sans);
+  font-size: var(--type-13-size);
+  line-height: var(--type-13-line);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* No light-mode override block. The macOS Swift TipTour is dark-only,
+   and a partial light mapping (flipping only text + glass tokens but
+   not the new --surface-1..4 tokens) made the settings dashboard
+   render dark text on dark surfaces when the OS preferred light. We
+   lock the whole product to dark to match the reference. */
+
+/* ---------------------------------------------------------------------------
+ * Global utility: enforce the HTML `hidden` attribute.
+ *
+ * Many of our sections (.permissions, .restart-banner, .saved-flows, .api-key,
+ * .onboarding-wizard, etc) set `display: flex` / `display: grid` on the
+ * element. The HTML `hidden` attribute's UA style is `display: none` which
+ * has equal specificity (0,0,1) — so any of our component rules win via
+ * later cascade, leaving the element visible despite `hidden=""`.
+ *
+ * Playwright's e2e suite caught this: hidden permission rows still
+ * intercepted pointer events; hidden onboarding wizard pinned over the
+ * panel; hidden restart banner stayed visible. Forcing `[hidden]` to
+ * `display: none` with `!important` is the standard fix and matches the
+ * spec'd `hidden` semantics.
+ * ------------------------------------------------------------------------ */
+[hidden] {
+  display: none !important;
+}

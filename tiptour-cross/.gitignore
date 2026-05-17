@@ -1,0 +1,23 @@
+node_modules
+dist
+.DS_Store
+*.log
+
+# Stray emit if tsc ever runs without noEmit
+src/**/*.js
+
+src-tauri/target
+src-tauri/Cargo.lock
+src-tauri/gen
+
+# Playwright artifacts from local test runs
+test-results
+playwright-report
+
+# Vosk model resource — fetched by `npm run fetch:vosk` (or
+# automatically by `npm run bundle:tauri`). Large (~40MB unpacked)
+# and downloaded on first build; we don't want it in git history.
+# Keep ONLY the .placeholder so the bundle glob has something to
+# resolve before fetch:vosk runs.
+src-tauri/resources/vosk-models/small-en-us/*
+!src-tauri/resources/vosk-models/small-en-us/.placeholder
