@@ -348,6 +348,31 @@ function showSavedToast(message: string): void {
   }, 1500);
 }
 
+interface LocalIntentMatch {
+  matched: boolean;
+  intent: string;
+  message: string;
+}
+
+// Run a transcript phrase through the local-intent router. Matched
+// intents (maximize / minimize / show desktop / open <app>) execute
+// natively without an LLM round-trip. Non-matches return silently so
+// the normal Gemini path keeps running.
+async function runLocalIntentIfMatching(phrase: string): Promise<void> {
+  if (!phrase || phrase.trim().length === 0) return;
+  try {
+    const result = await invoke<LocalIntentMatch>("try_local_intent", {
+      phrase,
+    });
+    if (result.matched) {
+      debugTrace(`local intent: ${result.intent} -> ${result.message}`);
+      appendTranscript("model", `(local) ${result.message}`);
+    }
+  } catch (intentError) {
+    debugTrace(`local intent error: ${String(intentError)}`);
+  }
+}
+
 interface PanelAppSettings {
   schemaVersion: number;
   geminiVoice: string;
@@ -426,6 +451,11 @@ async function startSession() {
     onUserTranscript: (text) => {
       debugTrace(`user transcript: ${text.slice(0, 60)}`);
       appendTranscript("user", text);
+      // Try a local intent first — maximize / minimize / show desktop
+      // / close window / open <app> run directly without consuming a
+      // Gemini turn. If no intent matches the call returns matched=false
+      // and we let Gemini's normal handling continue.
+      void runLocalIntentIfMatching(text);
     },
     onModelTranscript: (text) => {
       debugTrace(`model transcript: ${text.slice(0, 60)}`);
@@ -822,6 +852,16 @@ await safeListen("transcribe_toggled", async () => {
 // pipeline so it can stream tokens out. A separate listener so it
 // runs independently of quick-voice and live-session paths.
 let sonioxState: "idle" | "transcribing" = "idle";
+// Each finalised Soniox chunk is a candidate for the local intent
+// router — say "maximize" or "open chrome" while dictation is
+// running and TipTour runs the action directly without Gemini.
+await safeListen<string>("soniox_final_chunk", (event) => {
+  const phrase = String(event.payload || "");
+  if (phrase.trim().length > 0) {
+    void runLocalIntentIfMatching(phrase);
+  }
+});
+
 await safeListen<string>("soniox_state", (event) => {
   if (event.payload === "transcribing") {
     sonioxState = "transcribing";
