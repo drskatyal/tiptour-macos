@@ -21,6 +21,7 @@ export default defineConfig({
         drafting: resolve(__dirname, "drafting.html"),
         commandTooltip: resolve(__dirname, "command-tooltip.html"),
         dock: resolve(__dirname, "dock.html"),
+        panelTab: resolve(__dirname, "panel-tab.html"),
       },
     },
   },

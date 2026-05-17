@@ -175,6 +175,66 @@ fn main() {
                 }
             }
 
+            // Position the side-edge tab flush against the right edge
+            // of the primary monitor, vertically centered. It stays
+            // hidden until the user collapses the panel (X button).
+            if let Some(panel_tab_window) = app.handle().get_webview_window("panel-tab") {
+                if let Ok(Some(primary_monitor)) = panel_tab_window.primary_monitor() {
+                    let monitor_position = primary_monitor.position();
+                    let monitor_size = primary_monitor.size();
+                    let tab_width: u32 = 28;
+                    let tab_height: u32 = 96;
+                    let new_x = monitor_position.x + monitor_size.width as i32
+                        - tab_width as i32;
+                    let new_y = monitor_position.y
+                        + ((monitor_size.height as i32 - tab_height as i32) / 2);
+                    let _ = panel_tab_window
+                        .set_position(tauri::PhysicalPosition::new(new_x, new_y));
+                    let _ = panel_tab_window.set_size(tauri::PhysicalSize::new(
+                        tab_width, tab_height,
+                    ));
+                }
+            }
+
+            // Wire panel ↔ tab: panel emits panel_collapse_to_tab on
+            // hide button click → we hide panel + show tab. Tab emits
+            // panel_tab_clicked → we hide tab + show panel.
+            let app_handle_panel_collapse = app.handle().clone();
+            let _ = tauri::Listener::listen(
+                app.handle(),
+                "panel_collapse_to_tab",
+                move |_event| {
+                    if let Some(panel_window) =
+                        app_handle_panel_collapse.get_webview_window("panel")
+                    {
+                        let _ = panel_window.hide();
+                    }
+                    if let Some(panel_tab_window) =
+                        app_handle_panel_collapse.get_webview_window("panel-tab")
+                    {
+                        let _ = panel_tab_window.show();
+                    }
+                },
+            );
+            let app_handle_panel_restore = app.handle().clone();
+            let _ = tauri::Listener::listen(
+                app.handle(),
+                "panel_tab_clicked",
+                move |_event| {
+                    if let Some(panel_tab_window) =
+                        app_handle_panel_restore.get_webview_window("panel-tab")
+                    {
+                        let _ = panel_tab_window.hide();
+                    }
+                    if let Some(panel_window) =
+                        app_handle_panel_restore.get_webview_window("panel")
+                    {
+                        let _ = panel_window.show();
+                        let _ = panel_window.set_focus();
+                    }
+                },
+            );
+
             // Center the panel near the top-center of the primary
             // monitor so users always see it when the app launches.
             // Top-right was unusable on small displays; centering is

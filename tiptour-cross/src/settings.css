@@ -257,16 +257,20 @@ body {
  * collapse to zero between renders.
  */
 .settings-pane {
-  /* Tighter side padding so 720×620 content lands without two
-   * scrollbars (one outer, one inner). max-width caps the line
-   * length on large windows so long paragraphs stay readable. */
-  padding: 48px var(--space-6) var(--space-6) var(--space-6);
+  /* No max-width: pane fills the available column so a maximized
+   * window doesn't leave a giant empty band on the right. The
+   * inner content can self-cap line length where it matters. */
+  padding: 48px var(--space-7) var(--space-7) var(--space-7);
   overflow-y: auto;
   height: 100vh;
   box-sizing: border-box;
   animation: settings-pane-fade-in var(--motion-medium) var(--motion-easing);
-  max-width: 760px;
   min-width: 0;
+}
+/* Inner content gets the line-length cap so paragraphs stay
+ * readable even when the pane itself spans 1200+ px. */
+.settings-pane > * {
+  max-width: 920px;
 }
 .settings-pane::-webkit-scrollbar { width: 6px; }
 .settings-pane::-webkit-scrollbar-track { background: transparent; }

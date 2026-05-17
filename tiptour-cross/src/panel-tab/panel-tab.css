@@ -1,0 +1,78 @@
+/* Side-edge tab — appears flush against the screen edge when the
+ * main panel is collapsed. A tiny pill of liquid glass with a
+ * thin vertical grip; clicking it brings the panel back. */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  overflow: visible;
+}
+
+.panel-tab-body {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100vh;
+  width: 100vw;
+}
+
+.panel-tab-button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  width: 22px;
+  height: 88px;
+  padding: 0;
+  margin-right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Round only the left side so the tab reads as 'attached to the
+   * screen edge' — the right side sits flush against the bezel. */
+  border-radius: 14px 0 0 14px;
+  color: rgba(22, 24, 29, 0.7);
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.20) 30%,
+      rgba(220, 232, 250, 0.05) 60%,
+      rgba(255, 255, 255, 0.25) 100%),
+    linear-gradient(135deg,
+      rgba(248, 252, 255, 0.88) 0%,
+      rgba(240, 246, 255, 0.78) 60%,
+      rgba(225, 235, 250, 0.62) 100%);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -0.5px 0 rgba(20, 40, 80, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.50),
+    -2px 0 6px rgba(0, 0, 0, 0.06),
+    -8px 0 22px -4px rgba(20, 40, 80, 0.18),
+    -16px 0 36px -10px rgba(20, 40, 80, 0.20);
+  transition:
+    transform 180ms cubic-bezier(0.34, 1.36, 0.64, 1),
+    background 180ms ease;
+}
+.panel-tab-button:hover {
+  transform: translateX(-4px) scaleX(1.08);
+}
+.panel-tab-button:active {
+  transform: translateX(-1px) scaleX(0.96);
+}
+
+/* Thin vertical grip glyph — pure CSS so the tab has no
+ * dependency on icon fonts. Two stacked dots read as a handle
+ * without needing words. */
+.panel-tab-grip {
+  width: 3px;
+  height: 22px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+}

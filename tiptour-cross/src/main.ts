@@ -527,15 +527,16 @@ const hidePanelButton = document.getElementById(
   "hide-panel-button",
 ) as HTMLButtonElement | null;
 hidePanelButton?.addEventListener("click", async () => {
+  // Collapse to the side-edge tab instead of fully hiding so the
+  // user has a one-click affordance to bring the panel back without
+  // hunting for the tray icon. The Rust setup hook listens for
+  // panel_collapse_to_tab and orchestrates hide(panel) + show(tab).
   try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().hide();
+    const { emit } = await import("@tauri-apps/api/event");
+    await emit("panel_collapse_to_tab");
   } catch (hidePanelError) {
-    // Fallback: if the dynamic import or hide() fails for any reason
-    // (older Tauri, weird WebView state), at least surface a useful
-    // error instead of silently swallowing.
     showError(
-      "Could not hide panel: " +
+      "Could not collapse panel: " +
         (hidePanelError instanceof Error
           ? hidePanelError.message
           : String(hidePanelError)),
