@@ -22,6 +22,7 @@ mod gemini_live_client;
 mod grounding;
 mod highlight;
 mod hotkey;
+mod local_intent;
 mod indicators;
 mod indicators_settings;
 mod indicators_window;
@@ -349,6 +350,7 @@ fn main() {
             settings_window::open_settings_window,
             hotkey::reregister_push_to_talk_hotkey,
             hotkey::reregister_transcribe_hotkey,
+            local_intent::try_local_intent,
             app_discovery::list_discovered_apps,
             app_discovery::rescan_installed_apps,
             app_discovery::set_app_command_enabled,

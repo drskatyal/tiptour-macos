@@ -178,9 +178,27 @@ export class GeminiLiveSession {
       console.warn("[session] failed to seed prior-session tail:", error);
     }
 
+    // Counters so the panel debug strip can prove (or disprove)
+    // that audio + screenshots are actually reaching Gemini. The
+    // most common "Gemini just says hi back" failure mode is the
+    // mic loop never emitting a single chunk because permission
+    // is denied — the server-side sees an empty audio stream and
+    // greets the silence.
+    let micChunkCount = 0;
+    let screenFrameCount = 0;
+    const reportFlow = () => {
+      window.dispatchEvent(
+        new CustomEvent("session-flow-stats", {
+          detail: { micChunkCount, screenFrameCount },
+        }),
+      );
+    };
+    setInterval(reportFlow, 2000);
+
     this.micUnlisten = await listen<number[]>("mic_chunk", (event) => {
       const pcm = Uint8Array.from(event.payload);
       this.client?.sendMicChunk(pcm);
+      micChunkCount += 1;
     });
 
     // Workflow progress stream: the Rust executor emits one event per
@@ -269,6 +287,7 @@ export class GeminiLiveSession {
       "screen_frame",
       (event) => {
         this.client?.sendScreenshot(event.payload.jpegBase64);
+        screenFrameCount += 1;
       },
     );
     try {

@@ -101,7 +101,13 @@
         "focus": false,
         "visible": true,
         "shadow": false,
-        "acceptFirstMouse": false
+        "acceptFirstMouse": false,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [],
+          "state": "inactive",
+          "radius": 0
+        }
       },
       {
         "label": "command-tooltip",

@@ -486,6 +486,18 @@ startButton.addEventListener("click", () => {
   debugTrace("Start listening clicked");
   void startSession();
 });
+
+// Live counters from the running Gemini Live session — exposes
+// whether mic audio + screen frames are actually reaching Gemini.
+// "Gemini just says hi back" almost always means micChunkCount is
+// staying 0 (mic permission denied or wrong device).
+window.addEventListener("session-flow-stats", (event) => {
+  const detail = (event as CustomEvent<{ micChunkCount: number; screenFrameCount: number }>)
+    .detail;
+  debugTrace(
+    `flow: mic chunks=${detail.micChunkCount}  screen frames=${detail.screenFrameCount}`,
+  );
+});
 stopButton.addEventListener("click", () => {
   debugTrace("Stop clicked");
   void stopSession();
@@ -697,6 +709,20 @@ voiceModeSelect?.addEventListener("change", async () => {
       field: "voice_mode",
       value: voiceModeSelect.value,
     });
+    // Picking Bidirectional or Unidirectional carries an implicit
+    // model — Live needs a *-live-preview, Lite needs flash-lite.
+    // Sync the model so the user never ends up in the broken state
+    // where Voice=Live but Model=flash-lite (which the server
+    // silently rejects with 'not supported for bidiGenerateContent').
+    const matchedModel =
+      voiceModeSelect.value === "live"
+        ? "gemini-3.1-flash-live-preview"
+        : "gemini-2.5-flash-lite";
+    await invoke("set_app_setting_field", {
+      field: "gemini_model",
+      value: matchedModel,
+    });
+    debugTrace(`voice mode -> ${voiceModeSelect.value}, model -> ${matchedModel}`);
   } catch (saveError) {
     showError(
       "Could not save voice mode: " +

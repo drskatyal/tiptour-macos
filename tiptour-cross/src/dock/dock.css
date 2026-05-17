@@ -130,9 +130,13 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  /* Generous internal padding so the first/last chip stays clear
-   * of the pill's curved rim even during the hover-scale bounce. */
-  padding: 8px 20px;
+  /* border-radius:999px makes the pill a stadium — the rounded
+   * ends extend (pill-height / 2) horizontally from each side.
+   * Padding-x must be >= that radius PLUS the chip's own radius
+   * so the first/last chip's outline never crosses the curve.
+   * Pill height ~50px → 25px curve radius. Chip radius 18px.
+   * 32px padding keeps everything inside the straight section. */
+  padding: 7px 32px;
   border-radius: 999px;
   opacity: 0;
   transform: translateY(8px) scale(0.96);
