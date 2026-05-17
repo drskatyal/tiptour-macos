@@ -196,14 +196,19 @@ fn main() {
                 }
             }
 
-            // Wire panel ↔ tab: panel emits panel_collapse_to_tab on
-            // hide button click → we hide panel + show tab. Tab emits
-            // panel_tab_clicked → we hide tab + show panel.
+            // Wire panel ↔ tab. The panel emits panel_collapse_to_tab
+            // when the user clicks its X button; we hide the panel
+            // and reveal the edge tab. The tab emits panel_tab_clicked
+            // when the user clicks the strip; we hide it and bring
+            // the panel back. We `listen_any` because the events
+            // travel cross-webview and the default `listen` on a
+            // window scope would only fire for self-targeted emits.
             let app_handle_panel_collapse = app.handle().clone();
-            let _ = tauri::Listener::listen(
+            tauri::Listener::listen_any(
                 app.handle(),
                 "panel_collapse_to_tab",
                 move |_event| {
+                    eprintln!("[panel-tab] panel_collapse_to_tab received");
                     if let Some(panel_window) =
                         app_handle_panel_collapse.get_webview_window("panel")
                     {
@@ -213,14 +218,18 @@ fn main() {
                         app_handle_panel_collapse.get_webview_window("panel-tab")
                     {
                         let _ = panel_tab_window.show();
+                        let _ = panel_tab_window.set_always_on_top(true);
+                    } else {
+                        eprintln!("[panel-tab] panel-tab window not found at collapse time");
                     }
                 },
             );
             let app_handle_panel_restore = app.handle().clone();
-            let _ = tauri::Listener::listen(
+            tauri::Listener::listen_any(
                 app.handle(),
                 "panel_tab_clicked",
                 move |_event| {
+                    eprintln!("[panel-tab] panel_tab_clicked received");
                     if let Some(panel_tab_window) =
                         app_handle_panel_restore.get_webview_window("panel-tab")
                     {
@@ -265,7 +274,7 @@ fn main() {
 
             // Listen for live presence-mode changes from the panel.
             let app_handle_for_presence = app.handle().clone();
-            let _ = tauri::Listener::listen(
+            tauri::Listener::listen_any(
                 app.handle(),
                 "presence_mode_changed",
                 move |event| {

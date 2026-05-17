@@ -561,15 +561,34 @@ hidePanelButton?.addEventListener("click", async () => {
   // user has a one-click affordance to bring the panel back without
   // hunting for the tray icon. The Rust setup hook listens for
   // panel_collapse_to_tab and orchestrates hide(panel) + show(tab).
+  // We ALSO drive the windows from the frontend as a belt-and-
+  // suspenders fallback — if for some reason the Rust listener
+  // doesn't fire (event scope mismatch, plugin race), the user
+  // still gets a working collapse.
+  debugTrace("hide panel clicked → collapsing to edge tab");
   try {
     const { emit } = await import("@tauri-apps/api/event");
     await emit("panel_collapse_to_tab");
-  } catch (hidePanelError) {
+  } catch (emitError) {
+    debugTrace(`emit panel_collapse_to_tab failed: ${String(emitError)}`);
+  }
+  try {
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const panelTabWindow = await WebviewWindow.getByLabel("panel-tab");
+    if (panelTabWindow) {
+      await panelTabWindow.show();
+      debugTrace("panel-tab shown via WebviewWindow API");
+    } else {
+      debugTrace("panel-tab window not found via WebviewWindow API");
+    }
+    const panelWindow = await WebviewWindow.getByLabel("panel");
+    if (panelWindow) {
+      await panelWindow.hide();
+    }
+  } catch (windowError) {
     showError(
       "Could not collapse panel: " +
-        (hidePanelError instanceof Error
-          ? hidePanelError.message
-          : String(hidePanelError)),
+        (windowError instanceof Error ? windowError.message : String(windowError)),
     );
   }
 });
