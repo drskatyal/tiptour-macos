@@ -313,6 +313,38 @@ apiKeySaveButton.addEventListener("click", async () => {
     showError("Paste a Gemini API key first.");
     return;
   }
+  // Quick REST sanity-check BEFORE saving: hit the public models
+  // endpoint with the user's key. If the key is invalid this fails
+  // immediately with a 400/403 + an "API key not valid" body — we
+  // surface that verbatim instead of saving a bad key and letting
+  // the user discover the failure mid-Live-session.
+  apiKeySaveButton.textContent = "Verifying…";
+  try {
+    const verifyResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`,
+    );
+    if (!verifyResponse.ok) {
+      const bodyText = await verifyResponse.text().catch(() => "");
+      let detail = `HTTP ${verifyResponse.status}`;
+      try {
+        const parsed = JSON.parse(bodyText);
+        if (parsed?.error?.message) detail = parsed.error.message;
+      } catch {
+        if (bodyText) detail = bodyText.slice(0, 200);
+      }
+      apiKeySaveButton.textContent = "Save";
+      showError(
+        `Gemini rejected this key: ${detail}. ` +
+          `Generate a new one at https://aistudio.google.com/apikey ` +
+          `and make sure the Generative Language API is enabled for the project.`,
+      );
+      return;
+    }
+  } catch (networkError) {
+    // Network failure shouldn't block save — the user may be
+    // offline temporarily. Log and proceed.
+    console.warn("[panel] key verify network error:", networkError);
+  }
   try {
     await invoke("set_api_key", { key });
     clearError();

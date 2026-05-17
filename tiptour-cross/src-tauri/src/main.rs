@@ -151,8 +151,8 @@ fn main() {
                 if let Ok(Some(primary_monitor)) = dock_window.primary_monitor() {
                     let monitor_position = primary_monitor.position();
                     let monitor_size = primary_monitor.size();
-                    let dock_width: u32 = 520;
-                    let dock_height: u32 = 200;
+                    let dock_width: u32 = 460;
+                    let dock_height: u32 = 150;
                     // Sit ~7% above the bottom edge so the dock floats
                     // in the visual lower-middle rather than glued to
                     // the screen edge. On a 1080p display this lands

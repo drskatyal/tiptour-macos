@@ -52,14 +52,32 @@ function showActionPillForButton(buttonElement: HTMLElement): void {
   if (!actionLabel) return;
   actionLabelElement.textContent = actionLabel;
   actionShortcutElement.textContent = actionShortcut;
-  // Center horizontally on the hovered button.
+
+  // Surface the pill so we can measure its width — needed before
+  // we clamp horizontally.
+  actionPillElement.hidden = false;
+  actionPillElement.style.left = "0px";
+  actionPillElement.style.transform = "translate(-50%, 6px)";
+
   const buttonRect = buttonElement.getBoundingClientRect();
   const rootRect = rootElement.getBoundingClientRect();
-  const buttonCenterX = buttonRect.left + buttonRect.width / 2 - rootRect.left;
-  actionPillElement.hidden = false;
-  actionPillElement.style.left = `${buttonCenterX}px`;
-  // Use rAF so the browser commits hidden=false before we flip the
-  // visible state — otherwise the CSS transition skips the in-frame.
+  const buttonCenterXWithinRoot =
+    buttonRect.left + buttonRect.width / 2 - rootRect.left;
+
+  // Clamp the tooltip so it never overflows the dock window. The
+  // pill is centered on the hovered button via translate(-50%) so
+  // its rendered left edge sits at (centerX - pillWidth/2). We bias
+  // centerX to keep that left edge >= 8px from the dock-root left
+  // and the right edge <= rootWidth - 8px.
+  const pillWidth = actionPillElement.offsetWidth;
+  const minCenterX = pillWidth / 2 + 8;
+  const maxCenterX = rootRect.width - pillWidth / 2 - 8;
+  const clampedCenterX = Math.max(minCenterX, Math.min(maxCenterX, buttonCenterXWithinRoot));
+
+  actionPillElement.style.left = `${clampedCenterX}px`;
+  // Use rAF so the browser commits hidden=false + left position
+  // before we flip the visible state — otherwise the CSS transition
+  // skips the in-frame.
   requestAnimationFrame(() => {
     actionPillElement.dataset.visible = "true";
   });
