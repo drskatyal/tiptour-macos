@@ -46,6 +46,13 @@ html, body {
   height: 100%;
   overflow: visible;
   background: transparent;
+  /* Hard-zero every potential outline. Some platforms (Windows
+   * webview2 in particular) draw a 1px border around transparent
+   * windows when there's no explicit border:none — that was the
+   * "separate square bordered box around it" the user saw. */
+  border: 0;
+  outline: 0;
+  box-shadow: none;
 }
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
@@ -123,11 +130,9 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  /* Generous internal padding so the first/last chip never kisses
-   * the pill's curved rim — that "edge cutting" was caused by the
-   * 8px left/right padding being smaller than the chip's hover
-   * scale-out distance. */
-  padding: 6px 14px;
+  /* Generous internal padding so the first/last chip stays clear
+   * of the pill's curved rim even during the hover-scale bounce. */
+  padding: 8px 20px;
   border-radius: 999px;
   opacity: 0;
   transform: translateY(8px) scale(0.96);

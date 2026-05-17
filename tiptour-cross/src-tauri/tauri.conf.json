@@ -92,7 +92,7 @@
         "url": "dock.html",
         "title": "TipTour Dock",
         "width": 520,
-        "height": 60,
+        "height": 200,
         "resizable": false,
         "decorations": false,
         "transparent": true,

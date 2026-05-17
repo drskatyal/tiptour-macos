@@ -552,32 +552,49 @@ let quickCaptureState: QuickCaptureState = "idle";
 let quickMicChunkUnlisten: (() => void) | null = null;
 
 async function beginQuickCaptureLoop(): Promise<void> {
+  debugTrace("quick-capture: begin");
   quickCaptureState = "armed";
-  await invoke("begin_quick_voice_capture");
-  await invoke("start_mic_capture");
-  // Each mic chunk arrives as a number[] (PCM16 bytes). Forward
-  // into the Rust quick-capture buffer until the user re-presses
-  // the hotkey to end the capture.
+  try {
+    await invoke("begin_quick_voice_capture");
+    debugTrace("quick-capture: begin_quick_voice_capture OK");
+  } catch (error) {
+    debugTrace(`quick-capture: begin_quick_voice_capture FAILED ${String(error)}`);
+    quickCaptureState = "idle";
+    throw error;
+  }
+  try {
+    await invoke("start_mic_capture");
+    debugTrace("quick-capture: start_mic_capture OK");
+  } catch (error) {
+    debugTrace(`quick-capture: start_mic_capture FAILED ${String(error)}`);
+    quickCaptureState = "idle";
+    throw error;
+  }
   quickMicChunkUnlisten = await listen<number[]>("mic_chunk", (event) => {
     if (quickCaptureState !== "armed") return;
     void invoke("append_quick_voice_chunk", { pcmBytes: event.payload });
   });
+  debugTrace("quick-capture: mic_chunk listener attached");
 }
 
 async function endQuickCaptureLoop(): Promise<void> {
+  debugTrace("quick-capture: end");
   quickCaptureState = "idle";
   try {
     await invoke("stop_mic_capture");
+    debugTrace("quick-capture: stop_mic_capture OK");
   } catch (stopError) {
-    console.warn("[panel] stop_mic_capture failed:", stopError);
+    debugTrace(`quick-capture: stop_mic_capture FAILED ${String(stopError)}`);
   }
   if (quickMicChunkUnlisten) {
     quickMicChunkUnlisten();
     quickMicChunkUnlisten = null;
   }
   try {
-    await invoke("end_quick_voice_capture_and_dispatch");
+    const reply = await invoke<string | null>("end_quick_voice_capture_and_dispatch");
+    debugTrace(`quick-capture: dispatch OK reply=${String(reply).slice(0, 80)}`);
   } catch (dispatchError) {
+    debugTrace(`quick-capture: dispatch FAILED ${String(dispatchError)}`);
     showError(
       `Quick command failed: ${
         dispatchError instanceof Error ? dispatchError.message : String(dispatchError)
