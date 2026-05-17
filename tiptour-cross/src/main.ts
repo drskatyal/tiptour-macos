@@ -525,6 +525,30 @@ startButton.addEventListener("click", () => {
   void startSession();
 });
 
+// Quick-mode results also fan out into the panel transcript so
+// the reply is never invisible — the command-tooltip window is
+// the primary surface but it's small + off to the side + can
+// miss the event if its webview lost the listener. The transcript
+// is the always-on backup.
+interface QuickVoiceResultPayload {
+  displayText: string;
+  actionTaken: boolean;
+  model: string;
+  elapsedMs: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+await safeListen<QuickVoiceResultPayload>("quick_voice_result", (event) => {
+  const payload = event.payload as QuickVoiceResultPayload | undefined;
+  if (!payload) return;
+  const prefix = payload.actionTaken ? "Done" : "Reply";
+  appendTranscript("model", `${prefix}: ${payload.displayText}`);
+  debugTrace(`quick result (${payload.model}, ${payload.elapsedMs}ms): ${payload.displayText}`);
+});
+await safeListen<string>("quick_voice_state", (event) => {
+  debugTrace(`quick state: ${event.payload}`);
+});
+
 // Live counters from the running Gemini Live session — exposes
 // whether mic audio + screen frames are actually reaching Gemini.
 // "Gemini just says hi back" almost always means micChunkCount is

@@ -175,6 +175,36 @@ fn main() {
                 }
             }
 
+            // Pre-warm the command-tooltip webview so it has its
+            // event listeners attached BEFORE the first
+            // quick_voice_state event fires. A `visible: false`
+            // Tauri window doesn't always initialize its webview
+            // until first show — the race made Quick-mode replies
+            // land in /dev/null because the listener wasn't there
+            // yet. Briefly show off-screen, then hide.
+            if let Some(tooltip_window) = app.handle().get_webview_window("command-tooltip") {
+                if let Ok(Some(primary_monitor)) = tooltip_window.primary_monitor() {
+                    // Hide it at -10000,-10000 so the visible() →
+                    // initialize → hide() round-trip never flashes
+                    // onto the user's actual screen real estate.
+                    let _ = tooltip_window.set_position(tauri::PhysicalPosition::new(-10000, -10000));
+                    let _ = tooltip_window.show();
+                    let _ = tooltip_window.hide();
+                    // Move back to its design-time slot so the
+                    // first real surfacing lands correctly.
+                    let monitor_size = primary_monitor.size();
+                    let monitor_position = primary_monitor.position();
+                    let tooltip_width: u32 = 400;
+                    let tooltip_height: u32 = 160;
+                    let new_x = monitor_position.x + monitor_size.width as i32
+                        - tooltip_width as i32 - 40;
+                    let new_y = monitor_position.y + monitor_size.height as i32
+                        - tooltip_height as i32 - 200;
+                    let _ = tooltip_window
+                        .set_position(tauri::PhysicalPosition::new(new_x, new_y));
+                }
+            }
+
             // Position the side-edge tab flush against the right edge
             // of the primary monitor, vertically centered. It stays
             // hidden until the user collapses the panel (X button).
